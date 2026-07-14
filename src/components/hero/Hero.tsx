@@ -17,6 +17,125 @@ import {
 const PARTICLE_COUNT = 80000;
 const PORTRAIT_SRC = "/images/randel.png";
 
+/** Words that cycle in the hero headline — each with a unique font */
+const CYCLING_WORDS = [
+  { text: "Founder", font: "var(--font-syne)", style: "normal" },
+  { text: "Developer", font: "var(--font-mono)", style: "normal" },
+  { text: "Team Lead", font: "var(--font-instrument)", style: "italic" },
+  { text: "Builder", font: "var(--font-display)", style: "normal" },
+];
+
+/** Characters used during scramble animation */
+const SCRAMBLE_CHARS = "!@#$%^&*()_+-=[]{}|;:,./<>?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+/**
+ * Single character that scrambles through random chars before resolving.
+ */
+function ScrambleChar({
+  char,
+  delay,
+  isExiting,
+}: {
+  char: string;
+  delay: number;
+  isExiting: boolean;
+}) {
+  const [display, setDisplay] = useState(char === " " ? "\u00A0" : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]);
+  const [resolved, setResolved] = useState(false);
+
+  useEffect(() => {
+    if (isExiting) {
+      // Scramble out: resolved → random → fade
+      setResolved(false);
+      let frame = 0;
+      const maxFrames = 6;
+      const interval = setInterval(() => {
+        frame++;
+        setDisplay(SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]);
+        if (frame >= maxFrames) clearInterval(interval);
+      }, 40);
+      return () => clearInterval(interval);
+    } else {
+      // Scramble in: random chars → resolve to actual char
+      let frame = 0;
+      const scrambleFrames = 4 + Math.floor(Math.random() * 4); // 4-8 frames of scramble
+      const timer = setTimeout(() => {
+        const interval = setInterval(() => {
+          frame++;
+          if (frame >= scrambleFrames) {
+            setDisplay(char === " " ? "\u00A0" : char);
+            setResolved(true);
+            clearInterval(interval);
+          } else {
+            setDisplay(SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]);
+          }
+        }, 50);
+        return () => clearInterval(interval);
+      }, delay);
+      return () => clearTimeout(timer);
+    }
+  }, [char, delay, isExiting]);
+
+  return (
+    <motion.span
+      className="inline-block text-accent"
+      animate={{
+        opacity: isExiting ? [1, 1, 0] : resolved ? 1 : 0.6,
+        y: isExiting ? [0, 0, -10] : 0,
+        scale: resolved ? 1 : 0.95,
+      }}
+      transition={{ duration: isExiting ? 0.3 : 0.15, ease: "easeOut" }}
+    >
+      {display}
+    </motion.span>
+  );
+}
+
+/**
+ * Cycling text — scramble/decode entrance, scramble-out exit.
+ */
+function CyclingText() {
+  const [index, setIndex] = useState(0);
+  const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Start exit
+      setIsExiting(true);
+      // After exit animation, switch word
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % CYCLING_WORDS.length);
+        setIsExiting(false);
+      }, 400);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const longestWord = CYCLING_WORDS.reduce((a, b) => a.text.length > b.text.length ? a : b);
+  const current = CYCLING_WORDS[index];
+
+  return (
+    <span className="relative inline-flex align-bottom h-[1.1em]" style={{ clipPath: 'inset(-10px -100vw)' }}>
+      <span className="invisible whitespace-nowrap" style={{ fontFamily: longestWord.font }}>
+        {longestWord.text}
+      </span>
+      <span
+        className="absolute inset-0 flex items-center justify-center whitespace-nowrap"
+        style={{ fontFamily: current.font, fontStyle: current.style }}
+      >
+        {current.text.split("").map((char, i) => (
+          <ScrambleChar
+            key={`${index}-${i}`}
+            char={char}
+            delay={i * 60}
+            isExiting={isExiting}
+          />
+        ))}
+      </span>
+    </span>
+  );
+}
+
 export function Hero() {
   const mode = useModeStore((s) => s.mode);
   const reducedMotion = useModeStore((s) => s.reducedMotion);
@@ -32,14 +151,12 @@ export function Hero() {
   const [revealTriggered, setRevealTriggered] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  // In clean mode or on error, unlock scroll immediately
   useEffect(() => {
     if (!isImmersive || error) {
       unlockScroll();
     }
   }, [isImmersive, error, unlockScroll]);
 
-  // Load portrait image
   useEffect(() => {
     if (!isImmersive) return;
 
@@ -77,6 +194,10 @@ export function Hero() {
 
   const handleRevealClick = useCallback(() => {
     setRevealTriggered(true);
+    // Fade out text early — before particles finish forming
+    setTimeout(() => {
+      setRevealed(true);
+    }, 1200);
   }, []);
 
   const handleRevealComplete = useCallback(() => {
@@ -84,7 +205,6 @@ export function Hero() {
     setTimeout(() => unlockScroll(), 600);
   }, [unlockScroll]);
 
-  // Clean mode fallback
   if (!isImmersive || error) {
     return <HeroStatic />;
   }
@@ -97,9 +217,9 @@ export function Hero() {
     <section
       id="hero"
       data-snap-section=""
-      className="relative flex h-screen snap-start flex-col justify-center px-8 sm:px-12 md:px-20"
+      className="relative flex h-screen snap-start flex-col items-center justify-center"
     >
-      {/* Particle canvas */}
+      {/* Particle canvas — full screen, receives all pointer events */}
       <HeroParticleCanvas
         cloudA={clouds.cloudA}
         cloudB={clouds.cloudB}
@@ -107,102 +227,96 @@ export function Hero() {
         onRevealComplete={handleRevealComplete}
       />
 
-      {/* Text overlay — asymmetric, off-center, large */}
-      <div className="relative z-10">
+      {/* Text overlay — pointer-events-none so cursor goes through to canvas */}
+      <div className="relative z-10 pointer-events-none flex flex-col items-center text-center px-6">
         <AnimatePresence mode="wait">
           {!revealed ? (
             <motion.div
               key="question"
-              className="flex flex-col items-start gap-4 max-w-4xl"
+              className="flex flex-col items-center gap-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -20 }}
+              exit={{ opacity: 0, scale: 0.97, filter: "blur(8px)" }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
             >
-              {/* Small eyebrow */}
+              {/* "I'm a" — drops in from above with slight blur */}
               <motion.p
-                className="font-[family-name:var(--font-mono)] text-[10px] sm:text-xs uppercase tracking-[0.3em] text-text-muted"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
+                className="font-[family-name:var(--font-display)] text-xl sm:text-2xl font-medium tracking-wide text-text-muted/70"
+                initial={{ opacity: 0, y: -30, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
               >
-                Portfolio / 2024
+                I&apos;m a
               </motion.p>
 
-              {/* Main headline — mixed typography */}
-              <motion.div
-                className="flex flex-col gap-0 leading-[0.9]"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              {/* Big cycling word — scales up from small with a bounce */}
+              <motion.h1
+                className="text-[clamp(3.5rem,10vw,8rem)] font-bold leading-none tracking-tighter"
+                initial={{ opacity: 0, scale: 0.7, filter: "blur(10px)" }}
+                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                transition={{ duration: 1.0, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
               >
-                {/* Line 1: Bold sans */}
-                <span className="font-[family-name:var(--font-display)] text-[clamp(3rem,8vw,7rem)] font-bold tracking-tighter text-text">
-                  Founder.
-                </span>
-                {/* Line 2: Italic serif — offset right */}
-                <span className="font-[family-name:var(--font-serif)] text-[clamp(3rem,8vw,7rem)] italic tracking-tight text-text pl-4 sm:pl-12 md:pl-20">
-                  Developer.
-                </span>
-                {/* Line 3: Bold sans — offset further */}
-                <span className="font-[family-name:var(--font-display)] text-[clamp(2.5rem,6vw,5.5rem)] font-bold tracking-tighter text-text-muted pl-1 sm:pl-6">
-                  Team lead.
-                </span>
-              </motion.div>
+                <CyclingText />
+              </motion.h1>
 
-              {/* Sub-question */}
+              {/* Subtext — fades in with a letter-spacing tightening effect */}
               <motion.p
-                className="mt-4 max-w-md font-[family-name:var(--font-serif)] text-lg italic text-text-muted/80 sm:text-xl"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
+                className="mt-4 max-w-sm font-[family-name:var(--font-serif)] text-lg italic text-text-muted sm:text-xl"
+                initial={{ opacity: 0, letterSpacing: "0.2em" }}
+                animate={{ opacity: 1, letterSpacing: "0em" }}
+                transition={{ duration: 0.9, delay: 1.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 Which one are you about to meet?
               </motion.p>
 
-              {/* CTA button */}
+              {/* CTA — slides up with a gentle glow pulse */}
               <motion.button
                 onClick={handleRevealClick}
                 disabled={revealTriggered}
-                className="mt-6 group flex items-center gap-3 rounded-full border border-accent/50 bg-accent/5 px-8 py-3.5 font-[family-name:var(--font-display)] text-sm font-semibold text-accent backdrop-blur-sm transition-all duration-300 hover:bg-accent/15 hover:border-accent hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                initial={{ opacity: 0, y: 10 }}
+                className="pointer-events-auto mt-6 group flex items-center gap-2 rounded-full border border-accent/40 bg-accent/5 px-7 py-3 font-[family-name:var(--font-display)] text-sm font-medium text-accent backdrop-blur-sm transition-all duration-300 hover:bg-accent/15 hover:border-accent/80 hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.8 }}
+                transition={{ duration: 0.7, delay: 1.8, ease: [0.22, 1, 0.36, 1] }}
               >
-                {site.heroCta}
-                <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">
+                Find out
+                <motion.span
+                  className="inline-block"
+                  animate={{ x: [0, 4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
+                >
                   →
-                </span>
+                </motion.span>
               </motion.button>
+
             </motion.div>
           ) : (
             <motion.div
               key="revealed"
-              className="flex flex-col items-start gap-3 max-w-3xl"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center gap-4"
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.3, ease: [0.4, 0, 0.2, 1] }}
             >
-              {/* Name — big, serif italic */}
-              <h1 className="font-[family-name:var(--font-serif)] text-[clamp(2.5rem,6vw,5rem)] italic tracking-tight text-text">
+              {/* Name reveal */}
+              <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,5vw,4rem)] font-bold tracking-tighter text-text">
                 {site.name}
               </h1>
 
-              {/* Identity statement */}
-              <p className="max-w-lg font-[family-name:var(--font-body)] text-lg leading-relaxed text-text-muted sm:text-xl">
+              {/* Identity — serif italic for contrast */}
+              <p className="max-w-lg font-[family-name:var(--font-serif)] text-base italic leading-relaxed text-text-muted sm:text-lg">
                 {site.identityStatement}
               </p>
 
-              {/* Subtle scroll cue */}
+              {/* Scroll cue */}
               <motion.div
-                className="mt-8 flex items-center gap-3"
+                className="mt-6 flex items-center gap-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.8 }}
+                transition={{ duration: 0.5, delay: 0.7 }}
               >
-                <div className="h-8 w-[1px] animate-pulse bg-accent/60" />
-                <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.3em] text-text-muted">
-                  Scroll to explore
+                <div className="h-6 w-[1px] animate-pulse bg-accent/50" />
+                <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-text-muted/50">
+                  Scroll
                 </span>
               </motion.div>
             </motion.div>

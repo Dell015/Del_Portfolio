@@ -131,7 +131,7 @@ export function Nav() {
       <motion.header
         className="fixed top-0 right-0 left-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-md"
         style={{
-          backgroundColor: "rgba(14, 16, 19, 0.8)",
+          backgroundColor: "rgba(15, 15, 15, 0.9)",
           borderBottom: "1px solid var(--border)",
         }}
         initial={{ y: -80, opacity: 0 }}

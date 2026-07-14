@@ -126,20 +126,24 @@ export function generateProceduralCloud(
       }
       case "scatter":
       default: {
-        // Long horizontal vortex/swirl shape across the screen
-        // Particles arranged along elliptical spiral arms
-        const arm = i % 3; // 3 spiral arms
-        const t = i / count; // 0→1 normalized position along arm
-        const armOffset = (arm / 3) * Math.PI * 2;
+        // Flowing wave ribbon across the screen
+        const t = i / count;
+        const layer = i % 4;
 
-        // Spiral: radius grows with t, angle winds several times
-        const angle = t * Math.PI * 6 + armOffset + (Math.random() - 0.5) * 0.4;
-        const radius = 0.1 + t * 1.8 + (Math.random() - 0.5) * 0.15;
+        // Horizontal span
+        x = (t - 0.5) * 4.5;
 
-        // Stretch horizontally (wide vortex across screen)
-        x = Math.cos(angle) * radius * 1.8;
-        y = Math.sin(angle) * radius * 0.7;
-        z = (Math.random() - 0.5) * 0.2 + Math.sin(angle * 2) * 0.05;
+        // Wave: moderate amplitude — fills vertical space without being too tall
+        const wave1 = Math.sin(t * Math.PI * 2.5 + layer * 0.5) * 0.55;
+        const wave2 = Math.sin(t * Math.PI * 6 + layer * 1.2) * 0.2;
+        const wave3 = Math.sin(t * Math.PI * 11 + layer * 0.8) * 0.08;
+        y = wave1 + wave2 + wave3;
+
+        // Ribbon thickness
+        y += (Math.random() - 0.5) * 0.15;
+        x += (Math.random() - 0.5) * 0.04;
+
+        z = (Math.random() - 0.5) * 0.08 + Math.sin(t * Math.PI * 4) * 0.03;
         break;
       }
     }
@@ -148,11 +152,30 @@ export function generateProceduralCloud(
     positions[i3 + 1] = y;
     positions[i3 + 2] = z;
 
-    // Muted accent-ish colors for the abstract cloud
-    const brightness = 0.3 + Math.random() * 0.3;
-    colors[i3] = brightness * 0.95; // slight warm tint
-    colors[i3 + 1] = brightness * 0.85;
-    colors[i3 + 2] = brightness * 0.7;
+    // Rich color palette: analogous warm spectrum (red → orange → rose)
+    // with occasional cool accent for contrast
+    const colorRand = Math.random();
+    if (colorRand < 0.35) {
+      // Deep red / crimson (primary)
+      colors[i3] = 0.6 + Math.random() * 0.3;
+      colors[i3 + 1] = 0.05 + Math.random() * 0.1;
+      colors[i3 + 2] = 0.05 + Math.random() * 0.12;
+    } else if (colorRand < 0.6) {
+      // Warm orange / amber
+      colors[i3] = 0.7 + Math.random() * 0.25;
+      colors[i3 + 1] = 0.25 + Math.random() * 0.2;
+      colors[i3 + 2] = 0.02 + Math.random() * 0.06;
+    } else if (colorRand < 0.8) {
+      // Soft rose / pink
+      colors[i3] = 0.55 + Math.random() * 0.25;
+      colors[i3 + 1] = 0.1 + Math.random() * 0.12;
+      colors[i3 + 2] = 0.2 + Math.random() * 0.15;
+    } else {
+      // Cool pale highlight (adds sparkle / depth contrast)
+      colors[i3] = 0.7 + Math.random() * 0.25;
+      colors[i3 + 1] = 0.55 + Math.random() * 0.2;
+      colors[i3 + 2] = 0.45 + Math.random() * 0.2;
+    }
   }
 
   return { positions, colors, count };

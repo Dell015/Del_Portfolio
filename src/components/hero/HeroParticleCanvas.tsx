@@ -42,26 +42,28 @@ const vertexShader = /* glsl */ `
     // Lerp position
     vec3 pos = mix(positionB, positionA, pProgress);
 
-    // === IDLE SWIRL (pre-reveal) ===
-    // Rotate particles around origin slowly — creates a living vortex
+    // === IDLE FLOW (pre-reveal) ===
+    // Gentle drift that maintains the wave shape — particles stay close to their path
     float idleFactor = 1.0 - pProgress;
     if (idleFactor > 0.01) {
-      float swirlAngle = uTime * 0.15 * (0.7 + speed * 0.6); // vary rotation speed per particle
-      float cosA = cos(swirlAngle);
-      float sinA = sin(swirlAngle);
-      // Rotate the cloudB position around Y axis slightly, mostly around Z (screen plane)
       vec3 bPos = positionB;
-      vec3 rotated = vec3(
-        bPos.x * cosA - bPos.y * sinA,
-        bPos.x * sinA + bPos.y * cosA,
-        bPos.z + sin(uTime * 0.1 + speed * 6.28) * 0.02
-      );
-      // Blend between swirled idle position and morphed position
-      pos = mix(rotated, positionA, pProgress);
 
-      // Add gentle breathing (scale pulsation)
-      float breathe = 1.0 + sin(uTime * 0.3 + speed * 3.14) * 0.03;
-      pos.xy *= mix(breathe, 1.0, pProgress);
+      // Slow horizontal drift with wrapping
+      float drift = uTime * 0.04 * (0.6 + speed * 0.4);
+      float wrapWidth = 4.5;
+      float wrappedX = mod(bPos.x + drift + wrapWidth * 0.5, wrapWidth) - wrapWidth * 0.5;
+
+      // Subtle vertical breathing — keeps shape intact
+      float yBreath = sin(wrappedX * 2.0 + uTime * 0.12 + speed * 3.14) * 0.02;
+      float yPulse = sin(uTime * 0.08 + bPos.x * 1.5) * 0.015;
+
+      vec3 idlePos = vec3(
+        wrappedX,
+        bPos.y + yBreath + yPulse,
+        bPos.z + sin(uTime * 0.1 + speed * 4.0) * 0.008
+      );
+
+      pos = mix(idlePos, positionA, pProgress);
     }
 
     // === MID-TRANSITION TURBULENCE ===
@@ -247,13 +249,10 @@ function TweenDriver({
     }
 
     const elapsed = state.clock.elapsedTime - startTimeRef.current;
-    const duration = 2.5; // seconds for full morph
+    const duration = 5.0; // seconds for full morph — slow cinematic build
 
-    // Ease-in-out cubic
+    // Linear progress — particles arrive gradually and steadily
     let t = Math.min(1, elapsed / duration);
-    t = t < 0.5
-      ? 4 * t * t * t
-      : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
     progressRef.current = t;
 

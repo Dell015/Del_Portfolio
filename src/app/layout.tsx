@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono, Playfair_Display, Syne, Instrument_Serif } from "next/font/google";
 import { ModeProvider } from "@/components/mode/ModeProvider";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
@@ -30,6 +30,20 @@ const playfairDisplay = Playfair_Display({
   style: ["normal", "italic"],
 });
 
+const syne = Syne({
+  variable: "--font-syne",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument",
+  subsets: ["latin"],
+  display: "swap",
+  weight: "400",
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "Randel Serafica — Full-Stack Developer & Startup Founder",
   description:
@@ -44,7 +58,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${syne.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="h-full overflow-hidden">
         <ModeProvider>
