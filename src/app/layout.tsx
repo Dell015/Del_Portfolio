@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { ModeProvider } from "@/components/mode/ModeProvider";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
@@ -23,6 +23,13 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const playfairDisplay = Playfair_Display({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  display: "swap",
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "Randel Serafica — Full-Stack Developer & Startup Founder",
   description:
@@ -37,9 +44,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="h-full overflow-hidden">
         <ModeProvider>
           <SmoothScroll>
             <Nav />

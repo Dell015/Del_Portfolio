@@ -4,7 +4,7 @@ import { AnimatedSection } from "@/components/AnimatedSection";
 
 export function ResumeCTA() {
   return (
-    <AnimatedSection id="resume" className="px-6 py-24 text-center md:py-32">
+    <AnimatedSection id="resume" className="flex items-center justify-center px-6 py-20 text-center md:py-24">
       <div className="mx-auto max-w-md">
         <p className="mb-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.2em] text-text-muted">
           Want the short version?

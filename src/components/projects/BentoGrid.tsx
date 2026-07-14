@@ -7,7 +7,7 @@ import { ProjectCard } from "./ProjectCard";
 
 export function BentoGrid() {
   return (
-    <AnimatedSection id="projects" className="px-6 py-24 md:py-32">
+    <AnimatedSection id="projects" className="flex items-start justify-center px-6 py-20 md:py-24">
       <div className="mx-auto max-w-6xl">
         {/* Section label */}
         <p className="mb-8 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.2em] text-accent">

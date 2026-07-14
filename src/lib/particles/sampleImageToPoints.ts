@@ -126,14 +126,20 @@ export function generateProceduralCloud(
       }
       case "scatter":
       default: {
-        // Gaussian-ish distribution via Box-Muller
-        const u1 = Math.random();
-        const u2 = Math.random();
-        const r = Math.sqrt(-2 * Math.log(u1)) * 0.4;
-        const theta = 2 * Math.PI * u2;
-        x = r * Math.cos(theta);
-        y = r * Math.sin(theta);
-        z = (Math.random() - 0.5) * 0.15;
+        // Long horizontal vortex/swirl shape across the screen
+        // Particles arranged along elliptical spiral arms
+        const arm = i % 3; // 3 spiral arms
+        const t = i / count; // 0→1 normalized position along arm
+        const armOffset = (arm / 3) * Math.PI * 2;
+
+        // Spiral: radius grows with t, angle winds several times
+        const angle = t * Math.PI * 6 + armOffset + (Math.random() - 0.5) * 0.4;
+        const radius = 0.1 + t * 1.8 + (Math.random() - 0.5) * 0.15;
+
+        // Stretch horizontally (wide vortex across screen)
+        x = Math.cos(angle) * radius * 1.8;
+        y = Math.sin(angle) * radius * 0.7;
+        z = (Math.random() - 0.5) * 0.2 + Math.sin(angle * 2) * 0.05;
         break;
       }
     }

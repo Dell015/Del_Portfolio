@@ -11,9 +11,9 @@ interface AnimatedSectionProps {
 }
 
 /**
- * Wraps a section with a fade + upward drift animation
- * triggered when the section enters the viewport.
- * Satisfies the "no hard-cuts" global constraint from the animation spec.
+ * Wraps a section with:
+ * - Full viewport height with scroll-snap alignment
+ * - Fade + upward drift animation triggered on viewport entry
  */
 export function AnimatedSection({
   children,
@@ -24,7 +24,8 @@ export function AnimatedSection({
   return (
     <motion.section
       id={id}
-      className={className}
+      data-snap-section=""
+      className={`h-screen snap-start ${className ?? ""}`}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}

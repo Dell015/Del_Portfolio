@@ -6,8 +6,13 @@ export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }) {
-  const project = projects.find((p) => p.slug === params.slug);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const project = projects.find((p) => p.slug === slug);
   if (!project) return { title: "Project not found" };
   return {
     title: `${project.name} — Randel Serafica`,
@@ -15,12 +20,13 @@ export function generateMetadata({ params }: { params: { slug: string } }) {
   };
 }
 
-export default function ProjectCaseStudy({
+export default async function ProjectCaseStudy({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const project = projects.find((p) => p.slug === params.slug);
+  const { slug } = await params;
+  const project = projects.find((p) => p.slug === slug);
   if (!project) notFound();
 
   return (
