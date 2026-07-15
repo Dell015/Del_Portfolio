@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModeStore } from "@/lib/store/mode";
-import { site } from "@/lib/content/site";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { HeroStatic } from "./HeroStatic";
 import { HeroParticleCanvas } from "./HeroParticleCanvas";
+import { AboutHeroText } from "@/components/about/AboutHeroText";
 import {
   sampleImageToPoints,
   generateProceduralCloud,
@@ -227,8 +227,8 @@ export function Hero() {
         onRevealComplete={handleRevealComplete}
       />
 
-      {/* Text overlay — pointer-events-none so cursor goes through to canvas */}
-      <div className="relative z-10 pointer-events-none flex flex-col items-center text-center px-6">
+      {/* Text overlay — z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}
+      <div className={`pointer-events-none ${revealed ? "absolute inset-0 z-0" : "relative z-10 flex flex-col items-center text-center px-6"}`}>
         <AnimatePresence mode="wait">
           {!revealed ? (
             <motion.div
@@ -292,33 +292,15 @@ export function Hero() {
           ) : (
             <motion.div
               key="revealed"
-              className="flex flex-col items-center gap-4"
-              initial={{ opacity: 0, y: 30, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="absolute inset-0 w-full h-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             >
-              {/* Name reveal */}
-              <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,5vw,4rem)] font-bold tracking-tighter text-text">
-                {site.name}
-              </h1>
-
-              {/* Identity — serif italic for contrast */}
-              <p className="max-w-lg font-[family-name:var(--font-serif)] text-base italic leading-relaxed text-text-muted sm:text-lg">
-                {site.identityStatement}
-              </p>
-
-              {/* Scroll cue */}
-              <motion.div
-                className="mt-6 flex items-center gap-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.7 }}
-              >
-                <div className="h-6 w-[1px] animate-pulse bg-accent/50" />
-                <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-text-muted/50">
-                  Scroll
-                </span>
-              </motion.div>
+              <AboutHeroText
+                visible={true}
+                onPhotoVisible={() => setTimeout(() => unlockScroll(), 400)}
+              />
             </motion.div>
           )}
         </AnimatePresence>

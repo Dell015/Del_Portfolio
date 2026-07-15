@@ -36,8 +36,13 @@ const vertexShader = /* glsl */ `
   ${curlNoiseGLSL}
 
   void main() {
-    // Per-particle progress (speed variation: some arrive faster)
-    float pProgress = clamp(uProgress * (0.6 + speed * 0.8), 0.0, 1.0);
+    // Per-particle progress: speed variation with careful landing.
+    // Fast particles (high speed) rush to ~90% quickly but decelerate
+    // into their final position, so the portrait "resolves" as a whole.
+    float rawP = uProgress * (0.7 + speed * 0.6);
+    // Ease-out the last stretch: stronger deceleration for faster particles
+    float easeOut = 1.0 - pow(1.0 - clamp(rawP, 0.0, 1.0), 1.5 + speed * 0.8);
+    float pProgress = easeOut;
 
     // Lerp position
     vec3 pos = mix(positionB, positionA, pProgress);
@@ -227,7 +232,46 @@ function ParticleSystem({
 }
 
 /**
- * Slower, more satisfying morph tween (~2.5s ease-in-out feel).
+ * Custom easing: slow start → fast middle → careful end.
+ * Particles hesitate, then blast toward their targets,
+ * then carefully decelerate to precisely build the portrait.
+ *
+ * Uses a piecewise cubic with exponent control per phase:
+ *   - First 25%:  ease-in (power 2.5) — slow departure
+ *   - Middle 50%: near-linear fast travel
+ *   - Last 25%:   ease-out (power 3) — extra careful landing
+ */
+function morphEasing(t: number): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+
+  // Phase boundaries
+  const p1 = 0.25; // end of slow-start
+  const p2 = 0.75; // start of careful-end
+
+  // Output at phase boundaries (tuned so mid-section moves fast)
+  const v1 = 0.08; // only 8% progress in first 25% of time — slow start
+  const v2 = 0.92; // 84% of the distance covered in the middle 50%
+
+  if (t < p1) {
+    // Ease-in: power curve for slow departure
+    const local = t / p1; // 0→1 within this phase
+    return v1 * Math.pow(local, 2.5);
+  } else if (t < p2) {
+    // Fast middle: slightly accelerating linear
+    const local = (t - p1) / (p2 - p1); // 0→1
+    // Subtle S-curve keeps it smooth at joints
+    const smooth = local * local * (3 - 2 * local); // smoothstep
+    return v1 + (v2 - v1) * smooth;
+  } else {
+    // Careful end: strong ease-out for precise placement
+    const local = (t - p2) / (1 - p2); // 0→1
+    return v2 + (1 - v2) * (1 - Math.pow(1 - local, 3));
+  }
+}
+
+/**
+ * Morph tween: slow start, fast middle, careful end.
  */
 function TweenDriver({
   progressRef,
@@ -249,14 +293,12 @@ function TweenDriver({
     }
 
     const elapsed = state.clock.elapsedTime - startTimeRef.current;
-    const duration = 5.0; // seconds for full morph — slow cinematic build
+    const duration = 4.5; // total morph time in seconds
 
-    // Linear progress — particles arrive gradually and steadily
-    let t = Math.min(1, elapsed / duration);
+    const linearT = Math.min(1, elapsed / duration);
+    progressRef.current = morphEasing(linearT);
 
-    progressRef.current = t;
-
-    if (t >= 1) {
+    if (linearT >= 1) {
       progressRef.current = 1;
       completedRef.current = true;
       onComplete();
@@ -375,7 +417,7 @@ export function HeroParticleCanvas({
   }, [onRevealComplete]);
 
   return (
-    <div id="hero-particle-canvas" className="absolute inset-0">
+    <div id="hero-particle-canvas" className="absolute inset-0 z-[1]">
       <Canvas
         camera={{ position: [0, 0, 1.6], fov: 60 }}
         dpr={[1, 2]}
