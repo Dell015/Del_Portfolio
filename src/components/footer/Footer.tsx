@@ -5,7 +5,7 @@ export function Footer() {
     <footer
       id="footer"
       data-snap-section=""
-      className="flex h-screen snap-start flex-col items-center justify-center border-t border-border px-6"
+      className="flex h-screen flex-col items-center justify-center border-t border-border px-6"
     >
       <div className="flex max-w-4xl flex-col items-center gap-6 text-center">
         {/* Personality line */}

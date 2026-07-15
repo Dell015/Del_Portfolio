@@ -122,7 +122,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     >
       <div
         ref={containerRef}
-        className={`h-screen snap-y snap-proximity ${scrollLocked ? "overflow-hidden" : "overflow-y-auto"}`}
+        className={`h-screen ${scrollLocked ? "overflow-hidden" : "overflow-y-auto"}`}
       >
         {children}
       </div>

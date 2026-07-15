@@ -8,7 +8,7 @@ export function HeroStatic() {
     <section
       id="hero"
       data-snap-section=""
-      className="relative flex h-screen snap-start flex-col items-center justify-center px-6 text-center"
+      className="relative flex h-screen flex-col items-center justify-center px-6 text-center"
     >
       {/* Subtle gradient background */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface/50 via-bg to-bg" />

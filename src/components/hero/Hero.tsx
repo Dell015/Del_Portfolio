@@ -217,7 +217,7 @@ export function Hero() {
     <section
       id="hero"
       data-snap-section=""
-      className="relative flex h-screen snap-start flex-col items-center justify-center"
+      className="relative flex h-screen flex-col items-center justify-center"
     >
       {/* Particle canvas — full screen, receives all pointer events */}
       <HeroParticleCanvas

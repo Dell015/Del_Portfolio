@@ -87,6 +87,33 @@ body::before {
   }
 }
 
+@keyframes gradientDrift {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  25% {
+    transform: translate(8%, -5%) scale(1.05);
+  }
+  50% {
+    transform: translate(-5%, 8%) scale(0.97);
+  }
+  75% {
+    transform: translate(-8%, -3%) scale(1.03);
+  }
+}
+
+@keyframes gradientDrift2 {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(-6%, 6%) scale(1.04) rotate(1deg);
+  }
+  66% {
+    transform: translate(7%, -4%) scale(0.96) rotate(-1deg);
+  }
+}
+
 /* Custom scrollbar (thin, dark, unobtrusive) */
 ::-webkit-scrollbar {
   width: 6px;

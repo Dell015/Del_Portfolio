@@ -26,9 +26,11 @@ const vertexShader = /* glsl */ `
   uniform float uPointSize;
   uniform vec2 uResolution;
   uniform float uDissolve;
+  uniform float uAmbient;     // 0.0 = portrait mode, 1.0 = full ambient drift
+  uniform float uFadeOut;     // 0.0 = visible, 1.0 = faded out
   uniform vec3 uMouse;
-  uniform float uMouseActive;  // 1.0 when mouse is over canvas, 0.0 otherwise
-  uniform float uPreReveal;    // 1.0 before reveal, 0.0 after
+  uniform float uMouseActive;
+  uniform float uPreReveal;
 
   varying vec3 vColor;
   varying float vAlpha;
@@ -37,10 +39,7 @@ const vertexShader = /* glsl */ `
 
   void main() {
     // Per-particle progress: speed variation with careful landing.
-    // Fast particles (high speed) rush to ~90% quickly but decelerate
-    // into their final position, so the portrait "resolves" as a whole.
     float rawP = uProgress * (0.7 + speed * 0.6);
-    // Ease-out the last stretch: stronger deceleration for faster particles
     float easeOut = 1.0 - pow(1.0 - clamp(rawP, 0.0, 1.0), 1.5 + speed * 0.8);
     float pProgress = easeOut;
 
@@ -48,17 +47,14 @@ const vertexShader = /* glsl */ `
     vec3 pos = mix(positionB, positionA, pProgress);
 
     // === IDLE FLOW (pre-reveal) ===
-    // Gentle drift that maintains the wave shape — particles stay close to their path
     float idleFactor = 1.0 - pProgress;
     if (idleFactor > 0.01) {
       vec3 bPos = positionB;
 
-      // Slow horizontal drift with wrapping
       float drift = uTime * 0.04 * (0.6 + speed * 0.4);
       float wrapWidth = 4.5;
       float wrappedX = mod(bPos.x + drift + wrapWidth * 0.5, wrapWidth) - wrapWidth * 0.5;
 
-      // Subtle vertical breathing — keeps shape intact
       float yBreath = sin(wrappedX * 2.0 + uTime * 0.12 + speed * 3.14) * 0.02;
       float yPulse = sin(uTime * 0.08 + bPos.x * 1.5) * 0.015;
 
@@ -85,23 +81,17 @@ const vertexShader = /* glsl */ `
 
       if (dist < radius && dist > 0.01) {
         float influence = (1.0 - dist / radius);
-        influence = influence * influence; // quadratic
+        influence = influence * influence;
 
-        // Swirl component: perpendicular to direction toward mouse
         vec2 perp = vec2(-toMouse.y, toMouse.x);
         vec2 swirlDir = normalize(perp);
-
-        // Pull slightly toward mouse + strong swirl + fling outward
         vec2 pullDir = normalize(toMouse.xy);
 
-        // Close to mouse: swirl. Very close: fling away
         float flingZone = 0.15;
         if (dist < flingZone) {
-          // FLING: push away from cursor
           float flingStrength = (1.0 - dist / flingZone) * 0.3;
           pos.xy -= pullDir * flingStrength;
         } else {
-          // SWIRL: orbit around cursor
           float swirlStrength = influence * 0.08;
           float pullStrength = influence * 0.02;
           pos.xy += swirlDir * swirlStrength;
@@ -110,23 +100,58 @@ const vertexShader = /* glsl */ `
       }
     }
 
-    // === DISSOLVE ON SCROLL ===
+    // === DISSOLVE + AMBIENT TRANSITION ===
     if (uDissolve > 0.0) {
-      vec3 dissolveInput = pos * 2.0 + vec3(uTime * 0.03);
+      // Phase 1: Fast twist/scatter (dissolve 0→1)
+      vec3 dissolveInput = pos * 2.5 + vec3(uTime * 0.06, uTime * 0.04, uTime * 0.03);
       vec3 dissolveCurl = curlNoise(dissolveInput);
-      pos += dissolveCurl * uDissolve * 0.8;
+
+      // Rapid twist — particles spiral outward fast
+      float twistStrength = uDissolve * 1.2;
+      pos += dissolveCurl * twistStrength;
+
+      // Spread particles outward from center
+      float spreadFactor = uDissolve * 0.6;
+      pos.xy += normalize(pos.xy + vec2(0.001)) * spreadFactor * (0.5 + speed * 0.5);
     }
 
-    // Color
-    vColor = mix(colorB, colorA, pProgress);
-    vAlpha = 1.0 - uDissolve * 0.6;
+    // === AMBIENT DRIFT MODE ===
+    if (uAmbient > 0.0) {
+      // Beautiful flowing drift — particles become a living background
+      float ambientTime = uTime * 0.02;
+      vec3 ambientInput = pos * 0.8 + vec3(ambientTime, ambientTime * 0.7, ambientTime * 0.5);
+      vec3 ambientCurl = curlNoise(ambientInput);
+
+      // Gentle continuous flow
+      float flowStrength = uAmbient * 0.15;
+      pos += ambientCurl * flowStrength;
+
+      // Slow breathing — expand and contract subtly
+      float breath = sin(uTime * 0.05 + speed * 6.28) * 0.03 * uAmbient;
+      pos *= 1.0 + breath;
+
+      // Per-particle gentle oscillation
+      pos.x += sin(uTime * 0.08 + speed * 12.0) * 0.02 * uAmbient;
+      pos.y += cos(uTime * 0.06 + speed * 8.0) * 0.015 * uAmbient;
+    }
+
+    // Color — in ambient mode, shift toward muted accent tones
+    vec3 baseColor = mix(colorB, colorA, pProgress);
+    vec3 ambientColor = mix(baseColor, vec3(0.82, 0.16, 0.22), 0.15 * uAmbient); // subtle accent tint
+    vColor = ambientColor;
+
+    // Alpha — dissolve reduces, ambient keeps it visible, fadeOut kills it
+    float dissolveAlpha = 1.0 - uDissolve * 0.5;
+    float ambientAlpha = mix(dissolveAlpha, 0.6, uAmbient); // ambient is semi-transparent
+    vAlpha = ambientAlpha * (1.0 - uFadeOut);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
-    // Point size
+    // Point size — slightly smaller in ambient mode for subtlety
     float baseSize = uPointSize * (uResolution.y / 900.0);
-    gl_PointSize = baseSize * (1.0 / -mvPosition.z);
+    float ambientSizeScale = mix(1.0, 0.7, uAmbient);
+    gl_PointSize = baseSize * ambientSizeScale * (1.0 / -mvPosition.z);
   }
 `;
 
@@ -149,6 +174,8 @@ function ParticleSystem({
   cloudB,
   progressRef,
   dissolveRef,
+  ambientRef,
+  fadeOutRef,
   mouseRef,
   mouseActiveRef,
   preRevealRef,
@@ -157,6 +184,8 @@ function ParticleSystem({
   cloudB: PointCloud;
   progressRef: React.MutableRefObject<number>;
   dissolveRef: React.MutableRefObject<number>;
+  ambientRef: React.MutableRefObject<number>;
+  fadeOutRef: React.MutableRefObject<number>;
   mouseRef: React.MutableRefObject<THREE.Vector3>;
   mouseActiveRef: React.MutableRefObject<boolean>;
   preRevealRef: React.MutableRefObject<boolean>;
@@ -191,6 +220,8 @@ function ParticleSystem({
       uPointSize: { value: 3.0 },
       uResolution: { value: new THREE.Vector2(size.width, size.height) },
       uDissolve: { value: 0 },
+      uAmbient: { value: 0 },
+      uFadeOut: { value: 0 },
       uMouse: { value: new THREE.Vector3(999, 999, 0) },
       uMouseActive: { value: 0 },
       uPreReveal: { value: 1 },
@@ -210,6 +241,8 @@ function ParticleSystem({
     const mat = materialRef.current;
     mat.uniforms.uProgress.value = progressRef.current;
     mat.uniforms.uDissolve.value = dissolveRef.current;
+    mat.uniforms.uAmbient.value = ambientRef.current;
+    mat.uniforms.uFadeOut.value = fadeOutRef.current;
     mat.uniforms.uTime.value = state.clock.elapsedTime;
     mat.uniforms.uMouse.value.copy(mouseRef.current);
     mat.uniforms.uMouseActive.value = mouseActiveRef.current ? 1 : 0;
@@ -351,7 +384,7 @@ function MouseTracker({
   const { camera } = useThree();
 
   useEffect(() => {
-    const canvas = document.querySelector("#hero-particle-canvas canvas") as HTMLElement;
+    const canvas = document.querySelector("#hero-particle-canvas") as HTMLElement;
     if (!canvas) return;
 
     function onMouseMove(e: MouseEvent) {
@@ -366,11 +399,11 @@ function MouseTracker({
       mouseRef.current.set(999, 999, 0);
     }
 
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mouseleave", onMouseLeave);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseleave", onMouseLeave);
     return () => {
-      canvas.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mouseleave", onMouseLeave);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseleave", onMouseLeave);
     };
   }, [camera, mouseRef, mouseActiveRef]);
 
@@ -385,6 +418,8 @@ export function HeroParticleCanvas({
 }: HeroParticleCanvasProps) {
   const progressRef = useRef(0);
   const dissolveRef = useRef(0);
+  const ambientRef = useRef(0);
+  const fadeOutRef = useRef(0);
   const mouseRef = useRef(new THREE.Vector3(999, 999, 0));
   const mouseActiveRef = useRef(false);
   const preRevealRef = useRef(true);
@@ -394,7 +429,6 @@ export function HeroParticleCanvas({
   // Track pre-reveal state
   useEffect(() => {
     if (revealTriggered) {
-      // Disable cursor interaction shortly after morph starts
       const timer = setTimeout(() => {
         preRevealRef.current = false;
       }, 800);
@@ -402,13 +436,46 @@ export function HeroParticleCanvas({
     }
   }, [revealTriggered]);
 
-  // Dissolve on scroll (after reveal)
+  // Scroll-linked dissolve → ambient → fadeOut
   useEffect(() => {
     if (progressRef.current < 0.95) {
+      // Not yet revealed — no dissolve
       dissolveRef.current = 0;
+      ambientRef.current = 0;
+      fadeOutRef.current = 0;
       return;
     }
-    dissolveRef.current = Math.min(1, Math.max(0, scrollProgress));
+
+    // scrollProgress: 0 = top of hero, 1 = top of about, 2 = top of projects
+    const sp = scrollProgress;
+
+    if (sp < 0.05) {
+      // Still at hero top — portrait intact
+      dissolveRef.current = 0;
+      ambientRef.current = 0;
+      fadeOutRef.current = 0;
+    } else if (sp < 0.4) {
+      // Fast dissolve phase: portrait shatters rapidly (0.05 → 0.4)
+      const t = (sp - 0.05) / 0.35;
+      dissolveRef.current = Math.min(1, t * 2.5); // reaches 1.0 quickly
+      ambientRef.current = t * 0.3; // start transitioning to ambient
+      fadeOutRef.current = 0;
+    } else if (sp < 1.8) {
+      // Ambient drift mode — particles flow beautifully as background
+      dissolveRef.current = 1;
+      ambientRef.current = Math.min(1, 0.3 + (sp - 0.4) * 0.5);
+      fadeOutRef.current = 0;
+    } else if (sp < 2.2) {
+      // Fade out as user approaches Projects section
+      dissolveRef.current = 1;
+      ambientRef.current = 1;
+      fadeOutRef.current = Math.min(1, (sp - 1.8) / 0.4);
+    } else {
+      // Fully faded out
+      dissolveRef.current = 1;
+      ambientRef.current = 1;
+      fadeOutRef.current = 1;
+    }
   }, [scrollProgress]);
 
   const handleComplete = useCallback(() => {
@@ -417,12 +484,13 @@ export function HeroParticleCanvas({
   }, [onRevealComplete]);
 
   return (
-    <div id="hero-particle-canvas" className="absolute inset-0 z-[1]">
+    <div id="hero-particle-canvas" className="fixed inset-0 z-[1] pointer-events-none">
       <Canvas
         camera={{ position: [0, 0, 1.6], fov: 60 }}
         dpr={[1, 2]}
         gl={{ antialias: false, alpha: true }}
-        style={{ background: "transparent", pointerEvents: "auto" }}
+        style={{ background: "transparent", pointerEvents: "none" }}
+        events={() => ({ enabled: false, priority: 0, compute: () => {} } as never)}
       >
         <CameraAdjust />
         <MouseTracker mouseRef={mouseRef} mouseActiveRef={mouseActiveRef} />
@@ -431,6 +499,8 @@ export function HeroParticleCanvas({
           cloudB={cloudB}
           progressRef={progressRef}
           dissolveRef={dissolveRef}
+          ambientRef={ambientRef}
+          fadeOutRef={fadeOutRef}
           mouseRef={mouseRef}
           mouseActiveRef={mouseActiveRef}
           preRevealRef={preRevealRef}

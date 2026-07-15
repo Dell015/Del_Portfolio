@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ModeToggle } from "@/components/mode/ModeToggle";
-import { site } from "@/lib/content/site";
 import { useSnapScroll } from "@/components/SmoothScroll";
 
 /* ─── Nav Links ─────────────────────────────────────────────── */
@@ -23,7 +22,6 @@ const SECTION_IDS = ["hero", "about", "projects", "skills", "resume", "footer"];
 
 function useActiveSection(): string {
   const { currentPage } = useSnapScroll();
-  // Map page index to section ID
   return SECTION_IDS[currentPage] ?? "hero";
 }
 
@@ -33,17 +31,17 @@ function HamburgerIcon({ open }: { open: boolean }) {
   return (
     <div className="flex h-5 w-5 flex-col items-center justify-center gap-[5px]">
       <motion.span
-        className="block h-[2px] w-5 rounded-full bg-text"
+        className="block h-[1.5px] w-5 rounded-full bg-text"
         animate={open ? { rotate: 45, y: 7 } : { rotate: 0, y: 0 }}
         transition={{ duration: 0.25, ease: "easeInOut" }}
       />
       <motion.span
-        className="block h-[2px] w-5 rounded-full bg-text"
+        className="block h-[1.5px] w-5 rounded-full bg-text"
         animate={open ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
       />
       <motion.span
-        className="block h-[2px] w-5 rounded-full bg-text"
+        className="block h-[1.5px] w-5 rounded-full bg-text"
         animate={open ? { rotate: -45, y: -7 } : { rotate: 0, y: 0 }}
         transition={{ duration: 0.25, ease: "easeInOut" }}
       />
@@ -80,7 +78,7 @@ export function Nav() {
   const activeSection = useActiveSection();
   const { scrollLocked } = useSnapScroll();
 
-  // Hide nav entirely when scroll is locked (hero page before reveal)
+  // Show nav after scroll is unlocked
   const navVisible = !scrollLocked;
 
   // Close mobile menu on resize past breakpoint
@@ -128,57 +126,43 @@ export function Nav() {
 
   return (
     <>
+      {/* ─── Invisible Glassmorphism Navbar ─── */}
       <motion.header
-        className="fixed top-0 right-0 left-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-md"
-        style={{
-          backgroundColor: "rgba(15, 15, 15, 0.9)",
-          borderBottom: "1px solid var(--border)",
-        }}
+        className="fixed top-0 right-0 left-0 z-50"
         initial={{ y: -80, opacity: 0 }}
         animate={navVisible ? { y: 0, opacity: 1 } : { y: -80, opacity: 0 }}
-        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* Logo / Name */}
-        <a
-          href="#hero"
-          className="font-[family-name:var(--font-display)] text-sm font-semibold tracking-tight text-text transition-colors duration-200 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm"
-        >
-          {site.name}
-        </a>
+        <div className="mx-auto flex items-center justify-between px-6 lg:px-10 py-4">
+          {/* ─── LEFT: Page links ─── */}
+          <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={`
+                  relative font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.15em]
+                  transition-all duration-300
+                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm
+                  ${isActive(link.href) ? "text-text" : "text-text-muted/60 hover:text-text-muted"}
+                `}
+              >
+                {link.label}
+                {/* Active dot indicator */}
+                {isActive(link.href) && (
+                  <motion.span
+                    layoutId="nav-active-dot"
+                    className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-[3px] w-[3px] rounded-full bg-accent"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </a>
+            ))}
+          </nav>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className={`
-                relative font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest
-                transition-colors duration-200
-                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm
-                ${isActive(link.href) ? "text-accent" : "text-text-muted hover:text-text"}
-              `}
-            >
-              {link.label}
-              {/* Active indicator underline */}
-              {isActive(link.href) && (
-                <motion.span
-                  layoutId="nav-active-underline"
-                  className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-accent"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-            </a>
-          ))}
-        </nav>
-
-        {/* Right side: ModeToggle + Hamburger */}
-        <div className="flex items-center gap-3">
-          <ModeToggle />
-
-          {/* Hamburger button — visible below md */}
+          {/* Mobile: hamburger on the left */}
           <button
-            className="relative flex md:hidden items-center justify-center w-9 h-9 rounded-md transition-colors duration-200 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="relative flex md:hidden items-center justify-center w-9 h-9 rounded-lg transition-colors duration-200 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
@@ -186,6 +170,17 @@ export function Nav() {
           >
             <HamburgerIcon open={mobileOpen} />
           </button>
+
+          {/* ─── CENTER: Name ─── */}
+          <a
+            href="#hero"
+            className="absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-all duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm"
+          >
+            Randel
+          </a>
+
+          {/* ─── RIGHT: Mode Toggle (glassmorphism pill) ─── */}
+          <ModeToggle />
         </div>
       </motion.header>
 
@@ -195,7 +190,7 @@ export function Nav() {
           <>
             {/* Backdrop */}
             <motion.div
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -204,13 +199,13 @@ export function Nav() {
               aria-hidden="true"
             />
 
-            {/* Slide-in Panel */}
+            {/* Slide-in Panel — glassmorphism */}
             <motion.nav
               id="mobile-menu"
-              className="fixed top-0 right-0 z-50 h-full w-[280px] md:hidden flex flex-col pt-24 px-8 pb-8"
+              className="fixed top-0 right-0 z-50 h-full w-[280px] md:hidden flex flex-col pt-24 px-8 pb-8 backdrop-blur-xl"
               style={{
-                backgroundColor: "var(--surface)",
-                borderLeft: "1px solid var(--border)",
+                backgroundColor: "rgba(15, 15, 15, 0.7)",
+                borderLeft: "1px solid rgba(255, 255, 255, 0.06)",
               }}
               variants={menuVariants}
               initial="closed"
@@ -234,8 +229,8 @@ export function Nav() {
                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
                       ${
                         isActive(link.href)
-                          ? "text-accent bg-surface-2"
-                          : "text-text-muted hover:text-text hover:bg-surface-2"
+                          ? "text-accent bg-white/5"
+                          : "text-text-muted hover:text-text hover:bg-white/5"
                       }
                     `}
                   >
@@ -244,9 +239,9 @@ export function Nav() {
                 ))}
               </div>
 
-              {/* Footer personality line in mobile menu */}
-              <div className="mt-auto pt-8 border-t border-border">
-                <p className="font-[family-name:var(--font-mono)] text-xs text-text-muted">
+              {/* Footer line */}
+              <div className="mt-auto pt-8 border-t border-white/5">
+                <p className="font-[family-name:var(--font-mono)] text-xs text-text-muted/50">
                   Let&apos;s build something that actually ships.
                 </p>
               </div>

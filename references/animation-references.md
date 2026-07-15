@@ -79,3 +79,69 @@ Collected references for text reveal animations and motion design used in this p
   </motion.span>
 </span>
 ```
+
+
+---
+
+## Scroll-Linked Particle & Parallax References
+
+### Particle Dissolve → Ambient Background
+- Particles morphing on scroll with custom shader: https://discourse.threejs.org/t/colorverse-website-particles-morphing-on-scroll-with-custom-shader/43847
+- Three ways to create 3D particle effects (space dust, sparks): https://varun.ca/three-js-particles/
+- Interactive Particles with Three.js (Codrops): https://tympanus.net/codrops/2019/01/17/interactive-particles-with-three-js/
+- Crafting Scroll Based Animations in Three.js (Codrops): https://tympanus.net/codrops/2022/01/05/crafting-scroll-based-animations-in-three-js/
+- Three.js animate on scroll (sbcode): https://sbcode.net/threejs/animate-on-scroll/
+- Scroll-Reactive 3D Gallery (Codrops): https://tympanus.net/codrops/2026/03/09/building-a-scroll-reactive-3d-gallery-with-three-js-velocity-and-mood-based-backgrounds/
+
+### Framer Motion Parallax
+- Framer Motion scroll-linked animations: https://www.framer.com/motion/scroll-animations/
+- useScroll + useTransform for parallax: different speeds per layer
+- Parallax depth: background 40-80% speed, foreground 120-140% speed
+- Reference: https://www.framer.com/academy/lessons/framer-animations-scroll-speed-parallax
+
+### Implementation Pattern Used
+```tsx
+// Mixed parallax — different speeds create depth perception
+const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+const yAggressive = useTransform(scrollYProgress, [0, 1], [100, -80]);  // moves fast
+const ySubtle = useTransform(scrollYProgress, [0, 1], [40, -20]);       // barely moves
+const yReverse = useTransform(scrollYProgress, [0, 1], [-50, 80]);      // moves opposite
+```
+
+### Particle State Machine (scroll-linked)
+```
+scrollProgress 0.00 - 0.05  → Portrait intact (no dissolve)
+scrollProgress 0.05 - 0.40  → Fast twist/scatter (portrait shatters)
+scrollProgress 0.40 - 1.80  → Ambient drift (beautiful flowing background)
+scrollProgress 1.80 - 2.20  → Fade out (approaching next section)
+scrollProgress 2.20+        → Fully hidden
+```
+
+
+---
+
+## Sequential Exit Timing (Cinematic Stagger)
+
+### Key Principles (from GSAP patterns reference)
+- Entrance stagger: 0.1–0.2s between items (fast, energetic)
+- Exit stagger: 0.3–0.5s gaps between items (cinematic, lets viewer absorb each departure)
+- Easing: power3.out for entrances (strong deceleration), power2.out for scroll reveals
+- Never stagger > 0.2s on entrance (feels broken), but exits CAN be slower
+- Reference: https://github.com/alirezarezvani/claude-skills/blob/main/marketing/landing/skills/landing/references/gsap_animation_patterns.md
+
+### Scroll-Linked Exit Sequence Pattern
+```
+Element 1: scroll 0.02 → 0.18 (leaves immediately)
+  [gap: 0.10 scroll units]
+Element 2: scroll 0.12 → 0.28
+  [gap: 0.10 scroll units]
+Element 3: scroll 0.22 → 0.42
+  [gap: 0.12 scroll units]
+Element 4: scroll 0.34 → 0.55 (lingers longest)
+```
+Each element gets ~0.1 scroll units of "alone time" where it's the only thing leaving — the viewer sees each departure individually.
+
+### Additional References
+- Scroll exit effects for hero sections: https://docs.automaticcss.com/effects/exit-effects
+- Scroll-driven CSS hero animations: https://www.builder.io/blog/scroll-driven-animations
+- Cinematic scroll experiences: https://motion.dev/examples/react-scroll-zoom-hero
