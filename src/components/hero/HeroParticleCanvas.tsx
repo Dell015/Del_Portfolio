@@ -457,8 +457,8 @@ export function HeroParticleCanvas({
     } else if (sp < 0.4) {
       // Fast dissolve phase: portrait shatters rapidly (0.05 → 0.4)
       const t = (sp - 0.05) / 0.35;
-      dissolveRef.current = Math.min(1, t * 2.5); // reaches 1.0 quickly
-      ambientRef.current = t * 0.3; // start transitioning to ambient
+      dissolveRef.current = Math.min(1, t * 2.5);
+      ambientRef.current = t * 0.3;
       fadeOutRef.current = 0;
     } else if (sp < 1.8) {
       // Ambient drift mode — particles flow beautifully as background

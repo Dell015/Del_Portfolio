@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ModeToggle } from "@/components/mode/ModeToggle";
 import { useSnapScroll } from "@/components/SmoothScroll";
@@ -75,11 +75,29 @@ const menuItemVariants = {
 
 export function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const activeSection = useActiveSection();
-  const { scrollLocked } = useSnapScroll();
+  const { scrollLocked, scrollProgress } = useSnapScroll();
+  const lastScrollRef = useRef(0);
 
   // Show nav after scroll is unlocked
-  const navVisible = !scrollLocked;
+  const navVisible = !scrollLocked && !hidden;
+
+  // Hide on scroll down, show on scroll up
+  useEffect(() => {
+    const current = scrollProgress;
+    const delta = current - lastScrollRef.current;
+
+    if (delta > 0.01) {
+      // Scrolling down
+      setHidden(true);
+    } else if (delta < -0.005) {
+      // Scrolling up
+      setHidden(false);
+    }
+
+    lastScrollRef.current = current;
+  }, [scrollProgress]);
 
   // Close mobile menu on resize past breakpoint
   useEffect(() => {
