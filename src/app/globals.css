@@ -54,66 +54,6 @@ body {
   position: relative;
 }
 
-/* Cinematic dark ambient background — deeply diffused color blobs */
-body::before {
-  content: '';
-  position: fixed;
-  inset: -50%;
-  width: 200%;
-  height: 200%;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse 40% 35% at 25% 35%, rgba(209, 26, 42, 0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 35% 40% at 75% 65%, rgba(120, 15, 30, 0.09) 0%, transparent 70%),
-    radial-gradient(ellipse 45% 30% at 55% 25%, rgba(80, 5, 15, 0.08) 0%, transparent 65%),
-    radial-gradient(ellipse 30% 45% at 35% 75%, rgba(160, 20, 40, 0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 50% at 65% 45%, rgba(40, 0, 10, 0.15) 0%, transparent 60%);
-  filter: blur(80px);
-  animation: ambientDrift 40s ease-in-out infinite;
-}
-
-@keyframes ambientDrift {
-  0%, 100% {
-    transform: translate(0%, 0%) rotate(0deg);
-  }
-  25% {
-    transform: translate(5%, -3%) rotate(1deg);
-  }
-  50% {
-    transform: translate(-3%, 5%) rotate(-0.5deg);
-  }
-  75% {
-    transform: translate(-5%, -2%) rotate(0.5deg);
-  }
-}
-
-@keyframes gradientDrift {
-  0%, 100% {
-    transform: translate(0%, 0%) scale(1);
-  }
-  25% {
-    transform: translate(8%, -5%) scale(1.05);
-  }
-  50% {
-    transform: translate(-5%, 8%) scale(0.97);
-  }
-  75% {
-    transform: translate(-8%, -3%) scale(1.03);
-  }
-}
-
-@keyframes gradientDrift2 {
-  0%, 100% {
-    transform: translate(0%, 0%) scale(1) rotate(0deg);
-  }
-  33% {
-    transform: translate(-6%, 6%) scale(1.04) rotate(1deg);
-  }
-  66% {
-    transform: translate(7%, -4%) scale(0.96) rotate(-1deg);
-  }
-}
-
 /* Custom scrollbar (thin, dark, unobtrusive) */
 ::-webkit-scrollbar {
   width: 6px;

@@ -1,18 +1,81 @@
 "use client";
 
 import { useRef } from "react";
+import dynamic from "next/dynamic";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { skills, skillCategories } from "@/lib/content/skills";
-import { useModeStore } from "@/lib/store/mode";
+import { useSnapScroll } from "@/components/SmoothScroll";
+import { useIsVisible } from "@/lib/hooks/useIsVisible";
+import ScrollFloat from "@/components/ScrollFloat";
+import { LogoLoop, type LogoItem } from "./LogoLoop";
+import { GitHubCalendar } from "react-github-calendar";
+
+const LineWaves = dynamic(() => import("./LineWaves"), { ssr: false });
+
+// react-icons
+import {
+  SiTypescript,
+  SiPython,
+  SiDotnet,
+  SiDart,
+  SiReact,
+  SiNextdotjs,
+  SiExpo,
+  SiFlutter,
+  SiVuedotjs,
+  SiTailwindcss,
+  SiFramer,
+  SiSupabase,
+  SiFirebase,
+  SiExpress,
+  SiMongodb,
+  SiPostgresql,
+  SiGit,
+  SiGithub,
+  SiFigma,
+  SiGooglegemini,
+} from "react-icons/si";
+import { TbAtom } from "react-icons/tb";
+
+// Frontend row
+const frontendLogos: LogoItem[] = [
+  { node: <SiReact />, title: "React" },
+  { node: <SiNextdotjs />, title: "Next.js" },
+  { node: <SiTypescript />, title: "TypeScript" },
+  { node: <SiReact />, title: "React Native" },
+  { node: <SiFlutter />, title: "Flutter" },
+  { node: <SiDart />, title: "Dart" },
+  { node: <SiVuedotjs />, title: "Vue" },
+  { node: <SiTailwindcss />, title: "Tailwind CSS" },
+  { node: <SiFramer />, title: "Framer Motion" },
+  { node: <SiExpo />, title: "Expo" },
+  { node: <TbAtom />, title: "Zustand" },
+  { node: <SiFigma />, title: "Figma" },
+];
+
+// Backend row
+const backendLogos: LogoItem[] = [
+  { node: <SiPython />, title: "Python" },
+  { node: <SiDotnet />, title: "C#" },
+  { node: <SiPostgresql />, title: "PostgreSQL" },
+  { node: <SiSupabase />, title: "Supabase" },
+  { node: <SiFirebase />, title: "Firebase" },
+  { node: <SiExpress />, title: "Express" },
+  { node: <SiMongodb />, title: "MongoDB" },
+  { node: <SiGit />, title: "Git" },
+  { node: <SiGithub />, title: "GitHub" },
+  { node: <SiGooglegemini />, title: "Gemini Flash" },
+];
+
+const GITHUB_USERNAME = "Dell015";
 
 export function SkillsField() {
-  const mode = useModeStore((s) => s.mode);
-  const reducedMotion = useModeStore((s) => s.reducedMotion);
-  const shouldDrift = mode === "immersive" && !reducedMotion;
+  const { containerRef } = useSnapScroll();
   const sectionRef = useRef<HTMLElement>(null);
+  const { ref: visRef, visible: skillsVisible } = useIsVisible("300px");
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
+    container: containerRef,
     offset: ["start end", "end start"],
   });
 
@@ -24,124 +87,156 @@ export function SkillsField() {
       ref={sectionRef}
       id="skills"
       data-snap-section=""
-      className="relative overflow-hidden px-6 py-32 md:py-40"
+      className="relative overflow-hidden py-32 md:py-40"
     >
-      {/* Decorative — full bleed */}
+      <div ref={visRef} className="absolute inset-0" />
+
+      {/* LineWaves background */}
+      {skillsVisible && (
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-50">
+          <LineWaves
+            speed={0.3}
+            innerLineCount={32}
+            outerLineCount={36}
+            warpIntensity={1.0}
+            rotation={-45}
+            edgeFadeWidth={0.0}
+            colorCycleSpeed={1.0}
+            brightness={0.2}
+            color1="#D11A2A"
+            color2="#ff7400"
+            color3="#D11A2A"
+            enableMouseInteraction={false}
+            mouseInfluence={2.0}
+          />
+        </div>
+      )}
+
+      {/* Decorative */}
       <motion.div
         className="absolute top-[15%] right-[10%] w-36 h-36 rounded-full pointer-events-none"
-        style={{
-          y: yDecor1,
-          background: "radial-gradient(circle, rgba(209, 26, 42, 0.05) 0%, transparent 70%)",
-        }}
+        style={{ y: yDecor1, background: "radial-gradient(circle, rgba(209, 26, 42, 0.05) 0%, transparent 70%)" }}
       />
       <motion.div
         className="absolute bottom-[25%] left-[6%] w-44 h-44 rounded-full pointer-events-none"
-        style={{
-          y: yDecor2,
-          background: "radial-gradient(circle, rgba(242, 184, 75, 0.03) 0%, transparent 70%)",
-        }}
+        style={{ y: yDecor2, background: "radial-gradient(circle, rgba(242, 184, 75, 0.03) 0%, transparent 70%)" }}
       />
 
-      <div className="mx-auto w-full max-w-6xl relative z-10">
-        <motion.p
-          className="mb-6 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
-          initial={{ opacity: 0, x: -20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        >
-          Skills
-        </motion.p>
+      <div className="relative z-10">
+        {/* Header - constrained */}
+        <div className="px-6 mx-auto w-full max-w-6xl">
+          <motion.p
+            className="mb-6 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Skills & Activity
+          </motion.p>
 
-        <motion.h2
-          className="mb-14 font-[family-name:var(--font-display)] text-4xl font-bold text-text md:text-5xl lg:text-6xl leading-[1.1]"
-          initial={{ opacity: 0, x: -50, filter: "blur(4px)" }}
-          whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        >
-          Tech I <span className="text-accent">work with.</span>
-        </motion.h2>
+          <ScrollFloat
+            containerClassName="mb-14 font-[family-name:var(--font-display)] text-4xl font-bold text-text md:text-5xl lg:text-6xl leading-[1.1]"
+            animationDuration={1}
+            ease="back.inOut(2)"
+            scrollStart="center bottom+=50%"
+            scrollEnd="bottom bottom-=40%"
+            stagger={0.03}
+          >
+            Tech I work with.
+          </ScrollFloat>
+        </div>
 
-        <div className="grid gap-14 md:grid-cols-2">
-          {skillCategories.map((category, catIdx) => {
-            const categorySkills = skills.filter((s) => s.category === category.key);
-            if (categorySkills.length === 0) return null;
-            return (
-              <motion.div
-                key={category.key}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.5, delay: catIdx * 0.1, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <h3 className="mb-5 font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">
-                  {category.label}
-                </h3>
-                <div className="flex flex-wrap gap-3">
-                  {categorySkills.map((skill, i) => (
-                    <SkillIcon key={skill.name} skill={skill} index={i} shouldDrift={shouldDrift} />
-                  ))}
-                </div>
-              </motion.div>
-            );
-          })}
+        {/* Logo loops + GitHub — shared soft edge fade aligned with container */}
+        <div
+          style={{
+            maskImage: "linear-gradient(to right, transparent 0%, black calc((100% - 1152px) / 2 + 24px), black calc(100% - (100% - 1152px) / 2 - 24px), transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, black calc((100% - 1152px) / 2 + 24px), black calc(100% - (100% - 1152px) / 2 - 24px), transparent 100%)",
+          }}
+        >
+          <div className="flex flex-col gap-6 mb-10">
+            {/* Frontend row - scrolls left */}
+            <motion.div
+              className="h-[60px] relative text-text-muted"
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <LogoLoop
+                logos={frontendLogos}
+                speed={70}
+                direction="left"
+                logoHeight={36}
+                gap={48}
+                hoverSpeed={0}
+                scaleOnHover
+                ariaLabel="Frontend technologies"
+              />
+            </motion.div>
+
+            {/* Backend row - scrolls right */}
+            <motion.div
+              className="h-[60px] relative text-text-muted"
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <LogoLoop
+                logos={backendLogos}
+                speed={60}
+                direction="right"
+                logoHeight={36}
+                gap={48}
+                hoverSpeed={0}
+                scaleOnHover
+                ariaLabel="Backend technologies"
+              />
+            </motion.div>
+          </div>
+
+          {/* GitHub Activity */}
+          <div className="px-6 mx-auto w-full max-w-6xl">
+            <motion.div
+              className="rounded-xl border border-border bg-surface/50 p-6 md:p-8 backdrop-blur-sm overflow-x-auto"
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <GitHubCalendar
+                username={GITHUB_USERNAME}
+                colorScheme="dark"
+                blockSize={12}
+                blockMargin={4}
+                fontSize={13}
+                theme={{
+                  dark: ["#1B1F24", "#2a1f1f", "#5c2626", "#8b2d2d", "#D11A2A"],
+                }}
+                labels={{
+                  totalCount: "{{count}} contributions in the last year",
+                }}
+              />
+            </motion.div>
+
+            {/* GitHub link */}
+            <motion.a
+              href="https://github.com/Dell015"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center gap-2 font-[family-name:var(--font-mono)] text-sm text-text-muted transition-colors duration-300 hover:text-accent"
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <SiGithub className="h-4 w-4" />
+              @Dell015
+            </motion.a>
+          </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function SkillIcon({
-  skill,
-  index,
-  shouldDrift,
-}: {
-  skill: (typeof skills)[number];
-  index: number;
-  shouldDrift: boolean;
-}) {
-  const driftDelay = index * 0.4;
-  const driftDuration = 3 + (index % 5) * 0.5;
-
-  const driftAnimate = shouldDrift
-    ? { y: [0, -4, 0, 4, 0], rotate: [0, -2, 0, 2, 0] }
-    : undefined;
-
-  const driftTransition = shouldDrift
-    ? {
-        y: { duration: driftDuration, ease: "easeInOut" as const, repeat: Infinity, repeatType: "mirror" as const, delay: driftDelay },
-        rotate: { duration: driftDuration, ease: "easeInOut" as const, repeat: Infinity, repeatType: "mirror" as const, delay: driftDelay },
-      }
-    : undefined;
-
-  return (
-    <motion.div
-      className="group relative"
-      tabIndex={0}
-      initial={{ opacity: 0, y: 15, scale: 0.9 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true }}
-      animate={driftAnimate}
-      transition={{
-        duration: 0.4,
-        delay: index * 0.04,
-        ease: [0.22, 1, 0.36, 1],
-        ...driftTransition,
-      }}
-    >
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-surface transition-all duration-300 grayscale hover:scale-110 hover:border-accent/30 hover:grayscale-0 focus-visible:scale-110 focus-visible:border-accent/30 focus-visible:grayscale-0 group-focus:scale-110 group-focus:grayscale-0">
-        <span className="font-[family-name:var(--font-mono)] text-[10px] font-medium text-text-muted transition-colors group-hover:text-accent group-focus:text-accent">
-          {skill.name.slice(0, 3)}
-        </span>
-      </div>
-      {skill.usageNote && (
-        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-surface-2 px-3 py-1.5 text-xs text-text-muted opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
-          {skill.usageNote}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-surface-2" />
-        </div>
-      )}
-      <p className="mt-1.5 text-center font-[family-name:var(--font-mono)] text-[9px] text-text-muted/70">{skill.name}</p>
-    </motion.div>
   );
 }

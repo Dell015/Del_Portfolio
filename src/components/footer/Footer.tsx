@@ -3,16 +3,18 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { contact, footer as footerContent, site } from "@/lib/content/site";
+import ScrollFloat from "@/components/ScrollFloat";
+import { useSnapScroll } from "@/components/SmoothScroll";
 
 export function Footer() {
+  const { containerRef } = useSnapScroll();
   const sectionRef = useRef<HTMLElement>(null);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
+    container: containerRef,
     offset: ["start end", "end start"],
   });
-
-  const yPersonality = useTransform(scrollYProgress, [0, 1], [40, -20]);
 
   return (
     <footer
@@ -31,17 +33,18 @@ export function Footer() {
       />
 
       <div className="mx-auto w-full max-w-4xl relative z-10 flex flex-col items-center gap-10 text-center">
-        {/* Personality line — parallax drift */}
-        <motion.p
-          className="font-[family-name:var(--font-display)] text-3xl font-medium text-text md:text-4xl lg:text-5xl leading-[1.2]"
-          style={{ y: yPersonality }}
-          initial={{ opacity: 0, y: 40, filter: "blur(4px)" }}
-          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        {/* Personality line — ScrollFloat */}
+        <ScrollFloat
+          as="p"
+          containerClassName="font-[family-name:var(--font-display)] text-3xl font-medium text-text md:text-4xl lg:text-5xl leading-[1.2]"
+          animationDuration={1}
+          ease="back.inOut(2)"
+          scrollStart="center bottom+=50%"
+          scrollEnd="bottom bottom-=40%"
+          stagger={0.03}
         >
           {footerContent.personalityLine}
-        </motion.p>
+        </ScrollFloat>
 
         {/* Contact links — staggered entrance */}
         <motion.div

@@ -1,23 +1,35 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
 
 /**
  * Scroll context: exposes current page index, scroll progress, and lock state.
  */
 interface ScrollContextValue {
-  /** Current snapped section index (0-based) */
   currentPage: number;
-  /** Fractional scroll progress (e.g., 0.5 = halfway between page 0 and 1) */
   scrollProgress: number;
-  /** Total number of snap sections */
   totalPages: number;
-  /** Whether scrolling is locked (hero hasn't been revealed yet) */
   scrollLocked: boolean;
-  /** Unlock scrolling (called after hero reveal) */
   unlockScroll: () => void;
-  /** Scroll to a specific section by ID */
   scrollToSection: (id: string) => void;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+// External store for scroll progress to avoid setState in scroll handler
+let _scrollProgress = 0;
+let _currentPage = 0;
+const _listeners = new Set<() => void>();
+
+function subscribeScroll(cb: () => void) {
+  _listeners.add(cb);
+  return () => { _listeners.delete(cb); };
+}
+
+function getScrollProgress() { return _scrollProgress; }
+function getCurrentPage() { return _currentPage; }
+
+function notifyScrollListeners() {
+  _listeners.forEach((cb) => cb());
 }
 
 const ScrollContext = createContext<ScrollContextValue>({
@@ -27,25 +39,27 @@ const ScrollContext = createContext<ScrollContextValue>({
   scrollLocked: true,
   unlockScroll: () => {},
   scrollToSection: () => {},
+  containerRef: { current: null },
 });
 
 export function useSnapScroll() {
-  return useContext(ScrollContext);
+  // Subscribe to the external store for scroll values — no setState on every scroll
+  const scrollProgress = useSyncExternalStore(subscribeScroll, getScrollProgress, getScrollProgress);
+  const currentPage = useSyncExternalStore(subscribeScroll, getCurrentPage, getCurrentPage);
+  const ctx = useContext(ScrollContext);
+  return { ...ctx, scrollProgress, currentPage };
 }
 
 /**
- * SmoothScroll — single scroll container with CSS scroll-snap.
+ * SmoothScroll — scroll container.
  * Scroll is LOCKED until the hero reveal button is clicked.
- * After unlock, proximity snap scrolling between full-viewport sections.
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [scrollLocked, setScrollLocked] = useState(true);
 
-  // Count snap sections on mount
+  // Count sections on mount
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -53,7 +67,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     setTotalPages(sections.length);
   }, []);
 
-  // Track scroll position
+  // Track scroll position — updates external store, NOT React state
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -69,8 +83,9 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         if (viewportHeight === 0) { ticking = false; return; }
 
         const rawPage = scrollTop / viewportHeight;
-        setCurrentPage(Math.round(rawPage));
-        setScrollProgress(rawPage);
+        _scrollProgress = rawPage;
+        _currentPage = Math.round(rawPage);
+        notifyScrollListeners();
         ticking = false;
       });
     }
@@ -118,7 +133,15 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
   return (
     <ScrollContext.Provider
-      value={{ currentPage, scrollProgress, totalPages, scrollLocked, unlockScroll, scrollToSection }}
+      value={{
+        currentPage: _currentPage,
+        scrollProgress: _scrollProgress,
+        totalPages,
+        scrollLocked,
+        unlockScroll,
+        scrollToSection,
+        containerRef,
+      }}
     >
       <div
         ref={containerRef}

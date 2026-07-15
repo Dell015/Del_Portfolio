@@ -2,12 +2,16 @@
 
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import ScrollFloat from "@/components/ScrollFloat";
+import { useSnapScroll } from "@/components/SmoothScroll";
 
 export function ResumeCTA() {
+  const { containerRef } = useSnapScroll();
   const sectionRef = useRef<HTMLElement>(null);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
+    container: containerRef,
     offset: ["start end", "end start"],
   });
 
@@ -40,15 +44,16 @@ export function ResumeCTA() {
           Want the short version?
         </motion.p>
 
-        <motion.h2
-          className="mb-8 font-[family-name:var(--font-display)] text-3xl font-bold text-text md:text-4xl lg:text-5xl"
-          initial={{ opacity: 0, y: 30, filter: "blur(4px)" }}
-          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        <ScrollFloat
+          containerClassName="mb-8 font-[family-name:var(--font-display)] text-3xl font-bold text-text md:text-4xl lg:text-5xl"
+          animationDuration={1}
+          ease="back.inOut(2)"
+          scrollStart="center bottom+=50%"
+          scrollEnd="bottom bottom-=40%"
+          stagger={0.03}
         >
-          Download <span className="text-accent">Resume</span>
-        </motion.h2>
+          Download Resume
+        </ScrollFloat>
 
         <motion.a
           href="#"

@@ -3,6 +3,7 @@ import { Space_Grotesk, Inter, JetBrains_Mono, Playfair_Display, Syne, Instrumen
 import { ModeProvider } from "@/components/mode/ModeProvider";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
+import { NavWheel } from "@/components/navigation/NavWheel";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -64,6 +65,7 @@ export default function RootLayout({
         <ModeProvider>
           <SmoothScroll>
             <Nav />
+            <NavWheel />
             {children}
           </SmoothScroll>
         </ModeProvider>
