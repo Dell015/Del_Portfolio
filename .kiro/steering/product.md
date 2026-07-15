@@ -1,77 +1,97 @@
 # Implementation Plan
 
-Guiding rule: ship a complete, polished Clean-mode site before touching any shader/particle work. Clean mode must be a safe, complete fallback at all times.
+Guiding rules:
+1. **Motion-first**: Every section must feel alive. No dead space in the scroll — something is always moving.
+2. **Scroll-triggered everything**: All elements use `whileInView` entrance + parallax depth via `useScroll`/`useTransform`.
+3. **Responsive + adaptive**: Every layout, animation, and interaction must work across all resolutions, aspect ratios (ultrawide, 16:9, 4:3, mobile portrait/landscape), and platforms (desktop, tablet, mobile, touch).
+4. Clean mode remains a safe, complete fallback at all times.
 
-- [ ] 1. Project scaffold
-  - [ ] 1.1 Initialize Next.js app (App Router) + Tailwind CSS
-  - [ ] 1.2 Add font imports (Space Grotesk, Inter, JetBrains Mono) and `styles/tokens.css` with color variables from `design-system.md`
-  - [ ] 1.3 Create `lib/content/site.ts`, `projects.ts`, `skills.ts` populated from `.kiro/steering/content.md` (mark unfilled fields as TODO, not fabricated)
+---
 
-- [ ] 2. Mode toggle infrastructure
-  - [ ] 2.1 Build `ModeProvider` (Context + localStorage persistence + `prefers-reduced-motion` detection)
-  - [ ] 2.2 Build `ModeToggle` nav pill component
-  - [ ] 2.3 Verify: toggling mode does not reload the page and persists across refresh
-  - _Requirements: 1.1, 1.2, 1.3, 1.5, 1.6_
+## Completed
 
-- [ ] 3. Clean-mode static site (content-complete)
-  - [ ] 3.1 Hero: `HeroStatic` — name, identity statement, hero question text, static photo/fade-in, scroll cue
-  - [ ] 3.2 About: static bio paragraph + simple photo grid placeholders for journey/hobbies
-  - [ ] 3.3 Projects: `BentoGrid` + `ProjectCard` static version (device-frame shape by variant, hover = lift/shadow + detail panel reveal — this interaction ships in Clean mode too, not Immersive-only)
-  - [ ] 3.4 Project case study route (`/projects/[slug]`) with all 8 content blocks from Requirement 5.2, placeholders where content is missing
-  - [ ] 3.5 Skills section: static grayscale-to-color icon field (CSS-only interaction, no idle drift yet)
-  - [ ] 3.6 Resume CTA + Footer with contact links
-  - _Requirements: 3.6, 4.1-4.5, 4.7, 5.1-5.2, 5.4, 6.1-6.2, 6.4-6.5, 7.1-7.3_
+- [x] 1. Project scaffold (Next.js App Router + Tailwind CSS + fonts + tokens)
+- [x] 2. Mode toggle infrastructure (ModeProvider + glassmorphism ModeToggle + persistence)
+- [x] 3. Hero section
+  - [x] Particle morph system (slow start, fast middle, careful end easing)
+  - [x] Per-character masked text reveal ("I'm a [Founder/Developer/Team Lead]")
+  - [x] Text-behind-image knockout (FULLSTACK left, DEVELOPER right)
+  - [x] Scroll-linked sequential exit (flash sweep per word, different speeds)
+  - [x] Particle dissolve → ambient drift background (persists through About)
+  - [x] Photo fade-in over particles → fade-out on scroll
+- [x] 4. Navbar (invisible glassmorphism, "Randel" center, links left, toggle right, hide on scroll down / show on scroll up)
+- [x] 5. About section (drag/swipe horizontal panel switch: Development ↔ Beyond the Code, scroll-triggered parallax on all elements)
+- [x] 6. Ambient gradient overlay (moving radial gradients accompanying particle background)
+- [x] 7. Removed snap scroll — continuous free scroll
+- [x] 8. Projects bento grid (basic)
+- [x] 9. Skills field (basic)
+- [x] 10. Resume CTA + Footer (basic)
+- [x] 11. Project case study routes
 
-- [ ] 4. Global smooth scroll
-  - [ ] 4.1 Integrate Lenis inertial smooth scroll site-wide (both modes)
-  - [ ] 4.2 Verify no scroll-jank conflicts with anchored-section navigation
+---
 
-- [ ] 5. Section-to-section transitions
-  - [ ] 5.1 Implement fade/scatter handoff between sections per animation spec (0.4-0.6s overlap)
-  - [ ] 5.2 Implement page-load fade + drift for hero content
-  - _Requirements: 8.1_
+## Remaining Work
 
-- [ ] 6. Particle-portrait system (core Immersive investment — biggest single item, budget real time)
-  - [ ] 6.1 Build `sampleImageToPoints` utility, verify equal particle counts across cloudA/B/(C)
-  - [ ] 6.2 Build `curlNoise` in-flight offset function (zero at rest, peaks mid-transition)
-  - [ ] 6.3 Build `HeroParticleCanvas` (R3F Points + ShaderMaterial), wire click-triggered B→A tween
-  - [ ] 6.4 Wire scroll-linked A→C tween + parallax on surrounding layers, and reverse on scroll-up
-  - [ ] 6.5 Add automatic fallback to `HeroStatic` if source images fail to load
-  - [ ] 6.6 Swap `Hero` to mount `HeroParticleCanvas` only when `mode === 'immersive' && !reducedMotion`
-  - _Requirements: 2.1-2.6_
+- [ ] 12. Apply scroll-triggered motion system to ALL remaining sections
+  - [ ] 12.1 Projects/BentoGrid: every card enters with `whileInView` (staggered scale + drift), parallax on decorative elements, hover animations enhanced
+  - [ ] 12.2 Skills section: every icon enters with scroll-triggered stagger, parallax on category labels, subtle idle drift in Immersive mode
+  - [ ] 12.3 Resume CTA: fade + drift entrance, parallax on decorative elements
+  - [ ] 12.4 Footer: staggered entrance per link/element, parallax on personality line
+  - [ ] 12.5 Project case study pages: scroll-triggered entrance per content block (hero shot, problem, architecture, etc.)
 
-- [ ] 7. Reuse particle system in About
-  - [ ] 7.1 Build `PortraitReveal` reusing the hero particle component (cloudA) — do not duplicate the shader/canvas logic
-  - [ ] 7.2 Build `ScatterFragments` (staggered fade/drift, per-session-seeded, not re-randomized per render)
-  - [ ] 7.3 Build `SideStrip` (idle vertical drift, hover-expand toward cursor, siblings compress) — instance twice for Journey/Hobbies
-  - [ ] 7.4 Build `PhotoLightbox` for click-to-expand captions
-  - [ ] 7.5 Wire About's two-beat sequence: photo+scatter reveal on section enter → strips on continued scroll
-  - _Requirements: 3.1-3.5_
+- [ ] 13. Responsive + multi-platform pass
+  - [ ] 13.1 Test and fix all layouts at: 320px, 375px, 428px, 768px, 1024px, 1280px, 1440px, 1920px, 2560px (ultrawide)
+  - [ ] 13.2 Ensure particle canvas scales correctly on all viewports (camera FOV / position adjustments)
+  - [ ] 13.3 Touch gesture support: swipe panels, tap interactions, no hover-dependent content
+  - [ ] 13.4 Landscape mobile: adjust hero heights, knockout text sizing, About panels
+  - [ ] 13.5 Tablet: ensure bento grid, about panels, and nav all adapt gracefully
+  - [ ] 13.6 Use relative units (vw, vh, clamp, %) over fixed px where possible
+  - [ ] 13.7 Test reduced-motion: all parallax/scroll-triggers gracefully degrade
 
-- [ ] 8. Immersive extras — magnetic hover + kinetic typography
-  - [ ] 8.1 Magnetic hover on buttons/links (subtle attraction within small radius)
-  - [ ] 8.2 Kinetic variable-weight typography on section headings (scroll/hover driven)
+- [ ] 14. Immersive extras
+  - [ ] 14.1 Magnetic hover on buttons/links (subtle attraction)
+  - [ ] 14.2 Kinetic variable-weight typography on headings
+  - [ ] 14.3 Per-cell WebGL demo in project cards (deferred)
+  - [ ] 14.4 Audio-reactive easter egg (explicit click, no autoplay)
 
-- [ ] 9. Skills field polish (Immersive)
-  - [ ] 9.1 Add staggered idle drift animation per icon
-  - [ ] 9.2 Add optional "how I've used this" note on hover, sourced from `lib/content/skills.ts`
-  - _Requirements: 6.1, 6.3_
+- [ ] 15. Performance + accessibility
+  - [ ] 15.1 Visible focus states on all interactive elements
+  - [ ] 15.2 Keyboard navigation through panels, tabs, cards
+  - [ ] 15.3 WebGL canvas unmounted in Clean mode (not CSS-hidden)
+  - [ ] 15.4 Lazy load images, preload particle source only in Immersive
+  - [ ] 15.5 Lighthouse audit: target 90+ on Performance, Accessibility, Best Practices
 
-- [ ] 10. Bento grid Immersive upgrade (defer until base grid is stable)
-  - [ ] 10.1 Design isolated mini-interactive/WebGL component contract per device frame
-  - [ ] 10.2 Mount per-cell demo only in Immersive mode, one project at a time, verifying performance before adding the next
-  - _Requirements: 4.6_
+- [ ] 16. Content pass (ongoing)
+  - [ ] 16.1 Replace placeholder project screenshots with real media
+  - [ ] 16.2 Fill per-project architecture/challenge content
+  - [ ] 16.3 Add Journey/Hobbies photos + captions for Beyond the Code panel
+  - [ ] 16.4 Finalize resume PDF
 
-- [ ] 11. Optional easter egg
-  - [ ] 11.1 Audio-reactive visualizer, gated behind explicit click, no autoplay audio
+---
 
-- [ ] 12. Accessibility and responsiveness pass
-  - [ ] 12.1 Verify visible focus states on all interactive elements (toggle, cards, icons, links)
-  - [ ] 12.2 Verify responsive collapse of bento grid, side strips, and hero at mobile widths
-  - [ ] 12.3 Manually toggle OS `prefers-reduced-motion` and confirm Immersive degrades correctly across hero, about, and projects
-  - _Requirements: 1.4, 8.2, 8.3_
+## Motion System Quick Reference (for every section)
 
-- [ ] 13. Content pass (ongoing, not blocking build)
-  - [ ] 13.1 Replace placeholder project screenshots with real media as available
-  - [ ] 13.2 Fill in per-project architecture/challenge content as Randel provides it
-  - [ ] 13.3 Fill in Journey/Hobbies photos + captions once available
+```tsx
+// 1. Section-level scroll tracking
+const sectionRef = useRef(null);
+const { scrollYProgress } = useScroll({
+  target: sectionRef,
+  offset: ["start end", "end start"],
+});
+
+// 2. Parallax transforms (decorative elements)
+const yDecor = useTransform(scrollYProgress, [0, 1], [100, -80]);
+
+// 3. Per-element entrance (whileInView)
+<motion.div
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, margin: "-80px" }}
+  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+/>
+
+// 4. Staggered children
+transition={{ delay: index * 0.08 }}
+
+// 5. Responsive: use clamp() for sizes, relative units, test all breakpoints
+```

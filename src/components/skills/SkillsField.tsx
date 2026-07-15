@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { AnimatedSection } from "@/components/AnimatedSection";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { skills, skillCategories } from "@/lib/content/skills";
 import { useModeStore } from "@/lib/store/mode";
 
@@ -9,30 +9,86 @@ export function SkillsField() {
   const mode = useModeStore((s) => s.mode);
   const reducedMotion = useModeStore((s) => s.reducedMotion);
   const shouldDrift = mode === "immersive" && !reducedMotion;
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  });
+
+  const yDecor1 = useTransform(scrollYProgress, [0, 1], [90, -70]);
+  const yDecor2 = useTransform(scrollYProgress, [0, 1], [-20, 40]);
 
   return (
-    <AnimatedSection id="skills" className="flex items-center justify-center px-6 py-20 md:py-24">
-      <div className="mx-auto max-w-5xl">
-        <p className="mb-8 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.2em] text-accent">Skills</p>
-        <h2 className="mb-12 font-[family-name:var(--font-display)] text-3xl font-bold sm:text-4xl">Tech I work with</h2>
-        <div className="grid gap-12 md:grid-cols-2">
-          {skillCategories.map((category) => {
+    <section
+      ref={sectionRef}
+      id="skills"
+      data-snap-section=""
+      className="relative overflow-hidden px-6 py-32 md:py-40"
+    >
+      {/* Decorative — full bleed */}
+      <motion.div
+        className="absolute top-[15%] right-[10%] w-36 h-36 rounded-full pointer-events-none"
+        style={{
+          y: yDecor1,
+          background: "radial-gradient(circle, rgba(209, 26, 42, 0.05) 0%, transparent 70%)",
+        }}
+      />
+      <motion.div
+        className="absolute bottom-[25%] left-[6%] w-44 h-44 rounded-full pointer-events-none"
+        style={{
+          y: yDecor2,
+          background: "radial-gradient(circle, rgba(242, 184, 75, 0.03) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="mx-auto w-full max-w-6xl relative z-10">
+        <motion.p
+          className="mb-6 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        >
+          Skills
+        </motion.p>
+
+        <motion.h2
+          className="mb-14 font-[family-name:var(--font-display)] text-4xl font-bold text-text md:text-5xl lg:text-6xl leading-[1.1]"
+          initial={{ opacity: 0, x: -50, filter: "blur(4px)" }}
+          whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        >
+          Tech I <span className="text-accent">work with.</span>
+        </motion.h2>
+
+        <div className="grid gap-14 md:grid-cols-2">
+          {skillCategories.map((category, catIdx) => {
             const categorySkills = skills.filter((s) => s.category === category.key);
             if (categorySkills.length === 0) return null;
             return (
-              <div key={category.key}>
-                <h3 className="mb-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">{category.label}</h3>
+              <motion.div
+                key={category.key}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ duration: 0.5, delay: catIdx * 0.1, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <h3 className="mb-5 font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">
+                  {category.label}
+                </h3>
                 <div className="flex flex-wrap gap-3">
                   {categorySkills.map((skill, i) => (
                     <SkillIcon key={skill.name} skill={skill} index={i} shouldDrift={shouldDrift} />
                   ))}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
       </div>
-    </AnimatedSection>
+    </section>
   );
 }
 
@@ -45,9 +101,7 @@ function SkillIcon({
   index: number;
   shouldDrift: boolean;
 }) {
-  // Index-based offset so icons drift out of phase
   const driftDelay = index * 0.4;
-  // Vary duration slightly per icon (3–5s range)
   const driftDuration = 3 + (index % 5) * 0.5;
 
   const driftAnimate = shouldDrift
@@ -56,20 +110,8 @@ function SkillIcon({
 
   const driftTransition = shouldDrift
     ? {
-        y: {
-          duration: driftDuration,
-          ease: "easeInOut" as const,
-          repeat: Infinity,
-          repeatType: "mirror" as const,
-          delay: driftDelay,
-        },
-        rotate: {
-          duration: driftDuration,
-          ease: "easeInOut" as const,
-          repeat: Infinity,
-          repeatType: "mirror" as const,
-          delay: driftDelay,
-        },
+        y: { duration: driftDuration, ease: "easeInOut" as const, repeat: Infinity, repeatType: "mirror" as const, delay: driftDelay },
+        rotate: { duration: driftDuration, ease: "easeInOut" as const, repeat: Infinity, repeatType: "mirror" as const, delay: driftDelay },
       }
     : undefined;
 
@@ -77,14 +119,14 @@ function SkillIcon({
     <motion.div
       className="group relative"
       tabIndex={0}
-      initial={{ opacity: 0, scale: 0.9 }}
-      whileInView={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 15, scale: 0.9 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true }}
       animate={driftAnimate}
       transition={{
-        duration: 0.3,
+        duration: 0.4,
         delay: index * 0.04,
-        ease: [0.4, 0, 0.2, 1],
+        ease: [0.22, 1, 0.36, 1],
         ...driftTransition,
       }}
     >

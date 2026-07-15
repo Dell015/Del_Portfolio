@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { motion, AnimatePresence, useScroll, useTransform, type PanInfo } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, type PanInfo, type MotionValue } from "framer-motion";
 import { scatterFragments } from "@/lib/content/site";
 
 /**
- * About Section — horizontal panel switch with scroll-triggered parallax.
+ * About Section — horizontal panel switch with scroll-triggered parallax on every element.
  * 
- * Two panels: "Development" and "Beyond the Code"
- * Switch by clicking tabs or dragging/swiping horizontally.
- * All elements have scroll-triggered entrance + parallax depth.
+ * Every element reacts to scroll — different speeds, different directions.
+ * No dead space. Something is always moving.
  */
 
 const SWIPE_THRESHOLD = 50;
@@ -29,11 +28,19 @@ const slideVariants = {
   }),
 };
 
-function DevelopmentPanel() {
+function DevelopmentPanel({ scrollYProgress }: { scrollYProgress: MotionValue<number> }) {
+  // Per-element parallax — every element moves at a different speed
+  const yHeading = useTransform(scrollYProgress, [0, 1], [40, -30]);
+  const yBody = useTransform(scrollYProgress, [0, 1], [25, -15]);
+  const yFragments = useTransform(scrollYProgress, [0, 1], [35, -25]);
+  const yStats = useTransform(scrollYProgress, [0, 1], [50, -35]);
+  const yQuote = useTransform(scrollYProgress, [0, 1], [20, -10]);
+
   return (
     <div>
       <motion.h2
         className="mb-8 font-[family-name:var(--font-display)] text-4xl font-bold text-text md:text-5xl lg:text-6xl leading-[1.1]"
+        style={{ y: yHeading }}
         initial={{ opacity: 0, y: 30, filter: "blur(4px)" }}
         whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         viewport={{ once: true, margin: "-80px" }}
@@ -46,6 +53,7 @@ function DevelopmentPanel() {
 
       <motion.p
         className="max-w-xl text-lg leading-relaxed text-text-muted md:text-xl"
+        style={{ y: yBody }}
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-60px" }}
@@ -55,8 +63,8 @@ function DevelopmentPanel() {
         write the code that holds it together. No hand-offs, no excuses.
       </motion.p>
 
-      {/* Scatter fragments */}
-      <div className="mt-10 flex flex-wrap gap-3">
+      {/* Scatter fragments — each at slightly different parallax */}
+      <motion.div className="mt-10 flex flex-wrap gap-3" style={{ y: yFragments }}>
         {scatterFragments.map((fragment, i) => (
           <motion.span
             key={fragment}
@@ -69,10 +77,10 @@ function DevelopmentPanel() {
             {fragment}
           </motion.span>
         ))}
-      </div>
+      </motion.div>
 
-      {/* Stats */}
-      <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-5">
+      {/* Stats — aggressive parallax */}
+      <motion.div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-5" style={{ y: yStats }}>
         {[
           { value: "5+", label: "Products Built" },
           { value: "3", label: "Team Leads" },
@@ -95,10 +103,11 @@ function DevelopmentPanel() {
             </p>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <motion.p
         className="mt-12 font-[family-name:var(--font-serif)] text-lg italic text-text-muted/60 max-w-lg"
+        style={{ y: yQuote }}
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
@@ -110,11 +119,17 @@ function DevelopmentPanel() {
   );
 }
 
-function PersonalPanel() {
+function PersonalPanel({ scrollYProgress }: { scrollYProgress: MotionValue<number> }) {
+  const yHeading = useTransform(scrollYProgress, [0, 1], [40, -30]);
+  const yBody = useTransform(scrollYProgress, [0, 1], [25, -15]);
+  const yCards = useTransform(scrollYProgress, [0, 1], [45, -30]);
+  const yQuote = useTransform(scrollYProgress, [0, 1], [20, -10]);
+
   return (
     <div>
       <motion.h2
         className="mb-8 font-[family-name:var(--font-display)] text-4xl font-bold text-text md:text-5xl lg:text-6xl leading-[1.1]"
+        style={{ y: yHeading }}
         initial={{ opacity: 0, y: 30, filter: "blur(4px)" }}
         whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         viewport={{ once: true, margin: "-80px" }}
@@ -127,6 +142,7 @@ function PersonalPanel() {
 
       <motion.p
         className="max-w-xl text-lg leading-relaxed text-text-muted md:text-xl"
+        style={{ y: yBody }}
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-60px" }}
@@ -136,8 +152,8 @@ function PersonalPanel() {
         conversations, communities, and the kind of problems you can&apos;t solve with a keyboard.
       </motion.p>
 
-      {/* Personal cards */}
-      <div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Personal cards — parallax */}
+      <motion.div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-6" style={{ y: yCards }}>
         {[
           {
             title: "Founder Mindset",
@@ -172,10 +188,11 @@ function PersonalPanel() {
             </p>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <motion.p
         className="mt-14 text-right font-[family-name:var(--font-serif)] text-lg italic text-text-muted/60 max-w-md ml-auto"
+        style={{ y: yQuote }}
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
@@ -192,18 +209,17 @@ export function About() {
   const [direction, setDirection] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Scroll-linked parallax for the section
+  // Section scroll progress — drives parallax on ALL elements
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start end", "end start"],
   });
 
-  // Parallax on decorative elements
+  // Decorative parallax
   const yDecor1 = useTransform(scrollYProgress, [0, 1], [100, -80]);
   const yDecor2 = useTransform(scrollYProgress, [0, 1], [-30, 50]);
   const yDecor3 = useTransform(scrollYProgress, [0, 1], [60, -40]);
-  // Subtle parallax on the tab container
-  const yTabs = useTransform(scrollYProgress, [0, 1], [20, -10]);
+  const yTabs = useTransform(scrollYProgress, [0, 1], [15, -8]);
 
   const switchTab = (newTab: 0 | 1) => {
     setDirection(newTab > activeTab ? 1 : -1);
@@ -223,34 +239,34 @@ export function About() {
       ref={sectionRef}
       id="about"
       data-snap-section=""
-      className="relative min-h-screen overflow-hidden px-6 py-32 md:py-40"
+      className="relative min-h-screen overflow-hidden py-32 md:py-40"
     >
-      {/* Decorative floating elements with aggressive parallax */}
+      {/* Decorative — full bleed to edges */}
       <motion.div
-        className="absolute top-20 right-[12%] w-36 h-36 rounded-full pointer-events-none"
+        className="absolute top-20 right-[5%] w-36 h-36 rounded-full pointer-events-none"
         style={{
           y: yDecor1,
           background: "radial-gradient(circle, rgba(209, 26, 42, 0.06) 0%, transparent 70%)",
         }}
       />
       <motion.div
-        className="absolute top-[55%] left-[5%] w-44 h-44 rounded-full pointer-events-none"
+        className="absolute top-[55%] left-[2%] w-44 h-44 rounded-full pointer-events-none"
         style={{
           y: yDecor2,
           background: "radial-gradient(circle, rgba(209, 26, 42, 0.04) 0%, transparent 70%)",
         }}
       />
       <motion.div
-        className="absolute bottom-[15%] right-[8%] w-28 h-28 rounded-full pointer-events-none"
+        className="absolute bottom-[15%] right-[3%] w-28 h-28 rounded-full pointer-events-none"
         style={{
           y: yDecor3,
           background: "radial-gradient(circle, rgba(242, 184, 75, 0.04) 0%, transparent 70%)",
         }}
       />
 
-      <div className="mx-auto max-w-5xl relative z-10">
+      <div className="w-full px-8 md:px-16 lg:px-24 relative z-10">
 
-        {/* Tab navigation — scroll-triggered entrance + subtle parallax */}
+        {/* Tab navigation — parallax */}
         <motion.div
           className="flex items-center gap-8 mb-12"
           style={{ y: yTabs }}
@@ -290,7 +306,6 @@ export function About() {
             )}
           </button>
 
-          {/* Drag hint */}
           <motion.span
             className="ml-auto font-[family-name:var(--font-mono)] text-[10px] text-text-muted/30 uppercase tracking-widest hidden md:block"
             initial={{ opacity: 0 }}
@@ -302,9 +317,9 @@ export function About() {
           </motion.span>
         </motion.div>
 
-        {/* Panel container — draggable with scroll-triggered entrance */}
+        {/* Panel container */}
         <motion.div
-          className="relative overflow-hidden"
+          className="relative"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
@@ -328,7 +343,10 @@ export function About() {
               onDragEnd={handleDragEnd}
               className="cursor-grab active:cursor-grabbing"
             >
-              {activeTab === 0 ? <DevelopmentPanel /> : <PersonalPanel />}
+              {activeTab === 0
+                ? <DevelopmentPanel scrollYProgress={scrollYProgress} />
+                : <PersonalPanel scrollYProgress={scrollYProgress} />
+              }
             </motion.div>
           </AnimatePresence>
         </motion.div>
