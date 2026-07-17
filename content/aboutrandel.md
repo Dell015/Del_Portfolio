@@ -17,7 +17,7 @@ Fill this out and I'll integrate everything into the portfolio.
 
 ## Bio / Elevator Pitch
 
-> "I'm Randel — a full-stack developer and startup founder. I've led technical teams to regional competitions, and I build products meant to scale from day one."
+> "I'm Randel — a full-stack developer and startup founder. I build products that solve problems I find genuinely interesting, and I make sure they're meant to scale from day one."
 
 _Note: Dropped "aspiring" — you've shipped 5+ products, led teams to regionals, and are actively building production software. You've earned the title._
 

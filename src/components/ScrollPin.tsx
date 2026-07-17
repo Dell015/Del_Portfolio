@@ -70,9 +70,11 @@ export function ScrollPin({
     if (!el || !scroller) return;
 
     let ctx: gsap.Context | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     // Small delay to let DOM settle after scroll unlock
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
+      timer = null;
       ctx = gsap.context(() => {
         ScrollTrigger.create({
           trigger: el,
@@ -96,8 +98,13 @@ export function ScrollPin({
     }, 150);
 
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       if (ctx) ctx.revert();
+      // Kill any ScrollTriggers associated with this element to prevent
+      // GSAP pin-spacer from conflicting with React's DOM cleanup
+      ScrollTrigger.getAll()
+        .filter((st) => st.trigger === el || st.pin === el)
+        .forEach((st) => st.kill());
     };
   }, [reducedMotion, scrollLocked, containerRef, pinDistance, scrub, stableSnap, snapDuration, updateProgress]);
 

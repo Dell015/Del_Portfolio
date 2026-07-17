@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModeStore } from "@/lib/store/mode";
 import { useSnapScroll } from "@/components/SmoothScroll";
-import { useIsVisible } from "@/lib/hooks/useIsVisible";
 import { HeroStatic } from "./HeroStatic";
 import { HeroParticleCanvas } from "./HeroParticleCanvas";
 import { AboutHeroText } from "@/components/about/AboutHeroText";
@@ -142,7 +141,6 @@ export function Hero() {
   const reducedMotion = useModeStore((s) => s.reducedMotion);
   const isImmersive = mode === "immersive" && !reducedMotion;
   const { unlockScroll } = useSnapScroll();
-  const { ref: visRef, visible: heroVisible } = useIsVisible("400px");
 
   const [clouds, setClouds] = useState<{
     cloudA: PointCloud;
@@ -221,16 +219,13 @@ export function Hero() {
       data-snap-section=""
       className="relative flex h-screen flex-col items-center justify-center"
     >
-      <div ref={visRef} className="absolute inset-0" />
-      {/* Particle canvas — unmounts when hero is off-screen */}
-      {heroVisible && (
-        <HeroParticleCanvas
-          cloudA={clouds.cloudA}
-          cloudB={clouds.cloudB}
-          revealTriggered={revealTriggered}
-          onRevealComplete={handleRevealComplete}
-        />
-      )}
+      {/* Particle canvas — persists through all sections (fixed position) */}
+      <HeroParticleCanvas
+        cloudA={clouds.cloudA}
+        cloudB={clouds.cloudB}
+        revealTriggered={revealTriggered}
+        onRevealComplete={handleRevealComplete}
+      />
 
       {/* Text overlay — z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}
       <div className={`pointer-events-none ${revealed ? "absolute inset-0 z-0" : "relative z-10 flex flex-col items-center text-center px-6"}`}>

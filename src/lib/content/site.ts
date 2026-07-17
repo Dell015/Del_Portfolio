@@ -9,7 +9,7 @@ export const site = {
 
 export const bio = {
   short:
-    "I'm Randel — an aspiring full-stack developer and startup founder. I've led technical teams to regional competitions, and I build products meant to scale from day one, not bolted on after.",
+    "I'm Randel — a full-stack developer and startup founder. I build products that solve problems I find genuinely interesting, and I make sure they're meant to scale from day one.",
 } as const;
 
 export const scatterFragments = [
@@ -17,7 +17,7 @@ export const scatterFragments = [
   "ships fast, fixes faster",
   "founder at heart",
   "full-stack, full send",
-  "competition-tested",
+  "curiosity-driven",
   "figures it out",
   "still building, always",
   "scales teams and code",

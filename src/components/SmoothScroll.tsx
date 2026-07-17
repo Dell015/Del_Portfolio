@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * Scroll context: exposes current page index, scroll progress, and lock state.
@@ -58,6 +59,40 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [scrollLocked, setScrollLocked] = useState(true);
+  const pathname = usePathname();
+
+  // Count sections on mount
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const sections = container.querySelectorAll<HTMLElement>("[data-snap-section]");
+    setTotalPages(sections.length);
+  }, []);
+
+  // When navigating back to home page with a hash, unlock scroll and scroll to section
+  useEffect(() => {
+    if (pathname !== "/") {
+      // Non-home pages should never be scroll-locked
+      setScrollLocked(false);
+      return;
+    }
+
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+
+    // Unlock scroll since user is returning (already saw the hero)
+    setScrollLocked(false);
+
+    // Wait for DOM to settle then scroll to the target section
+    const timer = setTimeout(() => {
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   // Count sections on mount
   useEffect(() => {

@@ -86,8 +86,8 @@ function DevelopmentPanel({ scrollYProgress }: { scrollYProgress: MotionValue<nu
       <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-5">
         {[
           { value: "5+", label: "Products Built" },
-          { value: "3", label: "Team Leads" },
-          { value: "Regional", label: "Competition Level" },
+          { value: "3", label: "Teams Led" },
+          { value: "5", label: "Tech Stacks" },
           { value: "Day 1", label: "Scale Mindset" },
         ].map((stat, i) => (
           <ParallaxItem
@@ -149,11 +149,11 @@ function PersonalPanel({ scrollYProgress }: { scrollYProgress: MotionValue<numbe
           },
           {
             title: "Team Leadership",
-            description: "Led technical teams to regional competitions. Great teams ship great products — I build both.",
+            description: "Led teams of 3–5 across different projects and stacks. Great teams ship great products — I build both.",
           },
           {
-            title: "Continuous Learning",
-            description: "Always picking up new frameworks, patterns, and perspectives. The moment I stop learning is the moment I stop being useful.",
+            title: "Curiosity-Driven",
+            description: "I build what genuinely interests me — fitness AI, vehicle diagnostics, drinking games, integrity auditors. The stack follows the problem, not the other way around.",
           },
           {
             title: "Real Conversations",

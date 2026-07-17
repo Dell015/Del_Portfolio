@@ -4,6 +4,7 @@ import { ModeProvider } from "@/components/mode/ModeProvider";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
 import { NavWheel } from "@/components/navigation/NavWheel";
+import { RouteChangeCleanup } from "@/components/RouteChangeCleanup";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -63,6 +64,7 @@ export default function RootLayout({
     >
       <body className="h-full overflow-hidden">
         <ModeProvider>
+          <RouteChangeCleanup />
           <SmoothScroll>
             <Nav />
             <NavWheel />
