@@ -16,7 +16,7 @@ All copy, project data, skills, and contact info lives here. Code pulls from thi
 
 > "I'm Randel — an aspiring full-stack developer and startup founder. I've led technical teams to regional competitions, and I build products meant to scale from day one, not bolted on after."
 
-### Scatter Fragments (floating text around portrait)
+### Scatter Fragments (floating text around portrait) ✅ IN CODE
 - "leads before it's asked"
 - "ships fast, fixes faster"
 - "founder at heart"
@@ -26,11 +26,58 @@ All copy, project data, skills, and contact info lives here. Code pulls from thi
 - "still building, always"
 - "scales teams and code"
 
+### Development Panel (tab 1) ✅ IN CODE
+- **Heading:** "I build things that actually ship."
+- **Body:** "From concept to production — I lead teams, architect systems, and write the code that holds it together. No hand-offs, no excuses."
+- **Stats:** 5+ Products Built | 3 Team Leads | Regional Competition Level | Day 1 Scale Mindset
+- **Quote:** "If it doesn't ship, it doesn't count."
+
+### Personal Panel — "Beyond the Code" (tab 2) ✅ IN CODE
+- **Heading:** "The person behind the terminal."
+- **Body:** "When I'm not shipping code, I'm exploring ideas that don't compile — conversations, communities, and the kind of problems you can't solve with a keyboard."
+- **Cards:**
+  - Founder Mindset — "I think in products, not features. Every project starts with 'who is this for?' and ends with 'did it ship?'"
+  - Team Leadership — "Led technical teams to regional competitions. Great teams ship great products — I build both."
+  - Continuous Learning — "Always picking up new frameworks, patterns, and perspectives. The moment I stop learning is the moment I stop being useful."
+  - Real Conversations — "Some of my best product ideas came from talking to people, not reading docs. I value the human side of building."
+- **Quote:** "Let's build something that actually ships."
+
+### Knockout Text (hero-to-about transition) ✅ IN CODE
+- **Top word:** FULLSTACK (left-aligned)
+- **Bottom word:** DEVELOPER (right-aligned)
+- **Bio lines:** "Turning ideas into real products with clean interfaces and fast execution." / "Your next app — designed, built, and shipped. From zero to launch, no shortcuts."
+
 ### Journey Milestones (left strip)
 - TODO: awaiting photos and milestone list from Randel
 
 ### Hobbies (right strip)
 - TODO: awaiting photos and hobby list from Randel
+
+---
+
+### ❓ Questions for Randel (About Section)
+
+**Identity & Bio:**
+1. Is "aspiring" still accurate? You've shipped 5+ products and led teams to regionals — should the bio drop "aspiring" and own it more directly?
+2. Any updated identity statement? The hero question ("Founder. Developer. Team lead. Which one are you about to meet?") — still good, or want to revise?
+
+**Stats (Development Panel):**
+3. "5+ Products Built" — still accurate? Should it be higher?
+4. "3 Team Leads" — what does this mean exactly? 3 times you've been team lead? 3 teams led?
+5. "Regional Competition Level" — which competition(s)? Should we name them?
+6. Any other stats to highlight? (years coding, hackathons won, users served, etc.)
+
+**Personal Panel ("Beyond the Code"):**
+7. The four cards (Founder Mindset, Team Leadership, Continuous Learning, Real Conversations) — are these the right angles? Would you swap any for something more specific to you? (hobbies, interests, what you do on weekends)
+8. Journey milestones — can you give a timeline? (e.g., "Started coding → First hackathon → Led first team → Built Karela → ...")
+9. Hobbies — what are they? The right strip needs this. (Gaming? Sports? Music? Photography? Coffee? Travel?)
+
+**Quotes & Tone:**
+10. "If it doesn't ship, it doesn't count" — is this your actual mantra, or should we use something more personal?
+11. The overall tone is very "hustle/ship/build" — is that how you actually talk, or do you want some warmth/humor mixed in?
+
+**Photos:**
+12. Do you have photos ready for: your portrait (hero), journey milestones, hobbies? Or still using placeholders?
 
 ---
 
@@ -195,8 +242,14 @@ All copy, project data, skills, and contact info lives here. Code pulls from thi
 ---
 
 ## Open Items (fill as available)
+- [x] Identity statement + hero question (working defaults in code)
+- [x] Scatter fragments (in code)
+- [x] About bio (in code)
+- [x] Development panel content — heading, body, stats, quote (in code)
+- [x] Personal panel content — heading, body, 4 cards, quote (in code)
+- [x] Knockout text — FULLSTACK/DEVELOPER + bio lines (in code)
 - [ ] Per-project: architecture decisions, challenges, live/repo links, screenshots
 - [ ] Journey milestones + photos
 - [ ] Hobbies + photos
 - [ ] Resume PDF file
-- [ ] Final pick on identity statement / hero question (current drafts are the working default)
+- [ ] Answers to About section questions (see ❓ Questions for Randel above)
