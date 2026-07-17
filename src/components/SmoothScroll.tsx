@@ -12,6 +12,7 @@ interface ScrollContextValue {
   totalPages: number;
   scrollLocked: boolean;
   unlockScroll: () => void;
+  lockScroll: () => void;
   scrollToSection: (id: string) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -39,6 +40,7 @@ const ScrollContext = createContext<ScrollContextValue>({
   totalPages: 0,
   scrollLocked: true,
   unlockScroll: () => {},
+  lockScroll: () => {},
   scrollToSection: () => {},
   containerRef: { current: null },
 });
@@ -60,6 +62,24 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const [totalPages, setTotalPages] = useState(0);
   const [scrollLocked, setScrollLocked] = useState(true);
   const pathname = usePathname();
+
+  // Disable browser scroll restoration and force scroll to top on mount.
+  // This prevents the particle system from rendering in a stale mid-scroll state on reload.
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+    // Reset external scroll store
+    _scrollProgress = 0;
+    _currentPage = 0;
+    notifyScrollListeners();
+  }, []);
 
   // Count sections on mount
   useEffect(() => {
@@ -94,14 +114,6 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Count sections on mount
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const sections = container.querySelectorAll<HTMLElement>("[data-snap-section]");
-    setTotalPages(sections.length);
-  }, []);
-
   // Track scroll position — updates external store, NOT React state
   useEffect(() => {
     const container = containerRef.current;
@@ -131,6 +143,10 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
   const unlockScroll = useCallback(() => {
     setScrollLocked(false);
+  }, []);
+
+  const lockScroll = useCallback(() => {
+    setScrollLocked(true);
   }, []);
 
   const scrollToSection = useCallback((id: string) => {
@@ -174,6 +190,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         totalPages,
         scrollLocked,
         unlockScroll,
+        lockScroll,
         scrollToSection,
         containerRef,
       }}
