@@ -185,4 +185,43 @@ export const projects: Project[] = [
         "Phase 0: Deploy frontend + backend + DB (prove they talk). Phase 1: Vehicle CRUD → Timeline → Reminders → Status Dashboard → Trust Layer. Phase 2: Three.js 3D viewer with clickable hotspots and real-time status coloring. Phase 3: Claude-powered AI diagnostic chatbot using vehicle's own component history.",
     },
   },
+  {
+    slug: "seated",
+    name: "Seated",
+    platform: "mobile",
+    cardVariant: "mobile",
+    pitch:
+      "A real-time seat and dining platform that gives you back control over who you sit near, whether your phone or your company gets your attention, and how you discover where to eat.",
+    description:
+      "Real-time seat and dining platform built around three mechanisms: Exposure Control (choose your social comfort level), Presence Mode (sensor-driven phone-down sessions that make being present the default), and Explore Mode (neutral geographic discovery via Apple Maps + OpenStreetMap, no trending or algorithmic ranking). Includes QR check-in, 5-minute table claims, pre-ordering, and staff management.",
+    role: "Lead Developer",
+    teamSize: "Team project — Randel as lead dev",
+    techStack: [
+      "React Native",
+      "Expo SDK 54",
+      "TypeScript",
+      "react-native-maps",
+      "expo-location",
+      "expo-camera",
+      "expo-sensors",
+      "React Navigation",
+      "FastAPI",
+      "Python",
+      "Supabase",
+      "PostgreSQL",
+      "PostGIS",
+      "OpenStreetMap Overpass API",
+      "HMAC-SHA256",
+    ],
+    identityGradient: ["#FF6A00", "#FF6A00"],
+    caseStudy: {
+      timeline: "Active development — Competition demo ready July 2025",
+      architectureNote:
+        "Expo/React Native + FastAPI + Supabase. QR-based check-in with HMAC-signed rotating tokens (NFC deferred for Expo Go compatibility). Presence Mode uses accelerometer + gyroscope sensor fusion for phone-down detection. Explore Mode dual-layer: Supabase partner restaurants (orange pins) + OSM Overpass API for all nearby food establishments (teal pins). Race-condition-safe table claiming via PostgreSQL FOR UPDATE SKIP LOCKED.",
+      challenge:
+        "Building sensor-driven Presence Mode that reliably detects phone orientation across devices without native modules (pure Expo). Designing Explore Mode to deliberately refuse algorithmic ranking while still being useful — surfacing places by neutral geography, not popularity. Handling concurrent table claims without race conditions at the database level.",
+      nextSteps:
+        "IGNITE OGIS Start-Up Competition 2026 submission. Post-competition: NFC check-in upgrade (Custom Dev Client), PayMongo payment integration for no-show fees, CCTV-assisted occupancy detection (YOLOv8), Seated Points redemption system, multi-language support (Tagalog/Ilocano).",
+    },
+  },
 ];

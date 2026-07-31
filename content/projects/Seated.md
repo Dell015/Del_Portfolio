@@ -1,318 +1,576 @@
 # 🪑 SEATED — Full Startup Brief
 ### *Disconnected by Design: Redesigning How People Connect Around a Meal*
-*Startup Competition Reference Document — Version 3.1*
-*(v3.0: revised for "つながらない価値 — Disconnected by Design" theme fit — original seat-certainty product retained as supporting infrastructure, front-facing pitch restructured around connection quality, not connection speed. v3.1: mobile stack migrated from Flutter to Expo/React Native + TypeScript; no product or feature changes.)*
+*Startup Competition Reference Document — Version 4.0*
+*(v4.0: reflects the actual built product as of July 2025 — Expo/React Native + FastAPI + Supabase stack fully implemented; Explore Mode uses Apple Maps + OpenStreetMap Overpass API; Presence Mode uses accelerometer/gyroscope sensor detection + app backgrounding; no CCTV AI or NFC in MVP; QR-based check-in with server-signed dynamic tokens.)*
 
 ---
 
 ## 0. WHY THIS VERSION EXISTS
 
-The original Seated brief (v2.0) solved a real problem — people can't find seats, restaurants lose walk-by traffic — but its core optimization target was **certainty and speed of connection**: get a hungry person into a seat as fast and predictably as possible. That is close to the opposite of what this theme asks. The theme's opening question is whether constant connectivity actually produces meaningful interaction — and a product whose entire value proposition is "more certainty, more speed, more successful matches between people and seats" doesn't answer that question, it dodges it.
+Version 3.1 was the planning document. This is version 4.0 — the document that describes **what was actually built and how it works today**.
 
-This version keeps the underlying infrastructure (NFC check-in, real-time seat tracking, Supabase backend) but changes what the product is *for*. Three new mechanisms carry the actual theme argument. Everything else — seat-finding, no-show fees, peak prediction — is now supporting plumbing underneath these, not the headline.
+Key differences from v3.1:
+- **Map provider:** Apple Maps (via `react-native-maps`) instead of Google Maps — works in Expo Go without an API key, zero cost.
+- **Discovery data:** OpenStreetMap Overpass API for nearby places (restaurants, cafes, kiosks, food stalls, street vendors, bars, bakeries) — free, no API key required. Seated partner restaurants come from the Supabase database.
+- **Check-in method:** Dynamic QR codes (HMAC-signed, rotating every 10 minutes) — not NFC. NFC requires a custom dev client build; QR works in Expo Go for demos.
+- **Presence Mode detection:** Accelerometer + gyroscope sensors (phone face-down detection) plus app backgrounding (phone locked) — not OS-level notification silencing. No native module needed.
+- **No CCTV AI in MVP:** The YOLOv8 occupancy detection is deferred. Real-time table status is managed manually by staff through the app.
+- **No payment processing in MVP:** PayMongo integration deferred. No-show fees are tracked but not charged.
+- **Pre-ordering added:** Users can place food orders after claiming a table, before arriving.
+- **Mood/occasion filter chips:** Explore Mode includes filters like Quiet Dinner, Celebration, Study Café, Solo-Friendly, Late-Night, Family, Outdoor, Group Dining.
 
-**The old rule, stated plainly:** public eating spaces are designed around throughput — get more people through more seats, faster — and if you want solitude, or to disengage from your phone, or to discover something on your own terms, you get whatever's left over or you pay a social cost for asking.
-
-**The new rule:** your desired level of contact — with strangers, with your phone, with what's trending — is the thing the system is built around, and choosing less of it costs you nothing.
+Everything else from the v3.1 vision — the three-feature structure, the theme argument, the business model — remains intact. This document describes the product as it exists.
 
 ---
 
 ## 1. THE PROBLEM: THIS IS NOT ABOUT CHAIRS
 
-Let's be blunt about what actually happens when there are no seats — and about what happens even when there are.
+The problem hasn't changed from v3.1, but the product now has a working answer to it.
 
-A college student has a 30-minute lunch break. She skips her first choice because the line outside tells her it's full. She walks to the next place — full. She finally gets a seat, but it's wedged at a communal table between two strangers, elbow to elbow, phone out because there's nothing else to do with the forced proximity and the eight minutes she has left. She never chose any of this — not the strangers, not the noise, not the reflex to look at her phone instead of the moment in front of her. She just took whatever the room gave her.
+A college student has a 30-minute lunch break. She skips her first choice because the line outside tells her it's full. She walks to the next place — full. She finally gets a seat, but it's wedged at a communal table between two strangers, elbow to elbow, phone out because there's nothing else to do.
 
-Scale that up. A construction worker on a one-hour break. A nurse finishing a 12-hour shift who wants five minutes of actual quiet, not another wall of noise. A small business owner who eats with friends but spends half of it looking at a screen because everyone else at the table already has theirs out, and nobody wants to be the one who puts it away first.
-
-**The problem was never just "can I find a seat." It's "once I have one, do I get any say in what happens to me while I'm in it" — who I'm forced next to, how much noise I'm exposed to, whether my phone or the person across from me gets my attention, and whether the place I'm even walking toward was something I found or something a trending list found for me.**
-
-Right now, the answer to all of that is: no say at all. The room decides. The feed decides. The algorithm decides. Seated exists to hand some of that back.
+**The problem is:** once you have a seat, you get no say in what happens to you while you're in it — who you're next to, how much noise you're exposed to, whether your phone or the person across from you gets your attention, and whether the place you walked toward was something you found or something a trending list found for you.
 
 ### What This Costs Restaurants
 
-A local carinderya three blocks away has 12 empty seats during peak hour and no way to signal that to anyone nearby. Meanwhile the same five viral spots absorb all the foot traffic because that's what shows up on everyone's feed. Smaller, genuinely good places stay invisible not because they're worse, but because nobody's discovery process ever routes through them.
+A local carinderya three blocks away has 12 empty seats during peak hour and no way to signal that to anyone nearby. Meanwhile the same five viral spots absorb all foot traffic because that's what shows up on everyone's feed. Smaller, genuinely good places stay invisible — not because they're worse, but because nobody's discovery process ever routes through them.
+
+Seated makes these places visible through two mechanisms:
+1. **Database-listed partners** (orange pins on the map) — onboarded directly
+2. **OpenStreetMap data** (teal pins) — every food establishment indexed by OSM appears automatically, giving visibility to places that would never pay for advertising
 
 ---
 
-## 2. THE SOLUTION: SEATED
+## 2. THE SOLUTION: SEATED (AS BUILT)
 
-**Seated** is a real-time seat and dining platform built around three connected mechanisms, each answering a different piece of the theme:
+**Seated** is a real-time seat and dining platform built around three connected mechanisms:
 
-1. **Exposure Control** — you decide how much contact with strangers you want before you commit to a place (privacy / distance)
-2. **Presence Mode** — when you sit down with people you know, disconnection from your phone is the default, not something you have to enforce on yourself (freedom to disconnect)
-3. **Explore Mode** — a discovery map built on what real people found, not on what's trending or influencer-endorsed (meaningful interaction with a place, not with a feed)
+1. **Exposure Control** — you decide how much contact with strangers you want before you commit to a place
+2. **Presence Mode** — when you sit down with people you know, being present with them is the default state, not something you have to enforce on yourself
+3. **Explore Mode** — a discovery map built on neutral geographic data and partner restaurants, not on what's trending or influencer-endorsed
 
-Underneath all three, the original seat-certainty infrastructure (real-time availability, NFC check-in, no-show handling) still runs — but it's supporting infrastructure now, not the pitch.
+Underneath all three, the seat-certainty infrastructure runs: real-time table availability, QR check-in, 5-minute claim expiry, staff table management.
 
 **One line:** *Seated doesn't just get you a seat. It lets you decide what happens once you're in it.*
 
+### Full User Journey (as implemented)
+
+```
+Auth (Login/Signup)
+  → Exposure Control (first-time, persisted)
+    → Home (Browse categories, picks, trending, featured)
+      → Restaurant Detail → Claim Table (5-min hold)
+        → Pre-Order (optional food order)
+          → QR Scan (check-in at table)
+            → Presence Mode (phone face-down session)
+              → Session Complete 🎉 (+50 Seated Points)
+```
+
+Alternative entry: Explore tab → Map with pins → Tap restaurant → Detail → same flow
+
 ---
 
-## 3. FEATURE 1 — EXPOSURE CONTROL
+## 3. FEATURE 1 — EXPOSURE CONTROL (IMPLEMENTED)
 
-### The old default and the new one
+### How it works in the app
 
-Old rule: if a restaurant is full, you get whatever proximity to strangers is left — a shared communal bench, a squeezed-in stool, no say in it. New rule: you declare your desired contact level *before* you walk, and the system honors it.
+Exposure Control is the **first screen after login** for new users. It presents three large, selectable cards:
 
-### How it works
+- **🧘 Solo** — "A table for one. Your pace, your space."
+- **👥 Open to Sharing** — "A communal seat. No obligation to interact."
+- **🔒 With My Group** — "A private table, locked for the people you choose."
 
-Before browsing restaurants, the user picks one of three modes:
-- **Solo** — a single seat, no expectation of company, explicitly framed as supported rather than tolerated (see below)
-- **Shared, open to strangers** — a communal-table slot, anonymous, no obligation to interact
-- **With people I choose** — a private table locked for a specific group
+**Implementation details:**
+- Built in `ExposureControlScreen.tsx` (5.4KB)
+- Persisted via `ExposureProvider` context (`services/exposure.tsx`) using AsyncStorage
+- Selection persists across sessions — user doesn't re-choose every launch
+- Changeable anytime from the Home screen header or Settings
+- The mode is displayed as a subtle indicator on the Home screen
+- Selection immediately navigates to Home with that mode applied
 
-This reuses the existing Table vs. Individual Seat layer from the original design (Section 4 in v2.0), but promotes it from a filter buried in restaurant search to the **first screen of the app** — the thing you choose before you choose a place.
+**Visual design:**
+- Full-screen, vertically stacked cards
+- Cards: cream background (`#FFFDF4`) with `1.5px #141517` border, 16px radius
+- Selected state: orange (`#FF6A00`) border + light orange tint
+- Tap = choose = navigate (no separate "Continue" button)
+- Caption below: "You can change this anytime." (muted text)
 
-Restaurants configure this the same way as before: table definitions, solo-only counters, PWD/senior locks, outdoor toggles. Nothing changes technically; what changes is that this becomes the app's front door instead of a side option.
+### Why this answers the theme
+
+*"Questions what should be connected, why, and to what extent"* — Exposure Control is that question asked literally, per person, per visit: should this person be connected to strangers, why (their stated preference), to what extent (solo counter vs. anonymous shared slot vs. private locked table).
 
 ### Destigmatizing solo dining
 
-Solo mode doesn't visually mark a person as "waiting for someone" or otherwise flag them as alone by accident. It's a deliberate, supported state — the app treats eating alone as a restorative choice, not a gap to be filled. This is the direct answer to "solitude" as a specific theme word, distinct from "silence" or "privacy."
+Solo mode doesn't mark a person as "waiting for someone." It's framed as a deliberate, supported, restorative choice — not a gap to be filled.
 
-### Zero-cost disconnection, scoped correctly
-
-Backing out of *company* — leaving a shared table early, declining to be pulled into conversation, switching from shared to solo mid-visit — costs nothing and needs no justification.
-
-This is explicitly **not** the same system as the no-show hold fee (Section 8), which governs *seat logistics*, not interpersonal disengagement. A no-show fee protects a scarce physical resource during peak hours and has no relationship to the theme one way or the other — it stays exactly as in v2.0. What's zero-cost is disengaging from *people*, not disengaging from a *reservation you made and didn't use*. Keeping these two systems clearly separate matters — conflating them either overcorrects the business model or undercuts the theme story.
-
-### Why this answers OGIS's specific line
-
-*"Questions what should be connected, why, and to what extent"* — Exposure Control is that question asked literally, per person, per visit: should this person be connected to this seat, why (their stated preference), to what extent (whole table locked vs. anonymous shared slot vs. solo). This is the most literal match to the judging rubric in the whole product.
 
 ---
 
-## 4. FEATURE 2 — PRESENCE MODE
+## 4. FEATURE 2 — PRESENCE MODE (IMPLEMENTED)
 
-### The old default and the new one
+### How it actually works (sensor-driven)
 
-Old rule: once you sit down with people, what happens to your phone is left entirely to individual willpower — nobody designed that moment, it defaults to everyone scrolling, and staying present takes conscious effort. New rule: the group's check-in *is* the trigger that flips the default — presence is what happens automatically, and reaching for distraction is the thing that now takes a deliberate action.
+Presence Mode is **not** a soft "put your phone down" reminder. It uses device sensors to make presence the structural default:
 
-### How it works
+1. **Entry:** After QR check-in at a table, user enters Presence Mode. An intro screen prompts: "Place your phone face-down on the table."
+2. **Detection:** The `usePresenceDetection` hook uses the accelerometer and gyroscope to detect phone orientation:
+   - **Phone face-down** (z-acceleration negative, device flat) → timer runs, user is "present"
+   - **Phone locked / app backgrounded** → timer continues (AppState listener)
+   - **Phone picked up** (orientation changes) → timer pauses, gentle nudge to return
+3. **No shaming:** Picking up the phone pauses the session — no penalty, no record, no judgment. "Step out briefly" button available at all times.
+4. **Completion:** Session ends with a celebration overlay — confetti animation, +50 Seated Points earned.
 
-1. A group checks in together at a table via the existing NFC tag / QR flow (unchanged from v2.0's check-in mechanism).
-2. That group check-in starts a shared **Presence Session** for the table. Each participant's device defaults into a quiet state for the session — notifications silenced, the Seated app itself locked to a minimal "session active" screen.
-3. Un-silencing requires a visible, deliberate action (not a hidden setting) — e.g., explicitly stepping out of the session. This flips which behavior takes effort: right now silence takes effort, so this design makes distraction take the effort instead.
-4. Each person at the table sees their own group's session status ("Present since 12:04") — visible only to the people physically at that table, never reported to the restaurant, never stored as analytics, never used for ranking or scoring anyone.
-5. Leaving the session early costs nothing socially or functionally — no penalty, no note to anyone, no record kept beyond the session itself.
+### Implementation details
 
-### Restaurant-side incentive (optional, not required for MVP)
+- Built in `PresenceModeScreen.tsx` (36KB — the largest screen in the app)
+- `usePresenceDetection.ts` hook (9.8KB) — accelerometer/gyroscope sensor fusion via `expo-sensors`
+- `usePresenceNotification.ts` hook (7KB) — local notification when session is active and app is backgrounded
+- Group members shown as colored dots with initials (mock data for demo: You, Alex, Sam)
+- Rotating conversation prompts: "What made you smile today?", "Share a favorite memory", etc.
+- Count-up timer showing duration of presence (MM:SS format)
+- Confetti animation on completion using `Animated` API (6 colors, physics-based falling)
 
-Restaurants can optionally designate certain tables as "Presence-friendly" zones — quieter seating, maybe a small perk (a free item, faster service) — turning phone-down dining into something the restaurant actively curates, not just something the app suggests. This reintroduces OGIS's "why and to what extent" question at the restaurant level: the restaurant decides which tables get this treatment and why.
+### Screen layout (as built)
+
+```
+┌─────────────────────────────────────────┐
+│  ← Back                    Restaurant   │
+│                                         │
+│          ┌───────────────┐              │
+│          │   🍽️  23:47   │              │  ← Count-up timer
+│          └───────────────┘              │
+│                                         │
+│     Present with your group             │
+│     Table 3 · Window Seat              │
+│                                         │
+│     ● You  ● Alex  ● Sam               │  ← Group member dots
+│                                         │
+│   "What made you smile today?"          │  ← Rotating prompt
+│                                         │
+│      ┌─────────────────────┐            │
+│      │   Step out briefly   │           │  ← Non-judgmental exit
+│      └─────────────────────┘            │
+│                                         │
+│      ┌─────────────────────┐            │
+│      │    End Session       │           │  ← Completes session
+│      └─────────────────────┘            │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+- Background: warm cream tones, minimal UI
+- Timer is the visual focus — large, centered
+- "Step out briefly" is low-contrast, secondary styling
+- gestureEnabled: false on this screen (prevents accidental swipe-back)
 
 ### Why this is the direct answer to the theme's central question
 
-"Does constant connectivity always lead to meaningful interaction?" — nothing else in Seated actually engages this question; Exposure Control and Explore Mode both address *what* you connect to, but Presence Mode is the only feature that touches connectivity itself, in the literal sense the theme opens with (phones, notifications, screens displacing the people already in front of you). This should be positioned as the headline mechanism in the pitch, not a secondary add-on.
-
-### Honest limitation
-
-A soft reminder to "put your phone down" is decoration, not structure — it fails the theme's own test (Mistake #3: making it about individual willpower). What makes this structural instead of a nudge is that the *default* changes, not just the suggestion: presence is automatic on check-in, and distraction is the opt-out, not the other way around.
+"Does constant connectivity always lead to meaningful interaction?" — Presence Mode is the only feature that touches connectivity itself in the literal sense (phones, notifications, screens displacing people). The structural answer: the **default** flips. Presence is automatic once you place your phone down; distraction (picking it up) is the opt-out that takes effort.
 
 ---
 
-## 5. FEATURE 3 — EXPLORE MODE
+## 5. FEATURE 3 — EXPLORE MODE (IMPLEMENTED)
 
-### The old default and the new one
+### How it works in the app
 
-Old rule: food discovery runs through trending lists, influencer opinion, and engagement-optimized ranking — everyone converges on the same handful of viral spots, and the personal act of finding a place gets replaced by consuming someone else's curation. New rule: what's shown to you reflects neutral facts and what real people independently confirmed exists — never popularity, never trending status, never a ranked "recommended for you."
+Explore Mode is a **full-screen Apple Maps view** centered on the user's location, showing two layers of data:
 
-### Two data layers
+**Layer 1 — Seated Partners (orange pins):**
+- Restaurants from the Supabase database
+- Pulled via `GET /restaurants` API endpoint
+- Show: name, category, available tables, distance
 
-1. **Baseline layer** — legitimate public POI data (Google Places API or OpenStreetMap), giving basic facts: name, category, price bracket, hours, distance. No star ratings, no review counts, no "trending near you" surfaced by default. *(Note: this layer alone does not solve "hidden places" — anything not already indexed on Google won't appear here either, which is why Layer 2 exists.)*
-2. **Seated-exclusive layer** — places that exist in Seated specifically because the team's own onboarding reached them, or because users found and confirmed them (see Crowd-Sensing POI below), or because an owner self-registered. Visually distinguishable from baseline-layer pins (different marker style).
+**Layer 2 — Nearby Places from OpenStreetMap (teal pins):**
+- Fetched via `GET /places/nearby?lat=X&lng=Y&radius=2000`
+- Backend queries the Overpass API for: restaurants, cafes, fast food, kiosks, food courts, street vendors, bars, bakeries
+- Color-coded by category:
+  - Restaurant → deep orange
+  - Café → brown
+  - Kiosk → purple
+  - Street vendor → red
+  - Bar → blue
+  - Bakery → amber
+  - Default → teal
 
-### Crowd-Sensing POI (how hidden places get added)
+**Mood/Occasion Filter Chips (horizontal scroll, top of map):**
+- Quiet Dinner, Celebration, Study Café, Solo-Friendly, Late-Night, Family, Outdoor, Group Dining
+- Chip styling: inactive = cream fill + dark text, active = dark fill + cream text
 
-- **Tag:** a user who finds an unlisted place drops a pin at their GPS location, takes one storefront photo, picks a category. This creates an invisible "candidate" — not yet shown to anyone else.
-- **Corroboration:** the candidate stays hidden until independently confirmed — different accounts, tight GPS clustering (~15–20m) around the original pin, spread across different times so one person can't fake it with alt accounts in one sitting. A minimum threshold (tunable, e.g. 3 unique confirmations) promotes it to visible.
-- **What gets shown, and what doesn't:** once promoted, the place appears with a single **binary "Verified" badge** — not a confirmation count, not a ranking, not a "X people found this" number. Confirmation counts exist only on the backend, purely for the existence-verification logic. This distinction matters and is easy to get wrong — see the note below.
-- **Owner self-registration:** an owner can add their own place directly (reusing the existing onboarding flow from Section 6), skipping the crowd-confirmation gate but going through lightweight identity verification instead (phone OTP tied to the business, or an in-app photo-at-location check).
-- **Personal log, not public leaderboard:** the original discoverer can see their own private "places I found" history — visible only to them, never shared or ranked publicly. This is where any sense of pride or magnitude lives; it stays personal, not social proof.
+### Implementation details
 
-### Why counts stay hidden — this is the part worth getting right
+- Built in `ExploreScreen.tsx` (35KB — second-largest screen)
+- Uses `react-native-maps` with Apple Maps provider (works in Expo Go, no API key)
+- `expo-location` for user positioning with permission flow
+- Draggable bottom sheet (PanResponder) with three snap points:
+  - Collapsed (12% screen height) — just the drag handle visible
+  - Half (45%) — shows restaurant list
+  - Full (85%) — full list view
+- Default region: Cauayan City / Tuguegarao area (lat 16.93, lng 121.767)
+- Floating search bar above map
+- Location label showing current area name
+- Restaurant list in bottom sheet with: image, name, category, distance, hours
+- Tap pin → scroll to restaurant in list / show mini-card
+- Tap restaurant card → navigate to RestaurantDetailScreen
 
-Showing "12 people confirmed this place" recreates the exact mechanism the theme is skeptical of, just with a different source. The theme's actual complaint about trending/influencer content isn't "who's behind the number" — it's that a visible quantity of other people's choices replaces your own judgment with a shortcut. That happens the same way whether the number comes from a celebrity or from 47 ordinary users: humans read "many people did this" as "worth doing," not as "verified to exist." A visible count also recreates the same flywheel (early attention → more visits → more confirmations → winner-take-most) and creates a real incentive to fake confirmations, which doesn't exist when the count only gates a binary badge. A binary "Verified" badge gives users the trust signal (this is real, not one person's claim) without giving anyone a magnitude to chase or compare across places.
+### What Explore Mode deliberately does NOT show
 
-### No ranking, ever, in this mode — and the contradiction to name out loud
+- ❌ Star ratings (no popularity ranking)
+- ❌ "Trending near you" badges
+- ❌ "Recommended for you" personalization
+- ❌ Review counts or social proof numbers
+- ❌ Influencer endorsements
+- ❌ Visible confirmation counts
 
-Explore Mode has no popularity sort, no personalization, no "recommended for you." Everyone standing in the same place sees the same map. The one exception is the "explore something unfamiliar" toggle, which biases results toward places the user (specifically) hasn't checked into before — a bias against the platform's own gravity toward showing what's already been found, not a ranking by anyone else's behavior.
+Everyone in the same location sees the same map. The only factual info shown: name, category, distance, hours.
 
-This deliberately conflicts with the existing Equalizer algorithm used in seat-finding (Section 9), which *is* popularity- and acceptance-rate-driven. That's fine, and it should be stated explicitly in the pitch rather than hidden: Reserve Mode optimizes for certainty during a time-pressured meal (an honest, non-contradictory use of ranking in that context); Explore Mode deliberately refuses to rank anything, because its purpose — helping someone find something for themselves — is different. Judges will trust an explicit, named boundary between the two more than a product that quietly avoids the contradiction.
+### Why this matters for the theme
 
-### Moderation and abuse considerations (stated honestly)
+Explore Mode surfaces places by neutral geographic fact and category — not by what's trending or what an algorithm decided you'd like. A carinderya with no Instagram presence appears with the same visual weight as a viral spot. Discovery happens through proximity and curiosity, not through someone else's curation.
 
-- Photos must be storefront/signage only; anything with identifiable faces gets flagged/blurred or rejected before promotion.
-- Account-age minimums and basic device-fingerprint checks reduce (not eliminate) sock-puppet confirmation.
-- Low-density areas may never reach the confirmation threshold organically — the owner self-registration and manual review paths exist specifically to not gate legitimacy solely on foot traffic.
-- The anti-abuse logic here is v1 and tunable, not hardened. For a competition-stage MVP, the honest position is: the tagging/confirmation flow works end to end, and the fraud-resistance thresholds are acknowledged as an area for iteration — not oversold as solved.
-
-### Feasibility (unchanged conclusion from prior analysis)
-
-Fully buildable on the existing stack:
-- **Map/UI:** Expo (React Native, TypeScript) + `react-native-maps` (Google Maps provider), the same map layer already used for the Equalizer — no new framework.
-- **Geospatial clustering:** PostGIS on Supabase (Postgres extension, natively supported) handles the radius/clustering logic for corroboration.
-- **Photo storage:** Supabase Storage, same as existing menu/restaurant images.
-- **EXIF/GPS validation:** standard metadata check on upload, doable in a Supabase Edge Function.
-- **Moderation queue:** an added view in the existing Next.js staff/admin dashboard — UI work, not new infrastructure.
-- **Genuinely new work:** the moderation tooling and the discipline of *not* surfacing signals (ratings, counts) that would be trivial to add but would undercut the entire premise.
-
----
-
-## 6. THE SEAT PROBLEM: TABLES VS. INDIVIDUAL SEATS (unchanged infrastructure)
-
-Restaurants are not uniform — long communal tables, small counters, pushed-together 4-seaters. Seated tracks two parallel layers, now presented to the user through Exposure Control (Section 3) rather than as a bare seat-search filter:
-
-- **Table Reservations** — a group claims a specific table, locked until check-in or a 5-minute expiry.
-- **Individual Seat Slots** — solo diners claim a single shared-friendly slot (counter seats, communal tables) without reserving a whole table.
-- **Special categories** — PWD/senior seats locked from the pool entirely; outdoor seats toggle off in one tap; counter/bar stools auto-tagged solo-only; pushed-together tables auto-separate when cleared.
-
-A restaurant with 40 seats shows: *8 private tables (2–6 people) · 6 solo counter seats · Outdoor: closed today* — paired now with each table/zone's Presence-friendly status and noise/crowd-density signal, so a diner is choosing based on desired contact and atmosphere, not just raw availability.
-
----
-
-## 7. THE WALK-IN PROBLEM & CHECK-IN METHOD (unchanged from v2.0)
-
-- **Table Status Marker:** laminated "RESERVED — Seated App" card placed by staff on confirmation.
-- **Staff Notification:** staff app pings on claim; markers placed proactively.
-- **Walk-In Grace Window:** arriving party can flag "Seat Taken"; timer pauses during a reported conflict, no penalty to the reserving customer.
-- **NFC + Dynamic QR Hybrid check-in:** NFC sticker per table (~₱15–₱30, one-time), QR fallback that rotates every 10 minutes server-side, GPS proximity check (rejects check-ins >100m from the restaurant).
-
-This same check-in event is now also the trigger for Presence Mode (Section 4) — no new hardware, just a second function attached to an existing tap.
 
 ---
 
-## 8. BUSINESS MODEL
+## 6. SEAT INFRASTRUCTURE: TABLES & RESERVATIONS (IMPLEMENTED)
 
-### Guiding principle, updated
+### Database schema (PostgreSQL on Supabase)
 
-The original framing was "land free, monetize trust." That still holds for restaurant onboarding. What changes is which revenue streams stay in the front-facing pitch versus which stay as background/future mechanics — because some of the original monetization directly contradicts the theme story if it's foregrounded.
+The reservation system is enforced at the database level through RPC functions:
 
-### Kept as-is (resource/operations — no theme conflict either way)
+**Tables:**
+- `restaurant_tables` — per-restaurant table inventory with label, capacity (1-30), status (available/reserved/occupied/cleaning/unavailable), and a unique `qr_token`
+- `reservations` — links customer → restaurant → table with status lifecycle: `claimed → checked_in → completed` (or `cancelled` / `expired`)
+- Unique constraint: only one active reservation per table (`idx_one_active_reservation_per_table`)
 
-- **Tier 0 Free / Tier 1 Pro (₱799/mo) / Tier 2 Business (₱2,499/mo)** — unchanged from v2.0. AI peak prediction, CCTV smart vacancy, menu analytics, multi-branch dashboards. This is legitimate SaaS value for restaurants and doesn't touch the connectivity question either way.
-- **No-Show Hold Fee** — unchanged, and explicitly *not* reframed as a theme conflict. This governs a scarce physical resource during peak hours (someone claiming a seat and not showing costs another hungry person their lunch); it has nothing to do with interpersonal disconnection. Keep it exactly as designed. The zero-cost-disconnect principle in Section 3 applies to backing out of *company*, not backing out of a *reservation* — these are deliberately separate systems and should be described as such if asked.
+**Core RPC functions (security definer, called via service_role only):**
+- `claim_table(customer_id, restaurant_id, group_size)` — finds smallest available table that fits, reserves it, sets 5-minute expiry, creates notification
+- `cancel_reservation(reservation_id, customer_id)` — releases table back to available
+- `check_in_reservation(reservation_id, customer_id, qr_token)` — validates QR token match, marks checked-in, sets table to occupied
+- `expire_reservations()` — auto-expires any claimed reservation past its `expires_at` timestamp
+- `staff_set_table_status(profile_id, table_id, status)` — staff can manually manage table states
 
-### Downplay in the pitch (kept as real revenue mechanics, but not part of the theme narrative)
+**Capacity handling:**
+- System finds the **smallest available table** that fits the group (ORDER BY capacity ASC)
+- Uses `FOR UPDATE SKIP LOCKED` to prevent race conditions on concurrent claims
+- One active reservation per customer enforced
 
-- **Featured Boosts** targeting time-pressured, hungry users at high purchase-intent moments — this is an urgency-driven connection pattern, which works against the pitch even though it's a legitimate ad product. Keep it running the business; don't lead with it.
-- **Aggregated Insights (data-as-a-service)** to malls, developers, FMCG brands — legitimate B2B revenue, but "aggregated behavioral data from hungry people" reads as surveillance monetization next to a privacy-and-disconnection pitch. Move to a "future revenue, post-MVP" footnote rather than the main business model slide.
+### Restaurant Detail Screen (as built)
 
-### Revenue Summary (unchanged figures, reordered by pitch prominence)
-
-| Revenue Stream | Type | Est. Monthly (Year 1, Tuguegarao) | Pitch prominence |
-|---|---|---|---|
-| Pro Subscriptions (₱799 × 15) | Recurring B2B | ₱11,985 | Primary |
-| Business Subscriptions (₱2,499 × 3) | Recurring B2B | ₱7,497 | Primary |
-| No-Show Hold Fees (20% cut) | Transaction | ₱15,000 | Primary (framed as ops, not theme) |
-| Featured Boosts | Performance | ₱16,000 | Secondary — mention if asked |
-| Data Reports (1 mall deal) | B2B Project | ₱15,000 | Future roadmap, not MVP pitch |
-| **Total Estimated Month 12** | | **~₱65,000/month** | |
+Shows restaurant info + available tables filtered by exposure mode:
+- Hero image with back arrow + heart (favorite) overlay
+- Name, address, hours, distance
+- Date/time selection (inline)
+- Table list with capacity indicators
+- "Claim This Seat" CTA (orange pill, full-width)
+- Pre-order option after claiming
 
 ---
 
-## 9. THE AI COMPONENT (unchanged technically, reframed by purpose)
+## 7. CHECK-IN METHOD: DYNAMIC QR (IMPLEMENTED)
 
-### A. CCTV-Assisted Occupancy Detection (Smart Vacancy)
+### How it works
 
-Technical design unchanged from v2.0: edge-device YOLOv8-nano object detection, table-zone-only bounding boxes, four-state classification (Available / Likely Vacating / Occupied / Cleaning), 90% confidence threshold for auto-update, no video storage, no facial recognition, no individual tracking — only state labels leave the device.
+Each table has a static `qr_token` stored in the database. For the demo, the check-in flow uses QR code scanning:
 
-**Reframed purpose:** in v2.0 this existed purely to maximize turnover accuracy. It still does that, but it now has a second job — keeping designated solo/private/Presence zones honest (flagging if a quiet zone is being encroached on by overflow seating), which ties the AI layer back into Exposure Control and Presence Mode rather than being pure throughput optimization.
+1. **Staff displays QR:** The staff/owner management screen shows the table's QR token (can be printed as a laminated card or displayed on a device)
+2. **Customer scans:** After claiming a table, the customer navigates to QR Scan screen (`QrScanScreen.tsx`, 5.6KB) using `expo-camera` barcode scanning
+3. **Validation:** Backend verifies:
+   - The scanned token matches the claimed table's `qr_token`
+   - The reservation hasn't expired (still within 5-minute window)
+   - The customer owns the reservation
+4. **On success:** Reservation status → `checked_in`, table status → `occupied`, navigates to Presence Mode
 
-### B. The Equalizer Algorithm (Diversion Engine) — unchanged, explicitly scoped to Reserve Mode only
+### Dynamic QR Security (backend)
 
-Walk-time routing, cuisine/price matching, real-time seat count, historical acceptance rate, time-of-day learning. This stays exactly as designed — and stays confined to Reserve Mode. It is explicitly *not* used in Explore Mode (Section 5), and the pitch should name that boundary directly rather than let a judge find the contradiction first.
+The backend supports **HMAC-signed rotating QR tokens** for production use:
+- `DYNAMIC_QR_SECRET` environment variable for signing
+- `DYNAMIC_QR_TTL_SECONDS` (default 600 = 10 minutes) for rotation
+- GPS proximity check capability (rejects check-ins >100m from restaurant if coordinates available)
 
-### C. Peak Prediction Engine & D. No-Show Pattern Detection — unchanged from v2.0.
+### Why QR instead of NFC
+
+NFC requires `react-native-nfc-manager` which needs a **Custom Dev Client** (not compatible with Expo Go). For the competition demo running on Expo Go, QR scanning via `expo-camera` works without any native module restrictions. NFC is a post-competition upgrade.
+
+---
+
+## 8. BUSINESS MODEL (UNCHANGED STRATEGY, UPDATED IMPLEMENTATION STATUS)
+
+### What's implemented in the MVP
+
+- ✅ Restaurant onboarding (owner signup → restaurant creation → table setup)
+- ✅ Table claiming with 5-minute hold (the core "seat certainty" value)
+- ✅ Check-in verification (QR-based)
+- ✅ Staff table management (status changes, reservation visibility)
+- ✅ Favorites system
+- ✅ Notification system (in-app)
+- ✅ Pre-ordering (menu items linked to reservations)
+
+### What's deferred
+
+- ❌ Payment processing (PayMongo integration)
+- ❌ No-show hold fees (tracked in logic, not charged)
+- ❌ Subscription tiers (Pro/Business SaaS)
+- ❌ Featured boosts (paid placement)
+- ❌ Data reports (analytics product)
+
+### Revenue model (unchanged from v3.1)
+
+| Revenue Stream | Type | Status |
+|---|---|---|
+| Pro Subscriptions (₱799/mo) | Recurring B2B | Post-MVP |
+| Business Subscriptions (₱2,499/mo) | Recurring B2B | Post-MVP |
+| No-Show Hold Fees (20% cut) | Transaction | Logic ready, payment deferred |
+| Featured Boosts | Performance | Post-MVP |
+| Data Reports | B2B Project | Future roadmap |
+
+### Guiding principle
+
+Land free (onboard restaurants at zero cost), monetize trust (once they see value in table management + visibility, offer paid tiers). The competition demo proves the core loop works end-to-end without requiring payment infrastructure.
+
+---
+
+## 9. AI & SMART FEATURES (STATUS)
+
+### A. CCTV-Assisted Occupancy Detection — DEFERRED
+
+The YOLOv8-nano edge-device inference (Raspberry Pi 5 / Android tablet) is not in the MVP. Table status is managed manually by staff through the Owner Management screen (`OwnerManagementScreen.tsx`, 20KB).
+
+**Why deferred:** Hardware cost (~₱3,500/unit), deployment complexity, and the fact that manual staff management achieves the same outcome for a demo with seeded restaurants.
+
+### B. The Equalizer Algorithm — NOT IN MVP
+
+Walk-time routing, cuisine/price matching, real-time seat count weighting — these algorithmic recommendations are not implemented. The Home screen shows categories, picks, trending, and featured sections using simple database flags (`is_featured`, `is_trending`) set during seeding.
+
+**Why this is fine:** Explore Mode deliberately refuses algorithmic ranking (theme requirement). The Home screen uses curated editorial sections rather than ML-driven personalization. For a competition demo, this is actually more aligned with the pitch than a recommendation engine would be.
+
+### C. Peak Prediction & No-Show Detection — DEFERRED
+
+These require historical data accumulation that a fresh demo doesn't have. The infrastructure (PostgreSQL with timestamped reservations, pg_cron for scheduled jobs) supports future implementation.
+
+### What IS smart in the MVP
+
+- **Sensor fusion for Presence Mode** — accelerometer + gyroscope + AppState detection is genuinely novel UX engineering
+- **Overpass API geographic query** — real-time radius search for food establishments using OSM data, category-aware pin coloring
+- **Race-condition-safe table claiming** — `FOR UPDATE SKIP LOCKED` in PostgreSQL ensures correctness under concurrent load
+- **Auto-expiry** — `expire_reservations()` runs on every claim attempt, keeping table state consistent without cron dependency
+
 
 ---
 
 ## 10. COMPETITIVE LANDSCAPE
 
-### Direct Competitors: None in the Philippines combining seat-certainty + non-hype discovery
+### Direct Competitors: None in the Philippines combining seat-certainty + presence + non-hype discovery
 
 ### Indirect Competitors
 
 | Competitor | Why They're Different | Why Seated Wins |
 |---|---|---|
-| Google Maps / "Busy Times" | Historical patterns, ranked by popularity, no seat claim | Seated is real-time, lets you claim a seat, and Explore Mode deliberately withholds popularity ranking |
-| Social-media food discovery (viral/influencer lists) | Optimized for engagement, converges everyone on the same spots | Explore Mode surfaces places by neutral facts and independent user confirmation, not trending status |
-| OpenTable / Klook | Fine dining, formal bookings | Works for a 30-minute carinderia lunch |
-| Grab / Foodpanda | Delivery, not dine-in or in-person social experience | Seated is for physical seating and what happens once you're there |
-| "Just showing up" | Current behavior | Removes the gambling on both seats and unwanted social exposure |
+| Google Maps / "Busy Times" | Historical patterns, ranked by popularity, no seat claim | Seated is real-time, lets you claim a seat, Explore Mode withholds popularity ranking |
+| Social-media food discovery | Optimized for engagement, converges on viral spots | Explore Mode surfaces by neutral geography, not trending status |
+| OpenTable / Klook | Fine dining, formal bookings, no presence concept | Works for a 30-minute carinderya lunch + adds Presence Mode |
+| Grab / Foodpanda | Delivery, not dine-in | Seated is for physical seating and what happens once you're there |
+| "Just showing up" | Current behavior, no information | Removes gambling on seat availability AND social exposure |
 
 ### Defensive Moats
 
-- **Local restaurant onboarding network** — same as v2.0; Grab/Jollibee won't bother onboarding 200 carinderyas, Seated will.
-- **Crowd-Sensing POI dataset** — a discovery layer that Google's own indexing can't replicate, because it's built from users physically finding places, not from search/review activity.
-- **CCTV AI calibration** — months of per-restaurant tuning, a head start any copycat has to rebuild from scratch.
+- **Local restaurant onboarding network** — Grab won't bother onboarding 200 carinderyas
+- **OSM + partner dual-layer discovery** — a map view that neither pure-Google nor pure-social can replicate
+- **Presence Mode as category creator** — no existing dining app treats "phone down" as a first-class product feature
+- **RPC-level reservation correctness** — PostgreSQL-enforced constraints that can't drift out of consistency
 
 ---
 
-## 11. TECH STACK & TECHNICAL ARCHITECTURE (v3.1 — migrated from Flutter to Expo/React Native)
+## 11. TECH STACK (AS BUILT — v4.0)
 
-### Mobile App (Diner + Staff)
-Expo (React Native, TypeScript), Zustand or Redux Toolkit for app state, TanStack Query (React Query) for server-state/data-fetching against Supabase, `react-native-nfc-manager` for NFC read/write, `expo-camera` (or `react-native-vision-camera`) for QR scanning, `react-native-maps` (Google Maps provider) + OpenRouteService (pedestrian routing, unchanged), `expo-notifications` for push (built on top of FCM/APNs under the hood, same underlying delivery as v2.0's direct Firebase Cloud Messaging integration).
-
-*Important build-tooling note:* NFC (via `react-native-nfc-manager`) is a native module and is **not supported inside the plain Expo Go sandbox app** — it requires an Expo **Custom Dev Client** or an EAS-built standalone binary. This doesn't block development (Expo's managed workflow still supports it through EAS Build/prebuild), but it does mean the team can't demo NFC check-in purely inside Expo Go on a judge's or teammate's phone without first installing a custom dev build. Worth planning the demo device/build pipeline around this rather than discovering it close to the deadline.
-
-*Addition for Presence Mode:* OS-level notification-silencing achieved via `expo-notifications` (setting notification handlers/interruption levels) plus, where deeper silencing is needed (e.g. full Do-Not-Disturb-style behavior), a thin native module through Expo's config plugin system — same custom-dev-client requirement as NFC above, since this also falls outside what plain Expo Go can do. Triggered on group NFC check-in, same as v2.0's design intent.
-
-*Addition for Explore Mode:* same `react-native-maps` instance, second data layer/query mode; PostGIS (via Supabase) for corroboration clustering — unchanged from prior version, framework-agnostic on the backend side.
+### Mobile App
+| Technology | Purpose |
+|---|---|
+| Expo SDK 54 (React Native, TypeScript) | App framework |
+| react-native-maps (Apple Maps provider) | Map display in Explore Mode |
+| expo-location | User positioning, distance calculations |
+| expo-camera | QR code scanning for check-in |
+| expo-sensors (Accelerometer, Gyroscope) | Presence Mode phone-down detection |
+| expo-notifications | Local notifications for presence sessions |
+| @react-navigation/native + bottom-tabs + native-stack | Navigation (5 tabs, multiple stacks) |
+| react-native-safe-area-context | Device UI clearance |
+| @expo/vector-icons (Ionicons) | Icon system |
+| AsyncStorage | Exposure Control persistence, session tokens |
 
 ### Backend
-Supabase (PostgreSQL + PostGIS), Supabase Realtime, Supabase Auth, Supabase Storage, Supabase Edge Functions (Deno), pg_cron.
+| Technology | Purpose |
+|---|---|
+| FastAPI (Python) | REST API server |
+| Supabase (PostgreSQL + PostGIS) | Database, auth, realtime, storage |
+| Supabase Auth | Email/password authentication with email confirmation |
+| Supabase Realtime | Live table status updates |
+| OpenStreetMap Overpass API | Nearby place discovery (free, no key) |
+| pg_cron | Scheduled reservation expiry |
+| HMAC-SHA256 | Dynamic QR token signing |
 
-### AI / Computer Vision
-YOLOv8-nano (ONNX Runtime), OpenCV pre-processing, on-site edge inference (Raspberry Pi 5 / Android tablet) — unchanged.
+### Project Structure
 
-### Payments
-PayMongo API (GCash/Maya) — unchanged.
+```
+Seated/
+├── frontend/                    — Expo/React Native app
+│   ├── src/screens/             — 18 screens
+│   │   ├── AuthScreen.tsx       — Login/signup (13KB)
+│   │   ├── ExposureControlScreen.tsx — Mode selection (5.4KB)
+│   │   ├── HomeScreen.tsx       — Main feed (26KB)
+│   │   ├── ExploreScreen.tsx    — Map discovery (35KB)
+│   │   ├── RestaurantDetailScreen.tsx — Detail + claim (11KB)
+│   │   ├── ReservationsScreen.tsx — Active reservations (22KB)
+│   │   ├── PreOrderScreen.tsx   — Food ordering (17KB)
+│   │   ├── QrScanScreen.tsx     — QR check-in (5.6KB)
+│   │   ├── PresenceModeScreen.tsx — Presence session (36KB)
+│   │   ├── SearchScreen.tsx     — Search (3.9KB)
+│   │   ├── RestoListScreen.tsx  — Restaurant list (5.4KB)
+│   │   ├── FavoritesScreen.tsx  — Saved restaurants (5.3KB)
+│   │   ├── NotificationsScreen.tsx — Alerts (6.7KB)
+│   │   ├── ProfileScreen.tsx    — User profile (7.9KB)
+│   │   ├── SettingsScreen.tsx   — App settings (3.6KB)
+│   │   ├── StaffScreen.tsx      — Staff table mgmt (14KB)
+│   │   ├── OwnerManagementScreen.tsx — Owner dashboard (20KB)
+│   │   └── OwnerOnboardingScreen.tsx — Restaurant setup (5KB)
+│   ├── src/navigation/         — Tab + stack navigators
+│   │   ├── MainTabs.tsx        — 5-tab layout (Home, Explore, Claim, Alerts, Profile)
+│   │   ├── HomeStack.tsx       — Home → Search → Detail → Claim → QR → Presence
+│   │   ├── ExploreStack.tsx    — Explore → Detail → Claim → QR → Presence
+│   │   ├── ClaimStack.tsx      — Active reservations → QR → Presence
+│   │   ├── ProfileStack.tsx    — Profile → Reservations → Favorites → Settings
+│   │   ├── StaffStack.tsx      — Staff/owner management
+│   │   └── AuthStack.tsx       — Auth flow
+│   ├── src/services/           — API, session, realtime, favorites, exposure
+│   ├── src/hooks/              — usePresenceDetection, usePresenceNotification
+│   ├── src/components/         — CustomTabBar, RestaurantCard, LoadingState, ErrorState
+│   └── src/theme.ts           — Complete design system (colors, typography, spacing, shadows)
+├── backend/                    — FastAPI API
+│   ├── main.py                — All routes (37KB)
+│   ├── schemas.py             — Pydantic models
+│   ├── database.py            — Supabase client setup
+│   └── tests/                 — pytest suite
+└── supabase/migrations/        — 5 versioned migrations
+    ├── 001_mvp_schema.sql     — Core tables, RPC functions, RLS policies
+    ├── 002_seed_demo_data.sql — Demo restaurants for Cauayan City
+    ├── 003_production_operations.sql — Operational helpers
+    ├── 004_consistency_and_security.sql — Additional constraints
+    └── 005_email_confirmation.sql — Auth verification flow
+```
 
-### Admin / Staff Portals
-Next.js on Vercel — unchanged, plus a moderation-queue view for Crowd-Sensing POI review.
+### API Endpoints (implemented)
 
-### Security (unchanged, extended)
-AES-256 NFC tokens, HMAC-signed rotating QR, GPS proximity check on check-in, Supabase RLS. *Extended:* Presence Session data (who's "present," timestamps) is never stored beyond the session and never exposed outside the specific table's participants.
+**Auth:** POST `/auth/signup/customer`, `/auth/signup/owner`, `/auth/login`, `/auth/refresh`, `/auth/verify-email`, `/auth/resend-confirmation`
+
+**Restaurants:** GET `/restaurants`, `/restaurants/{id}`, `/restaurants/search`, `/home` (feed with picks/trending/featured)
+
+**Discovery:** GET `/places/nearby?lat=X&lng=Y&radius=2000` (OSM Overpass query)
+
+**Reservations:** POST `/reservations`, GET `/reservations/me`, POST `/reservations/{id}/cancel`, `/reservations/{id}/check-in`
+
+**Favorites:** GET `/favorites`, POST `/favorites`, DELETE `/favorites/{id}`
+
+**Staff:** GET `/staff/restaurants`, `/staff/restaurants/{id}/reservations`, PATCH `/staff/tables/{id}`
+
+**Menu/Pre-order:** GET `/restaurants/{id}/menu`, POST `/orders`
 
 ---
 
-## 12. GO-TO-MARKET: TUGUEGARAO FIRST (unchanged from v2.0)
+## 12. DESIGN SYSTEM (AS BUILT)
 
-Same launch sequence — canteen partners first, walk-in onboarding of local restaurants, student council partnerships, "First 100 Users" perks. Crowd-Sensing POI tagging launches alongside Explore Mode in Month 2, seeded initially by the team's own onboarding walks so the map isn't empty at launch.
+### Color Palette
 
----
+| Token | Hex | Usage |
+|---|---|---|
+| background | `#FFFDF4` | App background, warm cream |
+| screenBg | `#F6F1E8` | Screen/page background |
+| surface | `#F6F2E9` | Cards, elevated containers |
+| primary | `#FF6A00` | CTAs, active nav, accent |
+| secondary | `#FFBF00` | Gold highlights, promo badges |
+| textPrimary | `#141517` | Headings, body text |
+| textSecondary | `#828282` | Descriptions, metadata |
+| textMuted | `#AFAFAF` | Placeholders, inactive labels |
+| success | `#86D433` | Available, confirmed |
+| error | `#F20000` | Error states, destructive actions |
 
-## 13. WHAT SEATED IS NOT
+### Typography: Urbanist (all weights: 400, 600, 700, 800, 900)
 
-- Not a food delivery app
-- Not a formal dining reservation system
-- Not a replacement for walk-in customers — it complements them
-- Not surveillance — CCTV is opt-in, table-zone only, stores nothing, governed by a signed data use agreement per restaurant
-- Not a trending/rating platform — Explore Mode deliberately has no star ratings, no visible confirmation counts, no "recommended for you," by design, not by omission
+### Navigation: 5-tab bottom bar with center gradient CTA button (dice icon)
+- Home | Explore | [Claim CTA] | Alerts | Profile
+- Staff/owners see "Manage" instead of "Claim"
+- Custom tab bar with orange glow on center button, 32px rounded top corners
 
----
-
-## 14. THE PITCH ANCHOR
-
-> *"Every day, people trade away control the moment they sit down to eat — squeezed next to strangers with no say in it, phones out because that's just what everyone does at the table, walking toward whatever's trending because that's what showed up on a feed. None of that was ever a choice. Seated asks a different question: what if the connections around a meal — who you sit near, whether your phone gets your attention or the person across from you does, and how you even found this place — were something you chose, not something the crowd, the habit, or the algorithm decided for you? We don't just get you a seat. We give you back the say in what happens once you're in it."*
-
----
-
-## 15. OPEN QUESTIONS TO STILL RESOLVE
-
-- [ ] Legal: DTI registration before competition, or MVP only?
-- [ ] Menu data entry: owner-built interface vs. manual onboarding input?
-- [ ] NFC tag cost: Seated absorbs as CAC, or restaurant-paid?
-- [ ] Offline mode: manual fallback + diner-facing notice (unchanged from v2.0)
-- [ ] CCTV privacy: signed data use agreement template per Pro partner
-- [ ] PayMongo integration timeline: MVP-ready, or hold fees deferred to v1.1?
-- [ ] Edge device cost (~₱3,500/unit): Seated cost or billed to Pro restaurants?
-- [ ] **New — Presence Mode:** which OS-level mechanism actually silences notifications reliably across both iOS and Android without requiring a separate permission grant that adds onboarding friction — and confirm whether `expo-notifications` alone is sufficient or whether a custom native module (requiring a Custom Dev Client, not plain Expo Go) is needed for full silencing behavior.
-- [ ] **New — build pipeline:** decide whether the competition demo runs on a Custom Dev Client / EAS build (required for NFC + full Presence Mode silencing) or a scaled-down Expo Go–only demo (QR fallback check-in, lighter notification handling) if there isn't time to set up custom builds before the deadline.
-- [ ] **New — Explore Mode:** confirm Google Places API coverage quality for Tuguegarao specifically before committing it as the baseline layer; check OpenStreetMap as a free fallback if coverage is thin.
-- [ ] **New — Crowd-Sensing POI:** finalize the confirmation threshold (3 accounts is a starting assumption, not tested) and the account-age minimum before a confirmation counts.
-- [ ] **New — pitch scope:** for the competition demo, decide whether to fully build both Explore Mode and Reserve Mode, or build Presence Mode + Exposure Control + a convincing Explore Mode demo (even with seeded/sample data) and present Reserve Mode as existing, working infrastructure rather than a live demo focus.
+### Design philosophy
+- **Warmth over sterility** — cream tones, not clinical white
+- **Calm over urgency** — no "X people looking at this" pressure
+- **Choice over default** — non-hierarchical option presentation
+- **Presence over noise** — generous whitespace, minimal information density
 
 ---
 
-*Document prepared for internal startup competition use. Version 3.0 — revised for theme fit.*
+## 13. GO-TO-MARKET: CAUAYAN CITY / TUGUEGARAO FIRST
+
+Same strategy as v3.1, now with concrete demo data:
+- Demo seeded with restaurants in Cauayan City, Isabela
+- Map defaults to Tuguegarao region (lat 16.93, lng 121.767)
+- Target: local carinderyas, cafes, food stalls that have zero digital presence
+- Student population at ISU / UCV as initial user base
+- Explore Mode OSM data already shows all food establishments in the area without any onboarding needed
+
+---
+
+## 14. WHAT SEATED IS NOT
+
+- Not a food delivery app (no delivery logistics)
+- Not a formal dining reservation system (works for 30-minute lunches)
+- Not a food ordering app (pre-ordering is optional, not the core value)
+- Not surveillance (no CCTV in MVP; Presence Mode stores nothing beyond the session)
+- Not a rating/review platform (Explore Mode has no star ratings by design)
+- Not a social media app (no feeds, no followers, no public profiles)
+- Not a payment app (no wallet/payment in MVP)
+
+---
+
+## 15. THE PITCH ANCHOR
+
+> *"Every day, people trade away control the moment they sit down to eat — squeezed next to strangers with no say in it, phones out because that's just what everyone does at the table, walking toward whatever's trending because that's what showed up on a feed. None of that was ever a choice.*
+>
+> *Seated asks a different question: what if the connections around a meal — who you sit near, whether your phone gets your attention or the person across from you does, and how you even found this place — were something you chose, not something the crowd, the habit, or the algorithm decided for you?*
+>
+> *We don't just get you a seat. We give you back the say in what happens once you're in it."*
+
+### Demo flow for judges (3 minutes)
+
+1. **Exposure Control** → Pick "With My Group" (10 sec)
+2. **Home** → Browse picks, tap a restaurant (15 sec)
+3. **Explore Mode** → Show map with orange + teal pins, filter chips (30 sec)
+4. **Restaurant Detail** → Show tables, claim one (15 sec)
+5. **Pre-Order** → Add food items to the order (15 sec)
+6. **QR Scan** → Scan table QR, check in (15 sec)
+7. **Presence Mode** → Place phone face-down, show timer running, pick up to show pause, conversation prompts rotating (60 sec)
+8. **Complete Session** → Confetti, +50 points (10 sec)
+9. **Staff View** → Show owner management screen, table statuses updating (10 sec)
+
+---
+
+## 16. OPEN QUESTIONS (UPDATED)
+
+- [ ] NFC check-in: upgrade to Custom Dev Client build post-competition?
+- [ ] PayMongo: integrate for real no-show hold fees in v1.1?
+- [ ] Crowd-Sensing POI: implement the user-submitted pin + corroboration flow?
+- [ ] CCTV AI: pursue hardware deployment for pilot restaurants?
+- [ ] Presence Mode: add opt-in OS-level DND (requires native module)?
+- [ ] Offline mode: what happens when cellular drops mid-session?
+- [ ] Pre-ordering: connect to kitchen display / POS system?
+- [ ] Points system: implement Seated Points redemption (currently earned but not spent)?
+- [ ] Multi-language: Tagalog / Ilocano localization for Cagayan Valley users?
+
+---
+
+## Team
+
+- **Randel Serafica** — Team Leader
+- **Gem Cordova** — Team Member
+- **Christy Prejido** — Team Member
+- **Sander Sedano, MIT** — Mentor
+
+---
+
+*Document reflects the actual built product as of July 2025. Version 4.0.*
