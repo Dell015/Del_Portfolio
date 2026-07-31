@@ -11,10 +11,12 @@ import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
 import { BigParticles } from "./BigParticles";
 import { ProjectNodeCard } from "@/components/projects/sphere/ProjectNodeCard";
+import { useSphereHoverStore } from "@/lib/store/sphereHover";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const SPHERE_RADIUS = 2.8;
+const SPHERE_RADIUS = 2.2;
+const _nodeColor = new THREE.Color();
 
 // Scroll progress breakpoints (for pre-lock phases only)
 const SP = {
@@ -44,11 +46,16 @@ function generateSpherePositions(count: number, radius: number): Float32Array {
 /** Get positions for project nodes on sphere surface */
 function getNodePositions(count: number, radius: number): [number, number, number][] {
   const positions: [number, number, number][] = [];
+  // Evenly distribute across the sphere, excluding top/bottom poles (avoid ±30° from poles)
+  // Use golden ratio spiral for even spacing
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const yMin = -0.7; // exclude bottom pole
+  const yMax = 0.7;  // exclude top pole
   for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1)) * 2;
+    // Evenly space within the Y band
+    const y = yMax - (i / (count - 1)) * (yMax - yMin);
     const radiusAtY = Math.sqrt(1 - y * y);
-    const theta = goldenAngle * i * 5;
+    const theta = goldenAngle * i;
     positions.push([
       Math.cos(theta) * radiusAtY * radius,
       y * radius,
@@ -230,9 +237,9 @@ const vertexShader = /* glsl */ `
     // === COLOR ===
     vec3 baseColor = mix(colorB, colorA, pProgress);
     float spherePhase = max(uGather, max(uCondense, max(uRingCompress, max(uExplode, max(uScatter, uSphere)))));
-    // Shift toward pink/magenta during sphere phases
-    vec3 sphereColor = mix(vec3(0.82, 0.16, 0.22), vec3(1.0, 0.18, 0.54), speed);
-    vec3 ambientColor = mix(baseColor, vec3(0.82, 0.16, 0.22), 0.15 * uAmbient);
+    // Shift toward white during sphere phases
+    vec3 sphereColor = mix(vec3(0.95, 0.95, 0.95), vec3(1.0, 1.0, 1.0), speed);
+    vec3 ambientColor = mix(baseColor, vec3(0.9, 0.9, 0.9), 0.15 * uAmbient);
     vColor = mix(ambientColor, sphereColor, spherePhase * 0.7);
 
     // === ALPHA ===
@@ -263,7 +270,7 @@ const fragmentShader = /* glsl */ `
     float dist = length(center);
     if (dist > 0.5) discard;
     float alpha = vAlpha * (1.0 - smoothstep(0.3, 0.5, dist));
-    gl_FragColor = vec4(vColor, alpha * 0.85);
+    gl_FragColor = vec4(vColor, alpha * 0.6);
   }
 `;
 
@@ -287,14 +294,17 @@ interface ParticleSystemProps {
   mouseRef: React.MutableRefObject<THREE.Vector3>;
   mouseActiveRef: React.MutableRefObject<boolean>;
   preRevealRef: React.MutableRefObject<boolean>;
+  cursorNearSphereRef: React.MutableRefObject<boolean>;
 }
 
 function ParticleSystem({
   cloudA, cloudB, progressRef, dissolveRef, ambientRef,
   gatherRef, condenseRef, ringCompressRef, explodeRef, smallFadeRef, scatterRef, sphereRef, scaleRef,
-  mouseRef, mouseActiveRef, preRevealRef,
+  mouseRef, mouseActiveRef, preRevealRef, cursorNearSphereRef,
 }: ParticleSystemProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const rotSpeedRef = useRef(-0.0015);
   const { size } = useThree();
 
   const geometry = useMemo(() => {
@@ -369,20 +379,29 @@ function ParticleSystem({
     mat.uniforms.uMouseActive.value = mouseActiveRef.current ? 1 : 0;
     mat.uniforms.uPreReveal.value = preRevealRef.current ? 1 : 0;
     mat.uniforms.uScale.value = scaleRef.current;
+
+    // Rotate sphere (small particles) — stops when cursor is near
+    if (groupRef.current && sphereRef.current > 0.5) {
+      const targetSpeed = cursorNearSphereRef.current ? 0 : -0.0015;
+      rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
+      groupRef.current.rotation.y += rotSpeedRef.current;
+    }
   });
 
   return (
-    <points geometry={geometry}>
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
+    <group ref={groupRef}>
+      <points geometry={geometry}>
+        <shaderMaterial
+          ref={materialRef}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          uniforms={uniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+    </group>
   );
 }
 
@@ -395,9 +414,10 @@ interface ProjectNodesProps {
   isInteractingRef: React.MutableRefObject<boolean>;
   interactive: boolean;
   scaleRef: React.MutableRefObject<number>;
+  cursorNearSphereRef: React.MutableRefObject<boolean>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, cursorNearSphereRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -409,8 +429,8 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     if (!groupRef.current) return;
     const show = sphereProgress.current > 0.7;
 
-    // Rotation: slow to stop when a project is hovered or user is dragging
-    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current) ? 0 : 0.002;
+    // Rotation: opposite direction from sphere, different speed — stops on hover or cursor proximity
+    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003;
     rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
 
     if (sphereProgress.current > 0.5) {
@@ -428,11 +448,22 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       const isHovered = hoveredIndex === i;
       const dimmed = hoveredIndex !== null && !isHovered;
 
+      // Get project color for this node
+      const projectColor = projects[i]?.identityGradient[0] || "#ffffff";
+
       child.children.forEach((mesh) => {
         if (mesh instanceof THREE.Mesh) {
           const mat = mesh.material as THREE.MeshBasicMaterial;
           const finalOpacity = dimmed ? targetOpacity * 0.3 : targetOpacity;
           mat.opacity = THREE.MathUtils.lerp(mat.opacity, finalOpacity, 0.08);
+
+          // Color: hovered node turns its project color, others stay white
+          if (isHovered) {
+            _nodeColor.set(projectColor);
+          } else {
+            _nodeColor.set("#ffffff");
+          }
+          mat.color.lerp(_nodeColor, 0.1);
         }
       });
 
@@ -492,11 +523,11 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
             <sphereGeometry args={[0.25, 8, 8]} />
             <meshBasicMaterial />
           </mesh>
-          {/* Core orb — pink */}
+          {/* Core orb — white */}
           <mesh raycast={() => null}>
             <sphereGeometry args={[0.12, 16, 16]} />
             <meshBasicMaterial
-              color="#ff2d8a"
+              color="#ffffff"
               toneMapped={false}
               transparent
               opacity={0}
@@ -504,11 +535,11 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
               depthWrite={false}
             />
           </mesh>
-          {/* Outer glow shell — softer pink */}
+          {/* Outer glow shell — soft white */}
           <mesh raycast={() => null}>
             <sphereGeometry args={[0.2, 12, 12]} />
             <meshBasicMaterial
-              color="#c93b96"
+              color="#e0e0e0"
               toneMapped={false}
               transparent
               opacity={0}
@@ -603,6 +634,31 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
       const t = sp * sp; // ease-in
       camera.position.z = THREE.MathUtils.lerp(1.6, targetZ, t);
     }
+  });
+
+  return null;
+}
+
+// ─── Cursor Proximity Detection ────────────────────────────────────────────────
+
+function CursorProximity({
+  mouseRef,
+  cursorNearSphereRef,
+  sphereInteractive,
+}: {
+  mouseRef: React.MutableRefObject<THREE.Vector3>;
+  cursorNearSphereRef: React.MutableRefObject<boolean>;
+  sphereInteractive: boolean;
+}) {
+  useFrame(() => {
+    if (!sphereInteractive) {
+      cursorNearSphereRef.current = false;
+      return;
+    }
+    // Check if cursor (in world space) is within proximity of sphere center (0,0,0)
+    const dist = Math.sqrt(mouseRef.current.x ** 2 + mouseRef.current.y ** 2);
+    // Sphere radius is ~2.2, detect when cursor is within ~4 units (generous zone)
+    cursorNearSphereRef.current = dist < 4.0;
   });
 
   return null;
@@ -757,6 +813,7 @@ export function HeroParticleCanvas({
   const mouseRef = useRef(new THREE.Vector3(999, 999, 0));
   const mouseActiveRef = useRef(false);
   const preRevealRef = useRef(true);
+  const cursorNearSphereRef = useRef(false);
 
   // Sphere interactivity state
   const [sphereInteractive, setSphereInteractive] = useState(false);
@@ -887,33 +944,37 @@ export function HeroParticleCanvas({
   }, [virtualScroll.smallFadeRef]);
 
   // Handle node hover
+  const setHoveredIndex = useSphereHoverStore((s) => s.setHoveredIndex);
   const handleNodeHover = useCallback((index: number | null, screenX: number, screenY: number) => {
     if (index === null) {
       setCardState(null);
       tintColorRef.current = null;
+      setHoveredIndex(null);
     } else {
       setCardState({ projectIndex: index, screenX, screenY });
+      setHoveredIndex(index);
       const project = projects[index];
       if (project) {
         tintColorRef.current = project.identityGradient[0];
       }
     }
-  }, []);
+  }, [setHoveredIndex]);
 
   return (
     <div
       id="hero-particle-canvas"
       className="fixed inset-0 z-[1]"
-      style={{ pointerEvents: "none" }}
+      style={{ pointerEvents: sphereInteractive ? "auto" : "none" }}
     >
       <Canvas
         camera={{ position: [0, 0, 1.6], fov: 60 }}
         dpr={[1, 2]}
         gl={{ antialias: false, alpha: true }}
-        style={{ background: "transparent", pointerEvents: "none" }}
+        style={{ background: "transparent" }}
       >
         <CameraAdjust sphereProgress={sphereRef} sphereInteractive={sphereInteractive} />
         <MouseTracker mouseRef={mouseRef} mouseActiveRef={mouseActiveRef} />
+        <CursorProximity mouseRef={mouseRef} cursorNearSphereRef={cursorNearSphereRef} sphereInteractive={sphereInteractive} />
         <ParticleSystem
           cloudA={cloudA}
           cloudB={cloudB}
@@ -931,6 +992,7 @@ export function HeroParticleCanvas({
           mouseRef={mouseRef}
           mouseActiveRef={mouseActiveRef}
           preRevealRef={preRevealRef}
+          cursorNearSphereRef={cursorNearSphereRef}
         />
         <ProjectNodes
           sphereProgress={sphereRef}
@@ -938,6 +1000,7 @@ export function HeroParticleCanvas({
           isInteractingRef={isInteractingRef}
           interactive={sphereInteractive}
           scaleRef={sphereScaleRef}
+          cursorNearSphereRef={cursorNearSphereRef}
         />
         <BigParticles
           alphaRef={bigAlphaRef}
@@ -945,6 +1008,7 @@ export function HeroParticleCanvas({
           tintColorRef={tintColorRef}
           sizeRef={particleSizeRef}
           scaleRef={sphereScaleRef}
+          cursorNearSphereRef={cursorNearSphereRef}
         />
         <TweenDriver
           progressRef={progressRef}
@@ -979,71 +1043,6 @@ export function HeroParticleCanvas({
             tintColorRef.current = null;
           }}
         />
-      )}
-
-      {/* Sphere control sliders — right side, only when sphere is interactive */}
-      {sphereInteractive && (
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-40 flex items-start gap-6 pointer-events-auto">
-          {/* Sphere scale slider */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-widest text-white/40">
-              Sphere
-            </span>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.01"
-              defaultValue="1"
-              onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                // Snap to max when threshold reached
-                if (val >= 1.7) {
-                  sphereScaleRef.current = 2;
-                  e.target.value = "2";
-                } else {
-                  sphereScaleRef.current = val;
-                }
-              }}
-              className="h-28 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none"
-              style={{
-                writingMode: "vertical-lr",
-                direction: "rtl",
-                width: "3px",
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "2px",
-                outline: "none",
-              }}
-              aria-label="Sphere scale"
-            />
-            <span className="font-[family-name:var(--font-mono)] text-[9px] text-white/25">⊙</span>
-          </div>
-          {/* Particle size slider */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-widest text-white/40">
-              Particles
-            </span>
-            <input
-              type="range"
-              min="0.3"
-              max="3"
-              step="0.01"
-              defaultValue="1"
-              onChange={(e) => { particleSizeRef.current = parseFloat(e.target.value); }}
-              className="h-28 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none"
-              style={{
-                writingMode: "vertical-lr",
-                direction: "rtl",
-                width: "3px",
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "2px",
-                outline: "none",
-              }}
-              aria-label="Particle size"
-            />
-            <span className="font-[family-name:var(--font-mono)] text-[9px] text-white/25">•</span>
-          </div>
-        </div>
       )}
     </div>
   );

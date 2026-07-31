@@ -184,13 +184,20 @@ export function Nav() {
             <HamburgerIcon open={mobileOpen} />
           </button>
 
-          {/* ─── CENTER: Name ─── */}
-          <a
-            href="#hero"
-            className="absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-all duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm"
+          {/* ─── CENTER: Name (full refresh to landing) ─── */}
+          <button
+            onClick={() => {
+              // If already on home, reload. Otherwise navigate to root.
+              if (window.location.pathname === "/") {
+                window.location.reload();
+              } else {
+                window.location.href = "/";
+              }
+            }}
+            className="absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-all duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm cursor-pointer"
           >
             Randel
-          </a>
+          </button>
 
           {/* ─── RIGHT: Mode Toggle (glassmorphism pill) ─── */}
           <ModeToggle />

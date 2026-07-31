@@ -49,7 +49,7 @@ export const projects: Project[] = [
       "React Navigation v6+",
       "Expo Notifications",
     ],
-    identityGradient: ["#17936F", "#C4E86B"],
+    identityGradient: ["#7CF205", "#209F77"],
     caseStudy: {
       timeline: "Active development — Version 3.1, thesis submission 2026",
       architectureNote:

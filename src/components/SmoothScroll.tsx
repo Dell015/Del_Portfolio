@@ -65,9 +65,14 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
   // Disable browser scroll restoration and force scroll to top on mount.
   // This prevents the particle system from rendering in a stale mid-scroll state on reload.
+  // Also clear any leftover hash so refresh always starts at the hero/landing.
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
+    }
+    // Clear hash from URL without triggering navigation
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname);
     }
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;

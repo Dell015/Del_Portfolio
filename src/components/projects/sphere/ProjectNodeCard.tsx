@@ -62,7 +62,20 @@ export function ProjectNodeCard({
           {/* View Project link */}
           <Link
             href={`/projects/${project.slug}`}
-            className="mt-3 block w-full rounded-lg border border-white/10 bg-white/5 py-1.5 text-center font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-[#F5F5F5] transition-all duration-200 hover:border-[#D11A2A]/60 hover:bg-[#D11A2A]/10 hover:text-[#D11A2A]"
+            className="mt-3 block w-full rounded-lg border py-1.5 text-center font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest transition-all duration-200"
+            style={{
+              borderColor: project.identityGradient[0],
+              backgroundColor: `${project.identityGradient[0]}15`,
+              color: project.identityGradient[0],
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = `${project.identityGradient[0]}30`;
+              e.currentTarget.style.boxShadow = `0 0 12px ${project.identityGradient[0]}40`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = `${project.identityGradient[0]}15`;
+              e.currentTarget.style.boxShadow = "none";
+            }}
           >
             View Project →
           </Link>
