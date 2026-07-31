@@ -8,7 +8,6 @@
 
 ---
 
-
 ## Table of Contents
 
 1. [What Is Icarus?](#what-is-icarus)
@@ -791,6 +790,69 @@ Icarus is currently in **pre-MVP development**.
 | Public Beta | ⏳ Planned | Tiered access with free tier open to public |
 | NPC Registration | ⏳ Planned | Required before public launch under RA 10173 |
 | Philippine Startup Challenge 11 | 🎯 Target | Competition submission deadline |
+
+---
+
+## Design System & Theme
+
+Icarus uses a dark, minimal aesthetic inspired by candlelit parchment and mythological storytelling. The UI is intentionally stark — no gradients, no rounded-everything, no playful colors. This is a serious tool that respects its users' intelligence.
+
+### Color Palette
+
+| Name | Hex | Role |
+|------|-----|------|
+| **Void** | `#080808` | Primary background — the deep black canvas |
+| **Ash** | `#111111` | Card/panel backgrounds — slightly lifted from void |
+| **Smoke** | `#1a1a1a` | Borders, dividers, subtle separators |
+| **Ember** | `#c9a84c` | Primary accent — gold, warmth, calls to action |
+| **Wax** | `#d4502a` | Danger/penalty — the red of melting wings |
+| **Feather** | `#7eb89a` | Success/mastery — earned, not given |
+| **Bone** | `#e8e0d0` | Primary text — warm off-white, not harsh |
+| **Mist** | `#666666` | Secondary text — labels, metadata, quiet information |
+
+### Typography
+
+| Usage | Font | Weight |
+|-------|------|--------|
+| Headings, logos, scores | Cormorant Garamond (serif) | Regular/Bold |
+| Body, labels, code, UI | DM Mono (monospace) | Regular/Medium |
+
+The monospace-dominant approach reinforces the technical, audit-like nature of the tool. Serif is reserved for moments of gravitas — the ICARUS logotype, final scores, section headings.
+
+### Graph Node Colors (Nest Audit)
+
+| Status | Color | Meaning |
+|--------|-------|---------|
+| Unclaimed | `#ef4444` (red) | Hotspot not yet defended |
+| In Progress | `#eab308` (yellow) | Defense attempted, not yet passed |
+| Defended | `#22c55e` (green) | Successfully defended |
+| Golden | `#f59e0b` (gold ring) | Red Herring correctly identified |
+
+### Design Principles
+
+1. **Dark-first** — No light mode. The void is the canvas. Content floats on darkness.
+2. **Monospace-dominant** — Everything reads like a terminal, an audit log, a system that doesn't lie.
+3. **Mythological naming** — Wax, Feathers, Flights, the Nest, Meltdown. Every concept maps to the Icarus myth.
+4. **Sparse animation** — Subtle flickers, slow rises. Nothing bounces or slides aggressively.
+5. **Information density** — Panels show data, not decoration. No hero images, no illustrations.
+6. **Film grain overlay** — A subtle SVG noise texture at low opacity sits over the entire UI, giving it a textured, analog feel.
+
+### UI Structure (Nest Audit)
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ Nav: ICARUS logo | Session info | Sign Out                 │
+├──────────┬─────────────────────────────┬───────────────────┤
+│          │                             │                   │
+│  Graph   │     Nest Doc View           │  Defense Card     │
+│  Panel   │     (main content)          │  (slide-over)     │
+│          │                             │                   │
+│ 250px    │     flex-1                  │  400px            │
+│          │                             │                   │
+├──────────┴─────────────────────────────┴───────────────────┤
+│ Status bar: Wax meter | Feathers | Connection status       │
+└────────────────────────────────────────────────────────────┘
+```
 
 ---
 

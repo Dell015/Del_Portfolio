@@ -136,7 +136,7 @@ export const projects: Project[] = [
       "Supabase",
       "pgvector",
     ],
-    identityGradient: ["#2E2E2E", "#E7E7E7"],
+    identityGradient: ["#c9a84c", "#c9a84c"],
     accentColor: "#E6484F",
     caseStudy: {
       timeline: "Pre-MVP development — targeting Philippine Startup Challenge 11",
@@ -174,7 +174,7 @@ export const projects: Project[] = [
       "Vercel",
       "Railway",
     ],
-    identityGradient: ["#B5651D", "#4A4A4A"],
+    identityGradient: ["#A68763", "#A68763"],
     caseStudy: {
       timeline: "Architecture designed, build roadmap defined, early development",
       architectureNote:
