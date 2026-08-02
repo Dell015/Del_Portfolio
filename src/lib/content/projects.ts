@@ -49,7 +49,7 @@ export const projects: Project[] = [
       "React Navigation v6+",
       "Expo Notifications",
     ],
-    identityGradient: ["#17936F", "#C4E86B"],
+    identityGradient: ["#7CF205", "#209F77"],
     caseStudy: {
       timeline: "Active development — Version 3.1, thesis submission 2026",
       architectureNote:
@@ -136,7 +136,7 @@ export const projects: Project[] = [
       "Supabase",
       "pgvector",
     ],
-    identityGradient: ["#2E2E2E", "#E7E7E7"],
+    identityGradient: ["#c9a84c", "#c9a84c"],
     accentColor: "#E6484F",
     caseStudy: {
       timeline: "Pre-MVP development — targeting Philippine Startup Challenge 11",
@@ -174,7 +174,7 @@ export const projects: Project[] = [
       "Vercel",
       "Railway",
     ],
-    identityGradient: ["#B5651D", "#4A4A4A"],
+    identityGradient: ["#A68763", "#A68763"],
     caseStudy: {
       timeline: "Architecture designed, build roadmap defined, early development",
       architectureNote:
@@ -183,6 +183,81 @@ export const projects: Project[] = [
         "Designing a data model that supports three fundamentally different interfaces (timeline, 3D viewer, AI chatbot) without rewrites between phases. Also: building a product where value compounds over time while keeping onboarding under 1 minute — users won't log history if setup is painful.",
       nextSteps:
         "Phase 0: Deploy frontend + backend + DB (prove they talk). Phase 1: Vehicle CRUD → Timeline → Reminders → Status Dashboard → Trust Layer. Phase 2: Three.js 3D viewer with clickable hotspots and real-time status coloring. Phase 3: Claude-powered AI diagnostic chatbot using vehicle's own component history.",
+    },
+  },
+  {
+    slug: "seated",
+    name: "Seated",
+    platform: "mobile",
+    cardVariant: "mobile",
+    pitch:
+      "A real-time seat and dining platform that gives you back control over who you sit near, whether your phone or your company gets your attention, and how you discover where to eat.",
+    description:
+      "Real-time seat and dining platform built around three mechanisms: Exposure Control (choose your social comfort level), Presence Mode (sensor-driven phone-down sessions that make being present the default), and Explore Mode (neutral geographic discovery via Apple Maps + OpenStreetMap, no trending or algorithmic ranking). Includes QR check-in, 5-minute table claims, pre-ordering, and staff management.",
+    role: "Lead Developer",
+    teamSize: "Team project — Randel as lead dev",
+    techStack: [
+      "React Native",
+      "Expo SDK 54",
+      "TypeScript",
+      "react-native-maps",
+      "expo-location",
+      "expo-camera",
+      "expo-sensors",
+      "React Navigation",
+      "FastAPI",
+      "Python",
+      "Supabase",
+      "PostgreSQL",
+      "PostGIS",
+      "OpenStreetMap Overpass API",
+      "HMAC-SHA256",
+    ],
+    identityGradient: ["#FF6A00", "#FF6A00"],
+    caseStudy: {
+      timeline: "Active development — Competition demo ready July 2025",
+      architectureNote:
+        "Expo/React Native + FastAPI + Supabase. QR-based check-in with HMAC-signed rotating tokens (NFC deferred for Expo Go compatibility). Presence Mode uses accelerometer + gyroscope sensor fusion for phone-down detection. Explore Mode dual-layer: Supabase partner restaurants (orange pins) + OSM Overpass API for all nearby food establishments (teal pins). Race-condition-safe table claiming via PostgreSQL FOR UPDATE SKIP LOCKED.",
+      challenge:
+        "Building sensor-driven Presence Mode that reliably detects phone orientation across devices without native modules (pure Expo). Designing Explore Mode to deliberately refuse algorithmic ranking while still being useful — surfacing places by neutral geography, not popularity. Handling concurrent table claims without race conditions at the database level.",
+      nextSteps:
+        "IGNITE OGIS Start-Up Competition 2026 submission. Post-competition: NFC check-in upgrade (Custom Dev Client), PayMongo payment integration for no-show fees, CCTV-assisted occupancy detection (YOLOv8), Seated Points redemption system, multi-language support (Tagalog/Ilocano).",
+    },
+  },
+  {
+    slug: "aipon",
+    name: "Aipon",
+    platform: "web",
+    cardVariant: "desktop",
+    pitch:
+      "Pick anything you want to buy. Log your savings like a notebook. Aipon shows you exactly which parts you can already afford and predicts when you'll own the whole thing.",
+    description:
+      "A private savings companion that treats saving like a notebook, not a bank. Pick an item (PC, phone, car), see its parts tree, save toward specific components with a 3-slot concurrent system, and get EWMA-based predictions grounded in your real budget. Parts 'light up' as you fund them. No bank linking, no payments — just honest tracking with a collectible-progress feel.",
+    role: "Solo Developer",
+    teamSize: "Solo project",
+    techStack: [
+      "Next.js 16",
+      "React 19",
+      "TypeScript",
+      "Tailwind CSS",
+      "Zustand",
+      "TanStack Query",
+      "Supabase",
+      "PostgreSQL",
+      "Zod",
+      "Recharts",
+      "@dnd-kit",
+      "Vercel",
+    ],
+    identityGradient: ["#304f27", "#e3b43c"],
+    caseStudy: {
+      timeline: "Active development — core logic and UI done, auth and persistence next",
+      architectureNote:
+        "No custom backend — frontend talks directly to Supabase with Row Level Security enforcing per-user data isolation. Recursive parts tree (self-ref via parent_id) supports future sub-component branching without schema rewrites. EWMA prediction engine (α=0.85, 90-day window) capped by budget planner data so predictions never exceed what user can actually afford. Three-slot concurrent saving mirrors real sinking-funds technique.",
+      challenge:
+        "Designing predictions that are honest — most savings apps ignore whether you can actually afford to save that much. Aipon grounds predictions in real budget (income minus mandatory expenses). Also: making a finance tool feel motivating without being gamey — the 'parts light up' mechanic walks a line between serious budgeting and collectible-progress satisfaction.",
+      nextSteps:
+        "Auth (Supabase Google + email), real deposit ledger with persistence, 3-slot mechanic UI, prediction chart (Recharts), budget planner page, multiple goals + focus toggle, additional items (phone, car, motorcycle, laptop).",
     },
   },
 ];

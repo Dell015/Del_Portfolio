@@ -1,17 +1,18 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { projects as projectsData } from "@/lib/content/projects";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SPHERE_RADIUS = 2.8;
+const SPHERE_RADIUS = 2.2;
 const COUNT_DESKTOP = 800;
 const COUNT_MOBILE = 400;
 
-// White/light palette for sphere particles
-const PALETTE = [
+// Default palette — each orb gets its own color, mostly white with subtle variations
+const DEFAULT_PALETTE = [
   new THREE.Color("#ffffff"), // pure white
   new THREE.Color("#f0f0f0"), // soft white
   new THREE.Color("#e8e8e8"), // light gray
@@ -62,35 +63,66 @@ export interface BigParticlesProps {
   sizeRef: React.MutableRefObject<number>;
   /** Multiplier for sphere radius (from slider). */
   scaleRef: React.MutableRefObject<number>;
+  /** Whether cursor is near the sphere */
+  cursorNearSphereRef?: React.MutableRefObject<boolean>;
   /** Whether on mobile (reduces count) */
   isMobile?: boolean;
 }
 
 const _dummy = new THREE.Object3D();
+const _color = new THREE.Color();
+const _color2 = new THREE.Color();
 
-export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, scaleRef, isMobile = false }: BigParticlesProps) {
+export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, scaleRef, cursorNearSphereRef, isMobile = false }: BigParticlesProps) {
   const count = isMobile ? COUNT_MOBILE : COUNT_DESKTOP;
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
-  // Tint lerp state
-  const currentTint = useRef(new THREE.Color("#ffffff"));
-  const targetTint = useRef(new THREE.Color("#ffffff"));
+  // Per-instance color tracking for lerp
+  const currentColors = useRef<Float32Array | null>(null);
+  const baseColors = useRef<Float32Array | null>(null);
+  // Track cascade progress (how many particles have started transitioning)
+  const cascadeStartTime = useRef<number>(0);
+  const isCascading = useRef(false);
+  // Rotation speed ref for smooth lerp to 0
+  const rotSpeedRef = useRef(-0.0015);
 
-  // Precompute positions and colors once
-  const { scatterPositions, spherePositions, colors } = useMemo(() => {
+  // Precompute positions and base colors once
+  const { scatterPositions, spherePositions, defaultColors } = useMemo(() => {
     const scatter = randomScatter(count, 6);
     const sphere = fibonacciSphere(count, SPHERE_RADIUS);
-    const cols = new Array(count).fill(null).map((_, i) =>
-      PALETTE[i % PALETTE.length].clone()
-    );
-    return { scatterPositions: scatter, spherePositions: sphere, colors: cols };
+
+    // Each orb gets its own default color (white with subtle variation)
+    const colors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const c = DEFAULT_PALETTE[i % DEFAULT_PALETTE.length];
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+    return { scatterPositions: scatter, spherePositions: sphere, defaultColors: colors };
   }, [count]);
+
+  // Initialize per-instance colors
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    // Set up instanceColor buffer
+    const colorArray = new Float32Array(count * 3);
+    colorArray.set(defaultColors);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(colorArray, 3);
+    mesh.instanceColor.needsUpdate = true;
+
+    // Track current and base for lerping
+    currentColors.current = new Float32Array(colorArray);
+    baseColors.current = new Float32Array(defaultColors);
+  }, [count, defaultColors]);
 
   useFrame((state) => {
     const mesh = meshRef.current;
     const mat = materialRef.current;
-    if (!mesh || !mat) return;
+    if (!mesh || !mat || !mesh.instanceColor || !currentColors.current || !baseColors.current) return;
 
     const time = state.clock.elapsedTime;
     const alpha = alphaRef.current;
@@ -99,21 +131,58 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
     // Smooth ease for sphere formation
     const spEased = sp * sp * (3 - 2 * sp); // smoothstep
 
-    // Material opacity
-    mat.opacity = alpha * 0.85;
-
-    // Tint lerp toward hovered project color
-    if (tintColorRef.current) {
-      targetTint.current.set(tintColorRef.current);
-    } else {
-      targetTint.current.set("#ffffff");
+    // Rotate the mesh — stops when cursor is near sphere
+    const targetRotSpeed = (cursorNearSphereRef?.current) ? 0 : -0.0015;
+    rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetRotSpeed, 0.03);
+    if (sp > 0.5) {
+      mesh.rotation.y += rotSpeedRef.current;
     }
-    currentTint.current.lerp(targetTint.current, 0.06);
-    mat.color.copy(currentTint.current);
+
+    // Material opacity
+    mat.opacity = alpha * 0.55;
+
+    // Determine target tint per orb — cascade effect
+    const hasTint = tintColorRef.current !== null;
+
+    // Track cascade state
+    if (hasTint && !isCascading.current) {
+      isCascading.current = true;
+      cascadeStartTime.current = time;
+    } else if (!hasTint) {
+      isCascading.current = false;
+    }
+
+    // Parse gradient colors if tinting
+    let gradColor1 = _color;
+    let gradColor2 = _color;
+    if (hasTint) {
+      // tintColorRef stores the first gradient color; we need both
+      // The gradient is stored as identityGradient[0] and [1] on the project
+      // tintColorRef.current is identityGradient[0]
+      gradColor1 = _color.set(tintColorRef.current!);
+      gradColor2 = _color2.set(tintColorRef.current!);
+      // Try to find the second gradient color from the projects data
+      for (const p of projectsData) {
+        if (p.identityGradient[0] === tintColorRef.current) {
+          gradColor2 = _color2.set(p.identityGradient[1]);
+          break;
+        }
+      }
+    }
+
+    const colors = currentColors.current;
+    const base = baseColors.current;
+    const instanceColor = mesh.instanceColor as THREE.InstancedBufferAttribute;
+
+    // Cascade timing: each particle starts its transition with a slight delay
+    const cascadeElapsed = isCascading.current ? time - cascadeStartTime.current : 0;
+    const cascadeDuration = 1.5; // total time for all particles to start transitioning
+    const particleTransitionSpeed = 0.08; // how fast each particle lerps once started
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
 
+      // ─── Position ───
       // Lerp scatter → sphere (with scale applied to sphere target)
       let x = scatterPositions[i3] + (spherePositions[i3] * scale - scatterPositions[i3]) * spEased;
       let y = scatterPositions[i3 + 1] + (spherePositions[i3 + 1] * scale - scatterPositions[i3 + 1]) * spEased;
@@ -137,9 +206,41 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
       _dummy.scale.setScalar(pulse);
       _dummy.updateMatrix();
       mesh.setMatrixAt(i, _dummy.matrix);
+
+      // ─── Per-instance color ───
+      // Cascade: each particle starts its transition at a staggered time
+      if (hasTint && isCascading.current) {
+        const particleDelay = (i / count) * cascadeDuration;
+        const particleElapsed = cascadeElapsed - particleDelay;
+
+        if (particleElapsed > 0) {
+          // This particle has started — lerp toward its gradient target
+          // Distribute particles across the gradient (first half → color1, second half → color2)
+          const gradientT = i / count;
+          const targetR = gradColor1.r + (gradColor2.r - gradColor1.r) * gradientT;
+          const targetG = gradColor1.g + (gradColor2.g - gradColor1.g) * gradientT;
+          const targetB = gradColor1.b + (gradColor2.b - gradColor1.b) * gradientT;
+
+          colors[i3] += (targetR - colors[i3]) * particleTransitionSpeed;
+          colors[i3 + 1] += (targetG - colors[i3 + 1]) * particleTransitionSpeed;
+          colors[i3 + 2] += (targetB - colors[i3 + 2]) * particleTransitionSpeed;
+        }
+        // Particles that haven't started yet stay at their current color
+      } else {
+        // No tint — lerp back to base color
+        colors[i3] += (base[i3] - colors[i3]) * 0.04;
+        colors[i3 + 1] += (base[i3 + 1] - colors[i3 + 1]) * 0.04;
+        colors[i3 + 2] += (base[i3 + 2] - colors[i3 + 2]) * 0.04;
+      }
+
+      // Write to the instance color buffer
+      (instanceColor.array as Float32Array)[i3] = colors[i3];
+      (instanceColor.array as Float32Array)[i3 + 1] = colors[i3 + 1];
+      (instanceColor.array as Float32Array)[i3 + 2] = colors[i3 + 2];
     }
 
     mesh.instanceMatrix.needsUpdate = true;
+    instanceColor.needsUpdate = true;
   });
 
   return (

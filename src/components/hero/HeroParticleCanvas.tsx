@@ -3,6 +3,7 @@
 import { useRef, useMemo, useEffect, useCallback, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import type { PointCloud } from "@/lib/particles/sampleImageToPoints";
 import { curlNoiseGLSL } from "@/lib/particles/curlNoise";
@@ -11,10 +12,12 @@ import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
 import { BigParticles } from "./BigParticles";
 import { ProjectNodeCard } from "@/components/projects/sphere/ProjectNodeCard";
+import { useSphereHoverStore } from "@/lib/store/sphereHover";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const SPHERE_RADIUS = 2.8;
+const SPHERE_RADIUS = 2.2;
+const _nodeColor = new THREE.Color();
 
 // Scroll progress breakpoints (for pre-lock phases only)
 const SP = {
@@ -45,10 +48,12 @@ function generateSpherePositions(count: number, radius: number): Float32Array {
 function getNodePositions(count: number, radius: number): [number, number, number][] {
   const positions: [number, number, number][] = [];
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const yMin = -0.7;
+  const yMax = 0.7;
   for (let i = 0; i < count; i++) {
-    const y = 1 - (i / (count - 1)) * 2;
+    const y = yMax - (i / (count - 1)) * (yMax - yMin);
     const radiusAtY = Math.sqrt(1 - y * y);
-    const theta = goldenAngle * i * 5;
+    const theta = goldenAngle * i;
     positions.push([
       Math.cos(theta) * radiusAtY * radius,
       y * radius,
@@ -230,9 +235,9 @@ const vertexShader = /* glsl */ `
     // === COLOR ===
     vec3 baseColor = mix(colorB, colorA, pProgress);
     float spherePhase = max(uGather, max(uCondense, max(uRingCompress, max(uExplode, max(uScatter, uSphere)))));
-    // Shift toward pink/magenta during sphere phases
-    vec3 sphereColor = mix(vec3(0.82, 0.16, 0.22), vec3(1.0, 0.18, 0.54), speed);
-    vec3 ambientColor = mix(baseColor, vec3(0.82, 0.16, 0.22), 0.15 * uAmbient);
+    // Shift toward white during sphere phases
+    vec3 sphereColor = mix(vec3(0.95, 0.95, 0.95), vec3(1.0, 1.0, 1.0), speed);
+    vec3 ambientColor = mix(baseColor, vec3(0.9, 0.9, 0.9), 0.15 * uAmbient);
     vColor = mix(ambientColor, sphereColor, spherePhase * 0.7);
 
     // === ALPHA ===
@@ -263,7 +268,7 @@ const fragmentShader = /* glsl */ `
     float dist = length(center);
     if (dist > 0.5) discard;
     float alpha = vAlpha * (1.0 - smoothstep(0.3, 0.5, dist));
-    gl_FragColor = vec4(vColor, alpha * 0.85);
+    gl_FragColor = vec4(vColor, alpha * 0.6);
   }
 `;
 
@@ -395,12 +400,18 @@ interface ProjectNodesProps {
   isInteractingRef: React.MutableRefObject<boolean>;
   interactive: boolean;
   scaleRef: React.MutableRefObject<number>;
+  mouseRef: React.MutableRefObject<THREE.Vector3>;
+  /** Set to true by the parent to force-dismiss hover (background click / Escape). */
+  clearHoverRef: React.MutableRefObject<boolean>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const detectedIndex = useRef<number | null>(null);
+  /** Node the cursor is sitting on but whose card was explicitly dismissed. */
+  const suppressedIndex = useRef<number | null>(null);
   const { camera, size } = useThree();
   // Smooth rotation speed that lerps to 0 on hover
   const rotSpeedRef = useRef(0.002);
@@ -408,6 +419,16 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
   useFrame(() => {
     if (!groupRef.current) return;
     const show = sphereProgress.current > 0.7;
+
+    // External dismiss request (background click / Escape): drop hover immediately and
+    // suppress the node under the cursor so the card doesn't instantly re-open.
+    if (clearHoverRef.current) {
+      clearHoverRef.current = false;
+      suppressedIndex.current = detectedIndex.current;
+      detectedIndex.current = null;
+      setHoveredIndex(null);
+      document.body.style.cursor = "auto";
+    }
 
     // Rotation: slow to stop when a project is hovered or user is dragging
     const targetSpeed = (hoveredIndex !== null || isInteractingRef.current) ? 0 : 0.002;
@@ -421,6 +442,78 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     const s = scaleRef.current;
     groupRef.current.scale.setScalar(s);
 
+    // Manual hover detection — compare in screen pixels for reliability
+    if (interactive && sphereProgress.current > 0.7) {
+      const mouseX = mouseRef.current.x;
+      const mouseY = mouseRef.current.y;
+      
+      // If mouse left the window, clear hover
+      if (Math.abs(mouseX) > 50 || Math.abs(mouseY) > 50) {
+        suppressedIndex.current = null;
+        if (detectedIndex.current !== null) {
+          detectedIndex.current = null;
+          document.body.style.cursor = "auto";
+          onHover(null, 0, 0);
+          setTimeout(() => setHoveredIndex(null), 300);
+        }
+      } else {
+        // Convert mouse world pos to screen pixels
+        // We need actual pixel coords — use the same projection as nodes
+        const mouseProj = new THREE.Vector3(mouseX, mouseY, 0).project(camera);
+        const mousePxX = ((mouseProj.x + 1) / 2) * size.width;
+        const mousePxY = ((1 - mouseProj.y) / 2) * size.height;
+
+        let closestIdx: number | null = null;
+        let closestDist = 60; // threshold in pixels
+
+        groupRef.current.children.forEach((child, i) => {
+          if (!(child instanceof THREE.Group)) return;
+          const worldPos = new THREE.Vector3();
+          child.getWorldPosition(worldPos);
+          const projected = worldPos.clone().project(camera);
+          const nodePxX = ((projected.x + 1) / 2) * size.width;
+          const nodePxY = ((1 - projected.y) / 2) * size.height;
+          const dx = nodePxX - mousePxX;
+          const dy = nodePxY - mousePxY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestIdx = i;
+          }
+        });
+
+        // A dismissed node stays dismissed until the cursor moves off it
+        if (suppressedIndex.current !== null) {
+          if (closestIdx === suppressedIndex.current) {
+            closestIdx = null;
+          } else {
+            suppressedIndex.current = null;
+          }
+        }
+
+        if (closestIdx !== detectedIndex.current) {
+          detectedIndex.current = closestIdx;
+          if (closestIdx !== null) {
+            setHoveredIndex(closestIdx);
+            document.body.style.cursor = "pointer";
+            const nodeGroup = groupRef.current.children[closestIdx];
+            if (nodeGroup) {
+              const worldPos = new THREE.Vector3();
+              nodeGroup.getWorldPosition(worldPos);
+              worldPos.project(camera);
+              const screenX = ((worldPos.x + 1) / 2) * size.width;
+              const screenY = ((1 - worldPos.y) / 2) * size.height;
+              onHover(closestIdx, screenX, screenY);
+            }
+          } else {
+            document.body.style.cursor = "auto";
+            onHover(null, 0, 0);
+            setTimeout(() => setHoveredIndex(null), 300);
+          }
+        }
+      }
+    }
+
     // Fade in/out + hover effects
     groupRef.current.children.forEach((child, i) => {
       if (!(child instanceof THREE.Group)) return;
@@ -428,11 +521,22 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       const isHovered = hoveredIndex === i;
       const dimmed = hoveredIndex !== null && !isHovered;
 
+      // Get project color for this node
+      const projectColor = projects[i]?.identityGradient[0] || "#ffffff";
+
       child.children.forEach((mesh) => {
         if (mesh instanceof THREE.Mesh) {
           const mat = mesh.material as THREE.MeshBasicMaterial;
           const finalOpacity = dimmed ? targetOpacity * 0.3 : targetOpacity;
           mat.opacity = THREE.MathUtils.lerp(mat.opacity, finalOpacity, 0.08);
+
+          // Color: hovered node turns its project color, others stay white
+          if (isHovered) {
+            _nodeColor.set(projectColor);
+          } else {
+            _nodeColor.set("#ffffff");
+          }
+          mat.color.lerp(_nodeColor, 0.1);
         }
       });
 
@@ -441,42 +545,22 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       child.scale.setScalar(THREE.MathUtils.lerp(child.scale.x, targetScale, 0.1));
     });
 
-    // Update card position while hovering
-    if (hoveredIndex !== null && groupRef.current) {
-      const nodeGroup = groupRef.current.children[hoveredIndex];
+    // Update card position while the cursor is STILL on the node.
+    // Must key off detectedIndex (not the delayed `hoveredIndex` state) — otherwise
+    // this keeps firing onHover(index) after hover-out and cancels the dismiss timer,
+    // which leaves the card stuck on screen forever.
+    if (detectedIndex.current !== null && groupRef.current) {
+      const nodeGroup = groupRef.current.children[detectedIndex.current];
       if (nodeGroup) {
         const worldPos = new THREE.Vector3();
         nodeGroup.getWorldPosition(worldPos);
         worldPos.project(camera);
         const screenX = ((worldPos.x + 1) / 2) * size.width;
         const screenY = ((1 - worldPos.y) / 2) * size.height;
-        onHover(hoveredIndex, screenX, screenY);
+        onHover(detectedIndex.current, screenX, screenY);
       }
     }
   });
-
-  const handlePointerOver = (index: number) => {
-    if (!interactive) return;
-    setHoveredIndex(index);
-    document.body.style.cursor = "pointer";
-    if (groupRef.current) {
-      const nodeGroup = groupRef.current.children[index];
-      if (nodeGroup) {
-        const worldPos = new THREE.Vector3();
-        nodeGroup.getWorldPosition(worldPos);
-        worldPos.project(camera);
-        const screenX = ((worldPos.x + 1) / 2) * size.width;
-        const screenY = ((1 - worldPos.y) / 2) * size.height;
-        onHover(index, screenX, screenY);
-      }
-    }
-  };
-
-  const handlePointerOut = () => {
-    setHoveredIndex(null);
-    document.body.style.cursor = "auto";
-    onHover(null, 0, 0);
-  };
 
   return (
     <group ref={groupRef}>
@@ -484,19 +568,17 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
         <group
           key={projects[i]?.slug || i}
           position={pos}
-          onPointerOver={(e) => { e.stopPropagation(); handlePointerOver(i); }}
-          onPointerOut={(e) => { e.stopPropagation(); handlePointerOut(); }}
         >
           {/* Invisible hitbox for raycasting (prevents flicker from overlapping visual meshes) */}
           <mesh visible={false}>
             <sphereGeometry args={[0.25, 8, 8]} />
             <meshBasicMaterial />
           </mesh>
-          {/* Core orb — pink */}
+          {/* Core orb — white */}
           <mesh raycast={() => null}>
             <sphereGeometry args={[0.12, 16, 16]} />
             <meshBasicMaterial
-              color="#ff2d8a"
+              color="#ffffff"
               toneMapped={false}
               transparent
               opacity={0}
@@ -504,11 +586,11 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
               depthWrite={false}
             />
           </mesh>
-          {/* Outer glow shell — softer pink */}
+          {/* Outer glow shell — soft white */}
           <mesh raycast={() => null}>
             <sphereGeometry args={[0.2, 12, 12]} />
             <meshBasicMaterial
-              color="#c93b96"
+              color="#e0e0e0"
               toneMapped={false}
               transparent
               opacity={0}
@@ -887,18 +969,116 @@ export function HeroParticleCanvas({
   }, [virtualScroll.smallFadeRef]);
 
   // Handle node hover
-  const handleNodeHover = useCallback((index: number | null, screenX: number, screenY: number) => {
-    if (index === null) {
-      setCardState(null);
-      tintColorRef.current = null;
-    } else {
-      setCardState({ projectIndex: index, screenX, screenY });
-      const project = projects[index];
-      if (project) {
-        tintColorRef.current = project.identityGradient[0];
-      }
+  const setHoveredIndex = useSphereHoverStore((s) => s.setHoveredIndex);
+  const cardDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Cursor is over the card itself — keeps it alive while the user reaches for the link. */
+  const cardHoveredRef = useRef(false);
+  /** Node currently under the cursor (null = none). */
+  const nodeHoveredRef = useRef<number | null>(null);
+  /** Flag read by ProjectNodes to force-drop its hover state. */
+  const clearNodeHoverRef = useRef(false);
+  /** Where the last pointerdown landed — used to tell a click apart from a drag. */
+  const pointerDownRef = useRef({ x: 0, y: 0 });
+
+  const cancelDismiss = useCallback(() => {
+    if (cardDismissTimer.current) {
+      clearTimeout(cardDismissTimer.current);
+      cardDismissTimer.current = null;
     }
   }, []);
+
+  /** Immediate teardown of the card. */
+  const closeCard = useCallback(() => {
+    cancelDismiss();
+    cardHoveredRef.current = false;
+    nodeHoveredRef.current = null;
+    setCardState(null);
+    tintColorRef.current = null;
+    setHoveredIndex(null);
+  }, [cancelDismiss, setHoveredIndex]);
+
+  /** Grace period so moving cursor node → card doesn't kill the card. */
+  const scheduleDismiss = useCallback(() => {
+    if (cardDismissTimer.current) return;
+    cardDismissTimer.current = setTimeout(() => {
+      cardDismissTimer.current = null;
+      // Re-check: user may have landed on the card or another node in the meantime
+      if (cardHoveredRef.current || nodeHoveredRef.current !== null) return;
+      setCardState(null);
+      tintColorRef.current = null;
+      setHoveredIndex(null);
+    }, 300);
+  }, [setHoveredIndex]);
+
+  const handleNodeHover = useCallback((index: number | null, screenX: number, screenY: number) => {
+    if (index === null) {
+      nodeHoveredRef.current = null;
+      if (!cardHoveredRef.current) scheduleDismiss();
+      return;
+    }
+
+    nodeHoveredRef.current = index;
+    cancelDismiss();
+    // Only re-render when the target or its screen position actually changed
+    setCardState((prev) => {
+      if (
+        prev &&
+        prev.projectIndex === index &&
+        Math.abs(prev.screenX - screenX) < 0.5 &&
+        Math.abs(prev.screenY - screenY) < 0.5
+      ) {
+        return prev;
+      }
+      return { projectIndex: index, screenX, screenY };
+    });
+    setHoveredIndex(index);
+    const project = projects[index];
+    if (project) {
+      tintColorRef.current = project.identityGradient[0];
+    }
+  }, [cancelDismiss, scheduleDismiss, setHoveredIndex]);
+
+  // Dismiss on background click (a click, not a sphere drag) and on Escape
+  const cardVisible = cardState !== null;
+  useEffect(() => {
+    if (!cardVisible) return;
+
+    function onPointerDown(e: PointerEvent) {
+      pointerDownRef.current = { x: e.clientX, y: e.clientY };
+    }
+
+    function onPointerUp(e: PointerEvent) {
+      // Ignore drags — rotating the sphere shouldn't close the card
+      const moved = Math.hypot(
+        e.clientX - pointerDownRef.current.x,
+        e.clientY - pointerDownRef.current.y,
+      );
+      if (moved > 6) return;
+      // Clicks inside the card belong to the card
+      const target = e.target;
+      if (target instanceof Element && target.closest("[data-project-node-card]")) return;
+      clearNodeHoverRef.current = true;
+      closeCard();
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      clearNodeHoverRef.current = true;
+      closeCard();
+    }
+
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [cardVisible, closeCard]);
+
+  // Clean up the pending dismiss timer on unmount
+  useEffect(() => () => cancelDismiss(), [cancelDismiss]);
 
   return (
     <div
@@ -938,6 +1118,8 @@ export function HeroParticleCanvas({
           isInteractingRef={isInteractingRef}
           interactive={sphereInteractive}
           scaleRef={sphereScaleRef}
+          mouseRef={mouseRef}
+          clearHoverRef={clearNodeHoverRef}
         />
         <BigParticles
           alphaRef={bigAlphaRef}
@@ -968,83 +1150,25 @@ export function HeroParticleCanvas({
       </Canvas>
 
       {/* HTML overlay for project node card */}
-      {cardState && (
-        <ProjectNodeCard
-          project={projects[cardState.projectIndex]!}
-          screenX={cardState.screenX}
-          screenY={cardState.screenY}
-          visible={true}
-          onClose={() => {
-            setCardState(null);
-            tintColorRef.current = null;
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {cardState && (
+          <ProjectNodeCard
+            key="project-node-card"
+            project={projects[cardState.projectIndex]!}
+            screenX={cardState.screenX}
+            screenY={cardState.screenY}
+            onPointerEnter={() => {
+              cardHoveredRef.current = true;
+              cancelDismiss();
+            }}
+            onPointerLeave={() => {
+              cardHoveredRef.current = false;
+              if (nodeHoveredRef.current === null) scheduleDismiss();
+            }}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Sphere control sliders — right side, only when sphere is interactive */}
-      {sphereInteractive && (
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-40 flex items-start gap-6 pointer-events-auto">
-          {/* Sphere scale slider */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-widest text-white/40">
-              Sphere
-            </span>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.01"
-              defaultValue="1"
-              onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                // Snap to max when threshold reached
-                if (val >= 1.7) {
-                  sphereScaleRef.current = 2;
-                  e.target.value = "2";
-                } else {
-                  sphereScaleRef.current = val;
-                }
-              }}
-              className="h-28 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none"
-              style={{
-                writingMode: "vertical-lr",
-                direction: "rtl",
-                width: "3px",
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "2px",
-                outline: "none",
-              }}
-              aria-label="Sphere scale"
-            />
-            <span className="font-[family-name:var(--font-mono)] text-[9px] text-white/25">⊙</span>
-          </div>
-          {/* Particle size slider */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-widest text-white/40">
-              Particles
-            </span>
-            <input
-              type="range"
-              min="0.3"
-              max="3"
-              step="0.01"
-              defaultValue="1"
-              onChange={(e) => { particleSizeRef.current = parseFloat(e.target.value); }}
-              className="h-28 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none"
-              style={{
-                writingMode: "vertical-lr",
-                direction: "rtl",
-                width: "3px",
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "2px",
-                outline: "none",
-              }}
-              aria-label="Particle size"
-            />
-            <span className="font-[family-name:var(--font-mono)] text-[9px] text-white/25">•</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

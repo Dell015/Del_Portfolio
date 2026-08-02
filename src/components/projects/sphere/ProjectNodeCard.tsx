@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import type { Project } from "@/lib/content/projects";
 
 interface ProjectNodeCardProps {
@@ -9,63 +10,66 @@ interface ProjectNodeCardProps {
   screenX: number;
   /** Screen Y in pixels */
   screenY: number;
-  visible: boolean;
-  onClose: () => void;
+  /** Cursor entered the card — parent cancels any pending dismissal. */
+  onPointerEnter: () => void;
+  /** Cursor left the card — parent schedules dismissal. */
+  onPointerLeave: () => void;
 }
 
 export function ProjectNodeCard({
   project,
   screenX,
   screenY,
-  visible,
-  onClose,
+  onPointerEnter,
+  onPointerLeave,
 }: ProjectNodeCardProps) {
   return (
-    <div
-      className="pointer-events-none absolute inset-0 z-30"
-      style={{ opacity: visible ? 1 : 0, transition: "opacity 0.25s ease" }}
-    >
-      <div
-        className="pointer-events-auto absolute w-56"
-        style={{
-          left: `${screenX}px`,
-          top: `${screenY}px`,
-          transform: "translate(-50%, -110%)",
-        }}
-        onMouseLeave={onClose}
-      >
-        <div
-          className="rounded-xl border border-white/10 bg-[#0E1013]/90 p-4 shadow-2xl backdrop-blur-md"
-          style={{
-            transform: visible ? "scale(1) translateY(0)" : "scale(0.92) translateY(6px)",
-            transition: "transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
-          {/* Gradient swatch */}
-          <div
-            className="mb-3 h-1.5 w-full rounded-full"
-            style={{
-              background: `linear-gradient(90deg, ${project.identityGradient[0]}, ${project.identityGradient[1]})`,
-            }}
-          />
-
-          {/* Project name */}
-          <p className="font-[family-name:var(--font-display)] text-sm font-semibold text-[#F5F5F5]">
-            {project.name}
-          </p>
-
-          {/* Pitch */}
-          <p className="mt-1 font-[family-name:var(--font-body)] text-xs leading-snug text-[#A0A0A0]">
-            {project.pitch}
-          </p>
-
-          {/* View Project link */}
-          <Link
-            href={`/projects/${project.slug}`}
-            className="mt-3 block w-full rounded-lg border border-white/10 bg-white/5 py-1.5 text-center font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-[#F5F5F5] transition-all duration-200 hover:border-[#D11A2A]/60 hover:bg-[#D11A2A]/10 hover:text-[#D11A2A]"
+    <div className="pointer-events-none absolute inset-0 z-30">
+      {/* Anchor at the node's screen position */}
+      <div className="absolute" style={{ left: `${screenX}px`, top: `${screenY}px` }}>
+        {/* Centering wrapper — keeps the card above the node */}
+        <div style={{ transform: "translate(-50%, -110%)" }}>
+          <motion.div
+            data-project-node-card=""
+            className="pointer-events-auto w-56 rounded-xl border border-white/10 bg-[#0E1013]/90 p-4 shadow-2xl backdrop-blur-md"
+            initial={{ opacity: 0, scale: 0.92, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 4 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            onMouseEnter={onPointerEnter}
+            onMouseLeave={onPointerLeave}
           >
-            View Project →
-          </Link>
+            {/* Gradient swatch */}
+            <div
+              className="mb-3 h-1.5 w-full rounded-full"
+              style={{
+                background: `linear-gradient(90deg, ${project.identityGradient[0]}, ${project.identityGradient[1]})`,
+              }}
+            />
+
+            {/* Project name */}
+            <p className="font-[family-name:var(--font-display)] text-sm font-semibold text-[#F5F5F5]">
+              {project.name}
+            </p>
+
+            {/* Pitch */}
+            <p className="mt-1 font-[family-name:var(--font-body)] text-xs leading-snug text-[#A0A0A0]">
+              {project.pitch}
+            </p>
+
+            {/* View Project link */}
+            <Link
+              href={`/projects/${project.slug}`}
+              className="mt-3 block w-full rounded-lg border py-1.5 text-center font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest transition-all duration-200"
+              style={{
+                borderColor: project.identityGradient[0],
+                backgroundColor: `${project.identityGradient[0]}15`,
+                color: project.identityGradient[0],
+              }}
+            >
+              View Project →
+            </Link>
+          </motion.div>
         </div>
       </div>
     </div>
