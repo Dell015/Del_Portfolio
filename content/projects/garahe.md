@@ -187,6 +187,27 @@ Over time, the AI watches for patterns in the logged data that the user might mi
 
 ---
 
+## Color palette
+
+The palette is warm, understated, and premium — more "private journal" than "tech app." It evokes leather seats, wooden dashboards, and a well-kept garage. Personal and private, like opening a notebook rather than a dashboard.
+
+| Role | Hex | Description |
+|------|-----|-------------|
+| Primary dark | `#2D2D2D` | Near-black charcoal — backgrounds, nav, dark surfaces |
+| Light neutral | `#D7C9AE` | Warm sand/khaki — secondary text, borders, muted elements |
+| Accent | `#A68763` | Leather brown/caramel — buttons, links, interactive elements |
+| Light background | `#EAE0D2` | Warm cream/off-white — page backgrounds, cards, surfaces |
+
+**Status colors** (layered on top for the Status Dashboard and reminders):
+
+| Status | Hex | Usage |
+|--------|-----|-------|
+| Healthy / recently maintained | `#00B894` | Green |
+| Coming up | `#FDCB6E` | Amber |
+| Look into this / overdue | `#E17055` | Red |
+
+---
+
 ## Tech stack
 
 The stack is chosen to be learnable as a solo developer, genuinely employable as a skill set, and architecturally capable of supporting all three phases without a rewrite. Every technology chosen here is used in real production systems — not toys or shortcuts.

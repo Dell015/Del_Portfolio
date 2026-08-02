@@ -29,6 +29,16 @@ function mapRange(value: number, inMin: number, inMax: number) {
   return Math.max(0, Math.min(1, (value - inMin) / (inMax - inMin)));
 }
 
+/**
+ * Per-frame delta clamp. All time-based animation in this canvas accumulates
+ * its own elapsed time from `delta` instead of reading `state.clock.elapsedTime`:
+ * toggling `frameloop` (done when the sphere zone is left) resets R3F's clock to 0,
+ * which would send any absolute-timestamp maths backwards.
+ */
+function stepTime(current: number, delta: number) {
+  return current + Math.min(delta, 0.1);
+}
+
 /** Generate fibonacci sphere positions for the target */
 function generateSpherePositions(count: number, radius: number): Float32Array {
   const positions = new Float32Array(count * 3);
@@ -47,10 +57,13 @@ function generateSpherePositions(count: number, radius: number): Float32Array {
 /** Get positions for project nodes on sphere surface */
 function getNodePositions(count: number, radius: number): [number, number, number][] {
   const positions: [number, number, number][] = [];
+  // Evenly distribute across the sphere, excluding top/bottom poles (avoid ±30° from poles)
+  // Use golden ratio spiral for even spacing
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const yMin = -0.7;
-  const yMax = 0.7;
+  const yMin = -0.7; // exclude bottom pole
+  const yMax = 0.7;  // exclude top pole
   for (let i = 0; i < count; i++) {
+    // Evenly space within the Y band
     const y = yMax - (i / (count - 1)) * (yMax - yMin);
     const radiusAtY = Math.sqrt(1 - y * y);
     const theta = goldenAngle * i;
@@ -292,14 +305,19 @@ interface ParticleSystemProps {
   mouseRef: React.MutableRefObject<THREE.Vector3>;
   mouseActiveRef: React.MutableRefObject<boolean>;
   preRevealRef: React.MutableRefObject<boolean>;
+  cursorNearSphereRef: React.MutableRefObject<boolean>;
 }
 
 function ParticleSystem({
   cloudA, cloudB, progressRef, dissolveRef, ambientRef,
   gatherRef, condenseRef, ringCompressRef, explodeRef, smallFadeRef, scatterRef, sphereRef, scaleRef,
-  mouseRef, mouseActiveRef, preRevealRef,
+  mouseRef, mouseActiveRef, preRevealRef, cursorNearSphereRef,
 }: ParticleSystemProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const rotSpeedRef = useRef(-0.0015);
+  /** Own elapsed clock — survives frameloop toggles (see stepTime). */
+  const timeRef = useRef(0);
   const { size } = useThree();
 
   const geometry = useMemo(() => {
@@ -356,7 +374,7 @@ function ParticleSystem({
     }
   }, [size]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!materialRef.current) return;
     const mat = materialRef.current;
     mat.uniforms.uProgress.value = progressRef.current;
@@ -369,25 +387,34 @@ function ParticleSystem({
     mat.uniforms.uSmallFade.value = smallFadeRef.current;
     mat.uniforms.uScatter.value = scatterRef.current;
     mat.uniforms.uSphere.value = sphereRef.current;
-    mat.uniforms.uTime.value = state.clock.elapsedTime;
+    mat.uniforms.uTime.value = timeRef.current = stepTime(timeRef.current, delta);
     mat.uniforms.uMouse.value.copy(mouseRef.current);
     mat.uniforms.uMouseActive.value = mouseActiveRef.current ? 1 : 0;
     mat.uniforms.uPreReveal.value = preRevealRef.current ? 1 : 0;
     mat.uniforms.uScale.value = scaleRef.current;
+
+    // Rotate sphere (small particles) — stops when cursor is near
+    if (groupRef.current && sphereRef.current > 0.5) {
+      const targetSpeed = cursorNearSphereRef.current ? 0 : -0.0015;
+      rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
+      groupRef.current.rotation.y += rotSpeedRef.current;
+    }
   });
 
   return (
-    <points geometry={geometry}>
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
+    <group ref={groupRef}>
+      <points geometry={geometry}>
+        <shaderMaterial
+          ref={materialRef}
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          uniforms={uniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+    </group>
   );
 }
 
@@ -403,9 +430,11 @@ interface ProjectNodesProps {
   mouseRef: React.MutableRefObject<THREE.Vector3>;
   /** Set to true by the parent to force-dismiss hover (background click / Escape). */
   clearHoverRef: React.MutableRefObject<boolean>;
+  /** Whether the cursor is near the sphere — pauses node rotation. */
+  cursorNearSphereRef: React.MutableRefObject<boolean>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cursorNearSphereRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -430,8 +459,8 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       document.body.style.cursor = "auto";
     }
 
-    // Rotation: slow to stop when a project is hovered or user is dragging
-    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current) ? 0 : 0.002;
+    // Rotation: opposite direction from sphere — stops on hover, drag, or cursor proximity
+    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003;
     rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
 
     if (sphereProgress.current > 0.5) {
@@ -638,16 +667,15 @@ function TweenDriver({
   onComplete: () => void;
 }) {
   const completedRef = useRef(false);
-  const startTimeRef = useRef<number | null>(null);
+  const elapsedRef = useRef(0);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!triggered || completedRef.current) return;
-    if (startTimeRef.current === null) {
-      startTimeRef.current = state.clock.elapsedTime;
-    }
-    const elapsed = state.clock.elapsedTime - startTimeRef.current;
+    // Delta-accumulated, NOT state.clock.elapsedTime: a frameloop toggle resets that
+    // clock to 0, which would stall the reveal — and the reveal is what unlocks scroll.
+    elapsedRef.current = stepTime(elapsedRef.current, delta);
     const duration = 4.5;
-    const linearT = Math.min(1, elapsed / duration);
+    const linearT = Math.min(1, elapsedRef.current / duration);
     progressRef.current = morphEasing(linearT);
     if (linearT >= 1) {
       progressRef.current = 1;
@@ -685,6 +713,31 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
       const t = sp * sp; // ease-in
       camera.position.z = THREE.MathUtils.lerp(1.6, targetZ, t);
     }
+  });
+
+  return null;
+}
+
+// ─── Cursor Proximity Detection ────────────────────────────────────────────────
+
+function CursorProximity({
+  mouseRef,
+  cursorNearSphereRef,
+  sphereInteractive,
+}: {
+  mouseRef: React.MutableRefObject<THREE.Vector3>;
+  cursorNearSphereRef: React.MutableRefObject<boolean>;
+  sphereInteractive: boolean;
+}) {
+  useFrame(() => {
+    if (!sphereInteractive) {
+      cursorNearSphereRef.current = false;
+      return;
+    }
+    // Check if cursor (in world space) is within proximity of sphere center (0,0,0)
+    const dist = Math.sqrt(mouseRef.current.x ** 2 + mouseRef.current.y ** 2);
+    // Sphere radius is ~2.2, detect when cursor is within ~4 units (generous zone)
+    cursorNearSphereRef.current = dist < 4.0;
   });
 
   return null;
@@ -840,6 +893,16 @@ export function HeroParticleCanvas({
   const mouseActiveRef = useRef(false);
   const preRevealRef = useRef(true);
 
+  // ── Sphere hand-off: fade out + freeze once the Projects section scrolls away ──
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const projectsElRef = useRef<HTMLElement | null>(null);
+  /** true = render loop stopped, canvas hidden (Skills / Activity / Resume / Footer) */
+  const [frozen, setFrozen] = useState(false);
+  const frozenRef = useRef(false);
+  /** Latest card teardown fn — called when the sphere zone is left. */
+  const closeCardRef = useRef<(() => void) | null>(null);
+  const cursorNearSphereRef = useRef(false);
+
   // Sphere interactivity state
   const [sphereInteractive, setSphereInteractive] = useState(false);
   const [cardState, setCardState] = useState<{
@@ -943,11 +1006,40 @@ export function HeroParticleCanvas({
         sphereRef.current = 0;
       }
 
+      // ── Hand-off: fade the whole canvas out once the Projects section scrolls
+      // past the viewport, then stop the render loop entirely. Reverses on scroll-up.
+      // Never runs before the hero reveal finishes — the reveal is what unlocks scroll.
+      const projectsEl = revealDone
+        ? (projectsElRef.current ?? (projectsElRef.current = document.getElementById("projects")))
+        : null;
+      if (projectsEl) {
+        const vh = window.innerHeight;
+        // How far the section's bottom edge has travelled above the viewport bottom
+        const past = vh - projectsEl.getBoundingClientRect().bottom;
+        const fadeSpan = vh * 0.6;
+        const hidden = Math.max(0, Math.min(1, past / fadeSpan));
+
+        if (wrapperRef.current) {
+          wrapperRef.current.style.opacity = String(1 - hidden);
+          wrapperRef.current.style.visibility = hidden >= 1 ? "hidden" : "visible";
+        }
+
+        if ((hidden >= 1) !== frozenRef.current) {
+          frozenRef.current = hidden >= 1;
+          setFrozen(frozenRef.current);
+          if (frozenRef.current) {
+            // Leaving the sphere zone — drop any open card and release the cursor
+            closeCardRef.current?.();
+            document.body.style.cursor = "auto";
+          }
+        }
+      }
+
       rafId = requestAnimationFrame(sync);
     }
     rafId = requestAnimationFrame(sync);
     return () => cancelAnimationFrame(rafId);
-  }, [scrollProgress, virtualScroll, sphereInteractive]);
+  }, [scrollProgress, virtualScroll, sphereInteractive, revealDone]);
 
   const handleComplete = useCallback(() => {
     preRevealRef.current = false;
@@ -961,7 +1053,7 @@ export function HeroParticleCanvas({
     function check() {
       const isFormed = sphereRef.current > 0.9;
       const isPostLock = virtualScroll.smallFadeRef.current >= 1;
-      setSphereInteractive(isFormed && isPostLock);
+      setSphereInteractive(isFormed && isPostLock && !frozenRef.current);
       rafId = requestAnimationFrame(check);
     }
     rafId = requestAnimationFrame(check);
@@ -1080,20 +1172,35 @@ export function HeroParticleCanvas({
   // Clean up the pending dismiss timer on unmount
   useEffect(() => () => cancelDismiss(), [cancelDismiss]);
 
+  // Expose the teardown to the scroll loop (used when the sphere zone is left)
+  useEffect(() => {
+    closeCardRef.current = closeCard;
+  }, [closeCard]);
+
   return (
     <div
       id="hero-particle-canvas"
+      ref={wrapperRef}
       className="fixed inset-0 z-[1]"
-      style={{ pointerEvents: "none" }}
+      style={{
+        // Must stay "none": this is a fixed, full-viewport layer, so its scroll chain is
+        // the document (overflow:hidden) rather than the SmoothScroll container — making it
+        // hit-testable swallows the wheel and scrolling dies. Hover/drag are handled by
+        // window listeners, and the project card re-enables pointer events on itself.
+        pointerEvents: "none",
+        transition: "opacity 0.15s linear",
+      }}
     >
       <Canvas
         camera={{ position: [0, 0, 1.6], fov: 60 }}
         dpr={[1, 2]}
         gl={{ antialias: false, alpha: true }}
+        frameloop={frozen ? "never" : "always"}
         style={{ background: "transparent", pointerEvents: "none" }}
       >
         <CameraAdjust sphereProgress={sphereRef} sphereInteractive={sphereInteractive} />
         <MouseTracker mouseRef={mouseRef} mouseActiveRef={mouseActiveRef} />
+        <CursorProximity mouseRef={mouseRef} cursorNearSphereRef={cursorNearSphereRef} sphereInteractive={sphereInteractive} />
         <ParticleSystem
           cloudA={cloudA}
           cloudB={cloudB}
@@ -1111,6 +1218,7 @@ export function HeroParticleCanvas({
           mouseRef={mouseRef}
           mouseActiveRef={mouseActiveRef}
           preRevealRef={preRevealRef}
+          cursorNearSphereRef={cursorNearSphereRef}
         />
         <ProjectNodes
           sphereProgress={sphereRef}
@@ -1120,6 +1228,7 @@ export function HeroParticleCanvas({
           scaleRef={sphereScaleRef}
           mouseRef={mouseRef}
           clearHoverRef={clearNodeHoverRef}
+          cursorNearSphereRef={cursorNearSphereRef}
         />
         <BigParticles
           alphaRef={bigAlphaRef}
@@ -1127,6 +1236,7 @@ export function HeroParticleCanvas({
           tintColorRef={tintColorRef}
           sizeRef={particleSizeRef}
           scaleRef={sphereScaleRef}
+          cursorNearSphereRef={cursorNearSphereRef}
         />
         <TweenDriver
           progressRef={progressRef}
@@ -1168,7 +1278,6 @@ export function HeroParticleCanvas({
           />
         )}
       </AnimatePresence>
-
     </div>
   );
 }

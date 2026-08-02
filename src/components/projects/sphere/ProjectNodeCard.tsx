@@ -66,6 +66,14 @@ export function ProjectNodeCard({
                 backgroundColor: `${project.identityGradient[0]}15`,
                 color: project.identityGradient[0],
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `${project.identityGradient[0]}30`;
+                e.currentTarget.style.boxShadow = `0 0 12px ${project.identityGradient[0]}40`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = `${project.identityGradient[0]}15`;
+                e.currentTarget.style.boxShadow = "none";
+              }}
             >
               View Project →
             </Link>

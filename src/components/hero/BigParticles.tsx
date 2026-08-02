@@ -86,6 +86,8 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
   const isCascading = useRef(false);
   // Rotation speed ref for smooth lerp to 0
   const rotSpeedRef = useRef(-0.0015);
+  /** Own elapsed clock — survives frameloop toggles */
+  const timeRef = useRef(0);
 
   // Precompute positions and base colors once
   const { scatterPositions, spherePositions, defaultColors } = useMemo(() => {
@@ -119,12 +121,14 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
     baseColors.current = new Float32Array(defaultColors);
   }, [count, defaultColors]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const mesh = meshRef.current;
     const mat = materialRef.current;
     if (!mesh || !mat || !mesh.instanceColor || !currentColors.current || !baseColors.current) return;
 
-    const time = state.clock.elapsedTime;
+    // Own elapsed clock — R3F's clock resets whenever `frameloop` is toggled
+    timeRef.current += Math.min(delta, 0.1);
+    const time = timeRef.current;
     const alpha = alphaRef.current;
     const sp = sphereFormRef.current;
     const scale = scaleRef.current;
