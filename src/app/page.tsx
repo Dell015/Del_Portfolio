@@ -3,7 +3,7 @@ import { About } from "@/components/about/About";
 import { AmbientGradient } from "@/components/AmbientGradient";
 import { ProjectSphereSection } from "@/components/projects/sphere/ProjectSphereSection";
 import { SkillsField } from "@/components/skills/SkillsField";
-import { ResumeCTA } from "@/components/resume/ResumeCTA";
+import { HandRevealSection } from "@/components/resume/HandRevealSection";
 import { Footer } from "@/components/footer/Footer";
 import { isEmailConfigured } from "@/lib/email/sendContactEmail";
 
@@ -19,7 +19,7 @@ export default function Home() {
       <About />
       <ProjectSphereSection />
       <SkillsField />
-      <ResumeCTA />
+      <HandRevealSection />
       <Footer contactEnabled={contactEnabled} />
     </>
   );

@@ -34,6 +34,16 @@ export const footer = {
   personalityLine: "Let's build something that actually ships.",
 } as const;
 
+/** Hand-reveal / resume section copy.
+ *  `href` stays "#" until the PDF exists — ResumeButton detects that and renders
+ *  a non-downloading placeholder rather than a broken link. */
+export const resume = {
+  eyebrow: "Almost there",
+  ctaLabel: "Download Resume",
+  href: "#",
+  placeholderNote: "PDF coming soon — placeholder link",
+} as const;
+
 /** Quick nav links in the footer's secondary row. Mirrors Nav.tsx anchors. */
 export const footerNav = [
   { label: "Home", href: "#hero" },

@@ -220,3 +220,160 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.src = src;
   });
 }
+
+// ─── Cloud transforms ─────────────────────────────────────────────────────────
+//
+// Used by the hand-reveal section. A sampled cloud is normalised against its
+// SOURCE IMAGE frame, so where the subject sits inside that frame leaks into the
+// cloud's position. The two hand crops are framed differently from each other,
+// which means "put them 70px apart" is meaningless until each cloud is anchored
+// to a feature rather than to its frame.
+
+export interface CloudBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+export function getCloudBounds(cloud: PointCloud): CloudBounds {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (let i = 0; i < cloud.count; i++) {
+    const x = cloud.positions[i * 3];
+    const y = cloud.positions[i * 3 + 1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  return { minX, maxX, minY, maxY };
+}
+
+/** In-place translation. Returns the same object for chaining. */
+export function translateCloud(
+  cloud: PointCloud,
+  dx: number,
+  dy: number,
+  dz = 0,
+): PointCloud {
+  for (let i = 0; i < cloud.count; i++) {
+    cloud.positions[i * 3] += dx;
+    cloud.positions[i * 3 + 1] += dy;
+    cloud.positions[i * 3 + 2] += dz;
+  }
+  return cloud;
+}
+
+/** In-place rotation about the Z axis (radians). Used to stand the hands upright
+ *  in portrait, where they approach from top and bottom instead of diagonally. */
+export function rotateCloudZ(cloud: PointCloud, radians: number): PointCloud {
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  for (let i = 0; i < cloud.count; i++) {
+    const x = cloud.positions[i * 3];
+    const y = cloud.positions[i * 3 + 1];
+    cloud.positions[i * 3] = x * cos - y * sin;
+    cloud.positions[i * 3 + 1] = x * sin + y * cos;
+  }
+  return cloud;
+}
+
+/**
+ * Translates the cloud so its *fingertip* sits at the origin.
+ *
+ * The tip is the extreme point along `axis` in `direction`. Rather than trusting
+ * a single extreme point — which could be a stray semi-transparent pixel that
+ * survived the alpha threshold — this takes the extreme 1% of points and uses
+ * their median on the perpendicular axis. That keeps the anchor on the actual
+ * fingertip mass instead of an outlier.
+ *
+ * Anchoring here is what makes the fingertip gap exact: once both tips are at
+ * their own origin, placing them at ±gap/2 puts them precisely `gap` apart, no
+ * matter how each crop was framed.
+ */
+export function alignCloudTipToOrigin(
+  cloud: PointCloud,
+  axis: "x" | "y",
+  direction: "min" | "max",
+): PointCloud {
+  const primary = axis === "x" ? 0 : 1;
+  const secondary = axis === "x" ? 1 : 0;
+
+  let extreme = direction === "min" ? Infinity : -Infinity;
+  for (let i = 0; i < cloud.count; i++) {
+    const v = cloud.positions[i * 3 + primary];
+    if (direction === "min" ? v < extreme : v > extreme) extreme = v;
+  }
+
+  // Collect the perpendicular coordinates of points nearest the extreme.
+  const band = 0.04; // ~2% of the normalised [-1,1] span
+  const perp: number[] = [];
+  for (let i = 0; i < cloud.count; i++) {
+    const v = cloud.positions[i * 3 + primary];
+    if (Math.abs(v - extreme) <= band) {
+      perp.push(cloud.positions[i * 3 + secondary]);
+    }
+  }
+  perp.sort((a, b) => a - b);
+  const medianPerp = perp.length > 0 ? perp[Math.floor(perp.length / 2)] : 0;
+
+  return axis === "x"
+    ? translateCloud(cloud, -extreme, -medianPerp)
+    : translateCloud(cloud, -medianPerp, -extreme);
+}
+
+/**
+ * Builds the dispersed "not yet formed" companion positions for a cloud.
+ *
+ * Each particle gets a position pushed outward from the cloud's own shape plus a
+ * random offset, so the collapse into the hand reads as the shape gathering
+ * itself rather than a cloud sliding into place. Deliberately derived from the
+ * shape (not pure noise) so the silhouette is faintly legible even while loose.
+ */
+export function buildScatterPositions(
+  cloud: PointCloud,
+  spread = 1.9,
+  jitter = 0.75,
+): Float32Array {
+  const out = new Float32Array(cloud.count * 3);
+
+  for (let i = 0; i < cloud.count; i++) {
+    const i3 = i * 3;
+
+    // Random point on a sphere, radius biased toward the surface.
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = jitter * (0.35 + Math.random() * 0.65);
+
+    out[i3] = cloud.positions[i3] * spread + r * Math.sin(phi) * Math.cos(theta);
+    out[i3 + 1] =
+      cloud.positions[i3 + 1] * spread + r * Math.sin(phi) * Math.sin(theta);
+    out[i3 + 2] = cloud.positions[i3 + 2] * spread + r * Math.cos(phi) * 0.5;
+  }
+
+  return out;
+}
+
+/** Per-particle speed variation, matching the hero's 0.3–1.7 range. */
+export function buildSpeedAttribute(count: number): Float32Array {
+  const speeds = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    speeds[i] = 0.3 + Math.random() * 1.4;
+  }
+  return speeds;
+}
+
+/** Structural clone — transforms here mutate in place, so callers that need the
+ *  pristine sample (e.g. re-deriving a portrait layout) clone first. */
+export function cloneCloud(cloud: PointCloud): PointCloud {
+  return {
+    positions: new Float32Array(cloud.positions),
+    colors: new Float32Array(cloud.colors),
+    count: cloud.count,
+  };
+}

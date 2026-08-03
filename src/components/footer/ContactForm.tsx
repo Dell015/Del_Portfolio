@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { FiArrowUpRight, FiSend } from "react-icons/fi";
 import { CONTACT_LIMITS, contact, contactForm } from "@/lib/content/site";
@@ -39,8 +39,14 @@ export function ContactForm({ enabled }: ContactFormProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorText, setErrorText] = useState("");
 
-  /** Form mount time, used for the server-side submit-timing check. */
-  const mountedAt = useRef(Date.now());
+  /** Form mount time, used for the server-side submit-timing check. Populated in
+   *  an effect rather than a ref initialiser — `Date.now()` during render is
+   *  impure and produces unstable values across re-renders. */
+  const mountedAt = useRef(0);
+
+  useEffect(() => {
+    mountedAt.current = Date.now();
+  }, []);
 
   const tooShort = message.trim().length < CONTACT_LIMITS.messageMin;
   const nearLimit = message.length > CONTACT_LIMITS.messageMax * 0.9;
@@ -61,7 +67,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
           message,
           email,
           website,
-          elapsedMs: Date.now() - mountedAt.current,
+          elapsedMs: mountedAt.current ? Date.now() - mountedAt.current : 0,
         }),
       });
 
