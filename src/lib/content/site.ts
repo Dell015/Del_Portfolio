@@ -33,3 +33,51 @@ export const contact = {
 export const footer = {
   personalityLine: "Let's build something that actually ships.",
 } as const;
+
+/** Quick nav links in the footer's secondary row. Mirrors Nav.tsx anchors. */
+export const footerNav = [
+  { label: "Home", href: "#hero" },
+  { label: "About", href: "#about" },
+  { label: "Projects", href: "#projects" },
+  { label: "Skills", href: "#skills" },
+] as const;
+
+/** Availability badge. Set `active: false` to render it muted without a pulse. */
+export const availability = {
+  label: "Open to work",
+  active: true,
+} as const;
+
+/** "Built with" chips — the stack this site actually runs on. */
+export const builtWith = [
+  "Next.js",
+  "React",
+  "TypeScript",
+  "Three.js",
+  "Tailwind CSS",
+  "Framer Motion",
+] as const;
+
+/** Copy for the footer contact form. */
+export const contactForm = {
+  eyebrow: "Get in touch",
+  blurb:
+    "Got a project, a role, or just want to say hi? Send it straight to my inbox.",
+  emailLabel: "Your email",
+  emailPlaceholder: "you@example.com",
+  emailHint: "Optional — leave it if you want a reply.",
+  messageLabel: "Message",
+  messagePlaceholder: "What's on your mind?",
+  submitLabel: "Send message",
+  submittingLabel: "Sending…",
+  successText: "Message sent. I'll get back to you soon.",
+  genericError: "Something went wrong. Try again, or email me directly.",
+  disabledNote: "The form isn't wired up yet — email me directly instead.",
+} as const;
+
+/** Shared field limits — imported by both the client form and the API route. */
+export const CONTACT_LIMITS = {
+  messageMin: 10,
+  messageMax: 2000,
+  emailMax: 254,
+} as const;
