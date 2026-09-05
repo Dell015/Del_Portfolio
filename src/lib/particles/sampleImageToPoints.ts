@@ -11,6 +11,14 @@ export interface PointCloud {
   positions: Float32Array; // xyz per particle (stride 3)
   colors: Float32Array; // rgb per particle (stride 3)
   count: number;
+  /**
+   * Distance between neighbouring particles, in the same normalised units as
+   * `positions`. Consumers need this to size point sprites: a point much smaller
+   * than the spacing leaves visible gaps, much larger and the cloud turns to mush.
+   * Since it travels with the cloud, point size stays correct across any source
+   * resolution, grid interval, or subsample ratio.
+   */
+  gridStep?: number;
 }
 
 interface SampleOptions {
@@ -86,6 +94,9 @@ export async function sampleImageToPoints(
     positions: new Float32Array(tempPositions),
     colors: new Float32Array(tempColors),
     count,
+    // One grid step in normalised units — the on-screen spacing of neighbouring
+    // particles once the cloud is scaled.
+    gridStep: gridInterval * scale,
   };
 }
 
@@ -368,6 +379,75 @@ export function buildSpeedAttribute(count: number): Float32Array {
   return speeds;
 }
 
+/** Small deterministic PRNG so a given cloud always subsamples identically. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Reduces a cloud to `target` points without distorting its shape.
+ *
+ * Do NOT use `normalizeCloudCount` for this. It keeps the first N points, and the
+ * sampler emits points in top-to-bottom scan order — so on a 30,793-point hand
+ * capped at 22,000 it silently discarded the bottom 84px of a 180px-tall hand,
+ * i.e. just under half the subject. That is a shape change disguised as a budget.
+ *
+ * A partial Fisher–Yates selection takes a spatially unbiased subset, and avoids
+ * the diagonal moiré a fixed stride would produce on a pixel grid.
+ */
+export function subsampleCloud(
+  cloud: PointCloud,
+  target: number,
+  seed = 0x9e3779b9,
+): PointCloud {
+  if (target >= cloud.count) return cloud;
+
+  const rand = mulberry32(seed);
+  const indices = new Uint32Array(cloud.count);
+  for (let i = 0; i < cloud.count; i++) indices[i] = i;
+
+  // Only the first `target` slots need to be settled.
+  for (let i = 0; i < target; i++) {
+    const j = i + Math.floor(rand() * (cloud.count - i));
+    const tmp = indices[i];
+    indices[i] = indices[j];
+    indices[j] = tmp;
+  }
+
+  const positions = new Float32Array(target * 3);
+  const colors = new Float32Array(target * 3);
+
+  for (let i = 0; i < target; i++) {
+    const src = indices[i] * 3;
+    const dst = i * 3;
+    positions[dst] = cloud.positions[src];
+    positions[dst + 1] = cloud.positions[src + 1];
+    positions[dst + 2] = cloud.positions[src + 2];
+    colors[dst] = cloud.colors[src];
+    colors[dst + 1] = cloud.colors[src + 1];
+    colors[dst + 2] = cloud.colors[src + 2];
+  }
+
+  return {
+    positions,
+    colors,
+    count: target,
+    // Removing points spreads the survivors out: area per particle grows by
+    // count/target, so spacing grows by its square root. Keeping this accurate is
+    // what lets point size stay correct after subsampling.
+    gridStep:
+      cloud.gridStep !== undefined
+        ? cloud.gridStep * Math.sqrt(cloud.count / target)
+        : undefined,
+  };
+}
+
 /** Structural clone — transforms here mutate in place, so callers that need the
  *  pristine sample (e.g. re-deriving a portrait layout) clone first. */
 export function cloneCloud(cloud: PointCloud): PointCloud {
@@ -375,5 +455,6 @@ export function cloneCloud(cloud: PointCloud): PointCloud {
     positions: new Float32Array(cloud.positions),
     colors: new Float32Array(cloud.colors),
     count: cloud.count,
+    gridStep: cloud.gridStep,
   };
 }

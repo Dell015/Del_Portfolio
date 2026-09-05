@@ -16,32 +16,35 @@ import {
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { useIsVisible } from "@/lib/hooks/useIsVisible";
-import { useModeStore } from "@/lib/store/mode";
 import { resume } from "@/lib/content/site";
 import {
   alignCloudTipToOrigin,
   cloneCloud,
-  normalizeCloudCount,
   rotateCloudZ,
   sampleImageToPoints,
+  subsampleCloud,
   type PointCloud,
 } from "@/lib/particles/sampleImageToPoints";
 import { HandParticleCanvas } from "./HandParticleCanvas";
-import { FrescoWash, HandRevealStatic } from "./HandRevealStatic";
+import { HandRevealStatic } from "./HandRevealStatic";
 import { ResumeButton } from "./ResumeButton";
 
 const GOD_SRC = "/hand-god.png";
 const ADAM_SRC = "/hand-adam.png";
 
 /**
- * Particle budget per hand, by device tier.
+ * Particle ceiling per hand.
  *
- * The crops are 360×360 with ~24% opaque coverage, so 1:1 sampling yields roughly
- * 30k points each. Capping at 22k on capable devices keeps both hands (44k) well
- * under the hero's 80k, and the two systems never animate at the same time
- * anyway — the hero freezes itself once #projects leaves the viewport.
+ * The current crops yield 30,793 and 34,170 points at 1:1 sampling, so `high` sits
+ * above both and nothing is dropped — the hands render at full source fidelity.
+ * The ceiling only bites if larger crops are supplied later, and `subsampleCloud`
+ * then thins them uniformly instead of truncating.
+ *
+ * It previously capped at 22,000 with `normalizeCloudCount`, which keeps the first
+ * N points in top-to-bottom scan order — silently deleting the bottom 84px of a
+ * 180px-tall hand. Roughly half of each hand was simply missing.
  */
-const BUDGET = { high: 22_000, low: 7_000 } as const;
+const BUDGET = { high: 60_000, low: 12_000 } as const;
 
 /** Scroll distance the section stays pinned. 300vh matches ProjectSphereSection,
  *  the pattern already established for pinning on this page. */
@@ -81,31 +84,26 @@ function getOrientationServerSnapshot(): Orientation {
 }
 
 /**
- * Hand-reveal section — the Creation of Adam homage that pays off in the resume
- * download, immediately above the footer.
+ * Hand-reveal section — two particle hands converging on the resume download,
+ * immediately above the footer.
  *
- * Pinning is `position: sticky` over a tall spacer rather than wheel
- * interception. The visual result is identical, but it keeps native touch,
- * keyboard and anchor-jump scrolling intact, and avoids a second scroll-jacker
- * fighting `useVirtualScroll`, which already locks the wheel for the project
- * sphere higher up the page.
+ * Always renders particles. There is no Clean-mode image version: flat PNGs of the
+ * fresco read as stock art, and a still can't stand in for the effect. The only
+ * fallback left is for devices that cannot create a WebGL context at all, where
+ * the choice is the bare CTA or a broken section.
+ *
+ * Pinning is `position: sticky` over a tall spacer rather than wheel interception.
+ * The visual result is identical, but it keeps native touch, keyboard and
+ * anchor-jump scrolling intact, and avoids a second scroll-jacker fighting
+ * `useVirtualScroll`, which already locks the wheel for the project sphere.
  */
 export function HandRevealSection() {
-  const mode = useModeStore((s) => s.mode);
-  const reducedMotion = useModeStore((s) => s.reducedMotion);
-  const hydrated = useModeStore((s) => s.hydrated);
   const { webglAvailable, tier } = useDeviceCapability();
 
-  // Same gate the hero uses. Clean mode is the site default and must stay
-  // WebGL-free, so this is a mode check, not just a motion check.
-  const wantsImmersive = mode === "immersive" && !reducedMotion;
-  const canRunParticles = wantsImmersive && webglAvailable && tier !== "none";
-
-  // Until the mode store hydrates and the capability probe resolves, render the
-  // static version: it's the safe default and avoids a WebGL flash in Clean mode.
-  if (!hydrated || tier === "unknown" || !canRunParticles) {
-    return <HandRevealStatic />;
-  }
+  // `unknown` is the SSR/hydration snapshot. Render nothing structural until the
+  // probe resolves, so we never flash a fallback at capable devices.
+  if (tier === "unknown") return <HandRevealStatic />;
+  if (!webglAvailable || tier === "none") return <HandRevealStatic />;
 
   return <HandRevealImmersive tier={tier === "low" ? "low" : "high"} />;
 }
@@ -154,22 +152,25 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
         // gridInterval rather than targetCount: the sampler estimates interval
         // from TOTAL pixels, but ~76% of these images are transparent, so a
         // targetCount request would under-sample by roughly 4x.
+        //
+        // alphaThreshold is low (10) on purpose — it keeps the soft antialiased
+        // pixels around the silhouette, which is what makes the edge read as a
+        // drawn contour rather than a cut-out.
         const interval = tier === "high" ? 1 : 2;
         const [god, adam] = await Promise.all([
-          sampleImageToPoints(GOD_SRC, { gridInterval: interval, alphaThreshold: 24 }),
-          sampleImageToPoints(ADAM_SRC, { gridInterval: interval, alphaThreshold: 24 }),
+          sampleImageToPoints(GOD_SRC, { gridInterval: interval, alphaThreshold: 10 }),
+          sampleImageToPoints(ADAM_SRC, { gridInterval: interval, alphaThreshold: 10 }),
         ]);
         if (cancelled) return;
 
         const budget = BUDGET[tier];
         setRawSamples({
-          god: god.count > budget ? normalizeCloudCount(god, budget) : god,
-          adam: adam.count > budget ? normalizeCloudCount(adam, budget) : adam,
+          god: subsampleCloud(god, budget),
+          adam: subsampleCloud(adam, budget, 0x5bf03635),
         });
       } catch (err) {
         if (cancelled) return;
-        // Matches the hero's behaviour: a failed sample degrades to the static
-        // treatment rather than rendering an empty canvas.
+        // A failed sample degrades to the bare CTA rather than an empty canvas.
         console.error("[hand-reveal] Failed to sample hand crops:", err);
         setFailed(true);
       }
@@ -242,8 +243,6 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
       <div ref={visibilityRef} className="absolute inset-0 pointer-events-none" />
 
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        <FrescoWash />
-
         {/* Particles mount only once sampled and only while near the viewport;
             the render loop stops entirely when the section scrolls away. */}
         {clouds && (
