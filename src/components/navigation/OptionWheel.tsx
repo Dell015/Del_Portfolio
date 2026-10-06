@@ -73,6 +73,7 @@ const OptionWheel = ({
   const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ y: number; start: number; id: number } | null>(null);
   const dragMovedRef = useRef(false);
+  const runFrameRef = useRef<(now: number) => void>(() => {});
   const [selectedIndex, setSelectedIndex] = useState(defaultSelected);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -81,21 +82,24 @@ const OptionWheel = ({
       ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
       : 16;
 
-  onChangeRef.current = onChange;
-  cfgRef.current = {
-    count: items.length,
-    items,
-    rowH: Math.max(fontSize * spacing * remPx, 1),
-    curve,
-    tilt,
-    blur,
-    fade,
-    minOpacity,
-    side,
-    loop,
-    smoothing,
-    draggable,
-  };
+  // Mirror the latest props into refs after each commit (never during render).
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    cfgRef.current = {
+      count: items.length,
+      items,
+      rowH: Math.max(fontSize * spacing * remPx, 1),
+      curve,
+      tilt,
+      blur,
+      fade,
+      minOpacity,
+      side,
+      loop,
+      smoothing,
+      draggable,
+    };
+  });
 
   const runFrame = useCallback((now: number) => {
     const dt = Math.min((now - lastRef.current) / 1000, 0.05);
@@ -145,8 +149,12 @@ const OptionWheel = ({
       );
     }
 
-    rafRef.current = settled ? null : requestAnimationFrame(runFrame);
+    rafRef.current = settled ? null : requestAnimationFrame((t) => runFrameRef.current(t));
   }, []);
+
+  useEffect(() => {
+    runFrameRef.current = runFrame;
+  }, [runFrame]);
 
   const startLoop = useCallback(() => {
     if (rafRef.current != null) return;

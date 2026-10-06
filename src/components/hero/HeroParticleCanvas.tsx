@@ -18,12 +18,30 @@ import { useSphereHoverStore } from "@/lib/store/sphereHover";
 
 const SPHERE_RADIUS = 2.2;
 const _nodeColor = new THREE.Color();
+// Scratch vectors, reused every frame — allocating per node per frame in the
+// hover/projection code produced constant GC pressure (visible as micro-stutter).
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
+const _v4 = new THREE.Vector3();
 
 // Scroll progress breakpoints (for pre-lock phases only)
 const SP = {
   DISSOLVE_START: 0.05,
   DISSOLVE_END: 0.4,
 };
+
+/** Tiny deterministic PRNG (mulberry32). */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 function mapRange(value: number, inMin: number, inMax: number) {
   return Math.max(0, Math.min(1, (value - inMin) / (inMax - inMin)));
@@ -104,6 +122,7 @@ const vertexShader = /* glsl */ `
   uniform float uMouseActive;
   uniform float uPreReveal;
   uniform float uScale;
+  uniform float uDpr;
 
   varying vec3 vColor;
   varying float vAlpha;
@@ -265,7 +284,7 @@ const vertexShader = /* glsl */ `
     gl_Position = projectionMatrix * mvPosition;
 
     // Point size — adjust for sphere phases
-    float baseSize = uPointSize * (uResolution.y / 900.0);
+    float baseSize = uPointSize * (uResolution.y / 900.0) * uDpr;
     float ambientSizeScale = mix(1.0, 0.7, uAmbient);
     float sphereSizeScale = mix(ambientSizeScale, 0.9, spherePhase);
     gl_PointSize = baseSize * sphereSizeScale * (1.0 / -mvPosition.z);
@@ -331,9 +350,11 @@ function ParticleSystem({
     geo.setAttribute("colorB", new THREE.BufferAttribute(cloudB.colors, 3));
 
     // Per-particle speed variation
+    // Seeded (not Math.random) so the render is pure and the cloud is identical every load.
+    const rand = mulberry32(0x9e3779b1);
     const speeds = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      speeds[i] = 0.3 + Math.random() * 1.4;
+      speeds[i] = 0.3 + rand() * 1.4;
     }
     geo.setAttribute("speed", new THREE.BufferAttribute(speeds, 1));
 
@@ -363,6 +384,7 @@ function ParticleSystem({
       uMouseActive: { value: 0 },
       uPreReveal: { value: 1 },
       uScale: { value: 1 },
+      uDpr: { value: 1 },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -392,6 +414,9 @@ function ParticleSystem({
     mat.uniforms.uMouseActive.value = mouseActiveRef.current ? 1 : 0;
     mat.uniforms.uPreReveal.value = preRevealRef.current ? 1 : 0;
     mat.uniforms.uScale.value = scaleRef.current;
+    // gl_PointSize is in device pixels: scale by DPR so particles look the same
+    // size on standard and high-density screens.
+    mat.uniforms.uDpr.value = state.viewport.dpr;
 
     // Rotate sphere (small particles) — stops when cursor is near
     if (groupRef.current && sphereRef.current > 0.5) {
@@ -488,7 +513,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       } else {
         // Convert mouse world pos to screen pixels
         // We need actual pixel coords — use the same projection as nodes
-        const mouseProj = new THREE.Vector3(mouseX, mouseY, 0).project(camera);
+        const mouseProj = _v1.set(mouseX, mouseY, 0).project(camera);
         const mousePxX = ((mouseProj.x + 1) / 2) * size.width;
         const mousePxY = ((1 - mouseProj.y) / 2) * size.height;
 
@@ -497,9 +522,8 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
 
         groupRef.current.children.forEach((child, i) => {
           if (!(child instanceof THREE.Group)) return;
-          const worldPos = new THREE.Vector3();
-          child.getWorldPosition(worldPos);
-          const projected = worldPos.clone().project(camera);
+          child.getWorldPosition(_v2);
+          const projected = _v3.copy(_v2).project(camera);
           const nodePxX = ((projected.x + 1) / 2) * size.width;
           const nodePxY = ((1 - projected.y) / 2) * size.height;
           const dx = nodePxX - mousePxX;
@@ -527,11 +551,10 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
             document.body.style.cursor = "pointer";
             const nodeGroup = groupRef.current.children[closestIdx];
             if (nodeGroup) {
-              const worldPos = new THREE.Vector3();
-              nodeGroup.getWorldPosition(worldPos);
-              worldPos.project(camera);
-              const screenX = ((worldPos.x + 1) / 2) * size.width;
-              const screenY = ((1 - worldPos.y) / 2) * size.height;
+              nodeGroup.getWorldPosition(_v4);
+              _v4.project(camera);
+              const screenX = ((_v4.x + 1) / 2) * size.width;
+              const screenY = ((1 - _v4.y) / 2) * size.height;
               onHover(closestIdx, screenX, screenY);
             }
           } else {
@@ -581,11 +604,10 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     if (detectedIndex.current !== null && groupRef.current) {
       const nodeGroup = groupRef.current.children[detectedIndex.current];
       if (nodeGroup) {
-        const worldPos = new THREE.Vector3();
-        nodeGroup.getWorldPosition(worldPos);
-        worldPos.project(camera);
-        const screenX = ((worldPos.x + 1) / 2) * size.width;
-        const screenY = ((1 - worldPos.y) / 2) * size.height;
+        nodeGroup.getWorldPosition(_v4);
+        _v4.project(camera);
+        const screenX = ((_v4.x + 1) / 2) * size.width;
+        const screenY = ((1 - _v4.y) / 2) * size.height;
         onHover(detectedIndex.current, screenX, screenY);
       }
     }
@@ -699,6 +721,8 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
     const adjustedZ = aspect < 1
       ? baseZ + (1 - aspect) * 0.5
       : baseZ - (aspect - 1) * 0.08;
+    // three.js objects are mutable by design; the camera is owned by this canvas.
+    // eslint-disable-next-line react-hooks/immutability
     (camera as THREE.PerspectiveCamera).position.z = Math.max(1.2, Math.min(2.2, adjustedZ));
     camera.updateProjectionMatrix();
   }, [camera, size, sphereInteractive]);
@@ -711,6 +735,7 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
     if (sp > 0) {
       const targetZ = 7;
       const t = sp * sp; // ease-in
+      // eslint-disable-next-line react-hooks/immutability
       camera.position.z = THREE.MathUtils.lerp(1.6, targetZ, t);
     }
   });
@@ -758,33 +783,36 @@ function MouseTracker({
     const canvas = document.querySelector("#hero-particle-canvas") as HTMLElement;
     if (!canvas) return;
 
-    function screenToWorld(clientX: number, clientY: number): THREE.Vector3 {
+    function screenToWorld(clientX: number, clientY: number, out: THREE.Vector3): THREE.Vector3 {
       const rect = canvas.getBoundingClientRect();
       const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
       const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
-      const vec = new THREE.Vector3(ndcX, ndcY, 0.5);
-      vec.unproject(camera);
-      const dir = vec.sub(camera.position).normalize();
+      _v1.set(ndcX, ndcY, 0.5).unproject(camera);
+      const dir = _v1.sub(camera.position).normalize();
       const dist = -camera.position.z / dir.z;
-      return camera.position.clone().add(dir.multiplyScalar(dist));
+      return out.copy(camera.position).add(dir.multiplyScalar(dist));
     }
 
-    function onMouseMove(e: MouseEvent) {
-      const worldPos = screenToWorld(e.clientX, e.clientY);
-      mouseRef.current.set(worldPos.x, worldPos.y, 0);
+    // Pointer events cover mouse, pen AND touch, so project nodes can be tapped
+    // on phones (the old mouse-only listeners made the sphere unusable there).
+    function onPointerMove(e: PointerEvent) {
+      screenToWorld(e.clientX, e.clientY, _v2);
+      mouseRef.current.set(_v2.x, _v2.y, 0);
       mouseActiveRef.current = true;
     }
 
-    function onMouseLeave() {
+    function onPointerLeave() {
       mouseActiveRef.current = false;
       mouseRef.current.set(999, 999, 0);
     }
 
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseleave", onMouseLeave);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerdown", onPointerMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onPointerLeave);
     return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseleave", onMouseLeave);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerdown", onPointerMove);
+      document.documentElement.removeEventListener("pointerleave", onPointerLeave);
     };
   }, [camera, mouseRef, mouseActiveRef]);
 
@@ -807,16 +835,18 @@ function DragRotate({ isInteractingRef }: { isInteractingRef: React.MutableRefOb
   }, [camera]);
 
   useEffect(() => {
-    // Listen on window — the canvas has pointerEvents:none so we use window
-    // Only start drag on left-click, ignore wheel entirely
-    function onMouseDown(e: MouseEvent) {
+    // Listen on window — the canvas has pointerEvents:none so we use window.
+    // Pointer events (not mouse events) so touch drags rotate the sphere too.
+    let releaseTimer: ReturnType<typeof setTimeout> | null = null;
+    function onMouseDown(e: PointerEvent) {
       if (e.button !== 0) return;
+      if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = null; }
       isDragging.current = true;
       prevMouse.current = { x: e.clientX, y: e.clientY };
       isInteractingRef.current = true;
     }
 
-    function onMouseMove(e: MouseEvent) {
+    function onMouseMove(e: PointerEvent) {
       if (!isDragging.current) return;
       const dx = e.clientX - prevMouse.current.x;
       const dy = e.clientY - prevMouse.current.y;
@@ -830,17 +860,22 @@ function DragRotate({ isInteractingRef }: { isInteractingRef: React.MutableRefOb
 
     function onMouseUp() {
       isDragging.current = false;
-      setTimeout(() => { isInteractingRef.current = false; }, 2000);
+      if (releaseTimer) clearTimeout(releaseTimer);
+      releaseTimer = setTimeout(() => { isInteractingRef.current = false; }, 2000);
     }
 
-    window.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("pointerdown", onMouseDown);
+    window.addEventListener("pointermove", onMouseMove);
+    window.addEventListener("pointerup", onMouseUp);
+    window.addEventListener("pointercancel", onMouseUp);
 
     return () => {
-      window.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
+      if (releaseTimer) clearTimeout(releaseTimer);
+      isInteractingRef.current = false;
+      window.removeEventListener("pointerdown", onMouseDown);
+      window.removeEventListener("pointermove", onMouseMove);
+      window.removeEventListener("pointerup", onMouseUp);
+      window.removeEventListener("pointercancel", onMouseUp);
     };
   }, [camera, isInteractingRef]);
 
@@ -851,8 +886,7 @@ function DragRotate({ isInteractingRef }: { isInteractingRef: React.MutableRefOb
     spherical.current.phi += (targetSpherical.current.phi - spherical.current.phi) * dampFactor;
     spherical.current.radius = targetSpherical.current.radius;
 
-    const pos = new THREE.Vector3().setFromSpherical(spherical.current);
-    camera.position.copy(pos);
+    camera.position.setFromSpherical(spherical.current);
     camera.lookAt(0, 0, 0);
   });
 
@@ -866,6 +900,10 @@ interface HeroParticleCanvasProps {
   cloudB: PointCloud;
   revealTriggered: boolean;
   onRevealComplete?: () => void;
+  /** Max device-pixel-ratio the canvas may render at (lower = cheaper). */
+  maxDpr?: number;
+  /** Called if the GPU context is lost and doesn't come back — caller should fall back to the static page. */
+  onFatalError?: () => void;
 }
 
 export function HeroParticleCanvas({
@@ -873,6 +911,8 @@ export function HeroParticleCanvas({
   cloudB,
   revealTriggered,
   onRevealComplete,
+  maxDpr = 1.75,
+  onFatalError,
 }: HeroParticleCanvasProps) {
   const progressRef = useRef(0);
   const dissolveRef = useRef(0);
@@ -912,6 +952,12 @@ export function HeroParticleCanvas({
   } | null>(null);
 
   const { scrollProgress } = useSnapScroll();
+  /** Latest scroll value for the rAF loops below — reading it from a ref means those
+   *  loops no longer tear down and re-register on every scroll tick. */
+  const scrollRef = useRef(scrollProgress);
+  useEffect(() => {
+    scrollRef.current = scrollProgress;
+  }, [scrollProgress]);
 
   // Virtual scroll — only enabled after portrait reveal completes (prevents blocking hero scroll)
   const [revealDone, setRevealDone] = useState(false);
@@ -996,7 +1042,7 @@ export function HeroParticleCanvas({
           sphereRef.current = 1;
         } else {
           // Post-unlock: map additional scroll distance to sphere
-          const postLockScroll = scrollProgress - LOCK_TRIGGER;
+          const postLockScroll = scrollRef.current - LOCK_TRIGGER;
           // Give 0.5 scroll-pages for scatter to settle, then 1.0 for sphere formation
           scatterRef.current = Math.min(1, Math.max(0, postLockScroll / 0.5));
           sphereRef.current = Math.min(1, Math.max(0, (postLockScroll - 0.5) / 1.0));
@@ -1039,7 +1085,7 @@ export function HeroParticleCanvas({
     }
     rafId = requestAnimationFrame(sync);
     return () => cancelAnimationFrame(rafId);
-  }, [scrollProgress, virtualScroll, sphereInteractive, revealDone]);
+  }, [virtualScroll, sphereInteractive, revealDone]);
 
   const handleComplete = useCallback(() => {
     preRevealRef.current = false;
@@ -1050,10 +1096,15 @@ export function HeroParticleCanvas({
   // Track when sphere becomes interactive (sphere formed + post-lock)
   useEffect(() => {
     let rafId: number;
+    let last = false;
     function check() {
       const isFormed = sphereRef.current > 0.9;
       const isPostLock = virtualScroll.smallFadeRef.current >= 1;
-      setSphereInteractive(isFormed && isPostLock && !frozenRef.current);
+      const next = isFormed && isPostLock && !frozenRef.current;
+      if (next !== last) {
+        last = next;
+        setSphereInteractive(next);
+      }
       rafId = requestAnimationFrame(check);
     }
     rafId = requestAnimationFrame(check);
@@ -1146,6 +1197,8 @@ export function HeroParticleCanvas({
         e.clientY - pointerDownRef.current.y,
       );
       if (moved > 6) return;
+      // A tap on a project node (touch) is the "open" gesture — don't dismiss it.
+      if (e.pointerType === "touch" && nodeHoveredRef.current !== null) return;
       // Clicks inside the card belong to the card
       const target = e.target;
       if (target instanceof Element && target.closest("[data-project-node-card]")) return;
@@ -1193,9 +1246,23 @@ export function HeroParticleCanvas({
     >
       <Canvas
         camera={{ position: [0, 0, 1.6], fov: 60 }}
-        dpr={[1, 2]}
-        gl={{ antialias: false, alpha: true }}
+        dpr={[1, maxDpr]}
+        gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
         frameloop={frozen ? "never" : "always"}
+        onCreated={({ gl }) => {
+          // If the GPU drops the context (tab backgrounded on mobile, driver reset),
+          // allow the browser to restore it; if it never comes back, fall back to the
+          // static page instead of leaving a black hole where the hero was.
+          const el = gl.domElement;
+          let timer: ReturnType<typeof setTimeout> | null = null;
+          el.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            timer = setTimeout(() => onFatalError?.(), 4000);
+          });
+          el.addEventListener("webglcontextrestored", () => {
+            if (timer) clearTimeout(timer);
+          });
+        }}
         style={{ background: "transparent", pointerEvents: "none" }}
       >
         <CameraAdjust sphereProgress={sphereRef} sphereInteractive={sphereInteractive} />
@@ -1243,7 +1310,7 @@ export function HeroParticleCanvas({
           triggered={revealTriggered}
           onComplete={handleComplete}
         />
-        <EffectComposer>
+        <EffectComposer multisampling={0}>
           <Bloom
             intensity={1.2}
             luminanceThreshold={0.1}

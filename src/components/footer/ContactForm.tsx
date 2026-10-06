@@ -108,7 +108,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
         <p className="mb-4 text-sm text-text-muted">{contactForm.disabledNote}</p>
         <a
           href={`mailto:${contact.email}`}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-accent px-6 py-3 font-[family-name:var(--font-display)] text-sm font-semibold text-bg transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-accent px-6 py-3 font-[family-name:var(--font-display)] text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {contact.email}
           <FiArrowUpRight className="h-4 w-4" aria-hidden="true" />
@@ -151,7 +151,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
             className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.18em] text-text-muted"
           >
             {contactForm.emailLabel}
-            <span className="ml-2 normal-case tracking-normal text-text-muted/50">
+            <span className="ml-2 normal-case tracking-normal text-text-muted">
               {contactForm.emailHint}
             </span>
           </label>
@@ -166,7 +166,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={isSending}
-            className="min-h-[44px] w-full rounded-lg border border-border bg-surface-2/60 px-4 py-3 text-sm text-text placeholder:text-text-muted/40 transition-colors duration-200 focus:border-accent/50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+            className="min-h-[44px] w-full rounded-lg border border-border bg-surface-2/60 px-4 py-3 text-sm text-text placeholder:text-text-muted transition-colors duration-200 focus:border-accent/50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
           />
         </div>
 
@@ -181,7 +181,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
             </label>
             <span
               className={`font-[family-name:var(--font-mono)] text-[11px] tabular-nums transition-colors ${
-                nearLimit ? "text-accent" : "text-text-muted/40"
+                nearLimit ? "text-accent" : "text-text-muted"
               }`}
               aria-hidden="true"
             >
@@ -199,7 +199,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
             onChange={(e) => setMessage(e.target.value)}
             disabled={isSending}
             aria-describedby="contact-status"
-            className="w-full resize-y rounded-lg border border-border bg-surface-2/60 px-4 py-3 text-sm leading-relaxed text-text placeholder:text-text-muted/40 transition-colors duration-200 focus:border-accent/50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+            className="w-full resize-y rounded-lg border border-border bg-surface-2/60 px-4 py-3 text-sm leading-relaxed text-text placeholder:text-text-muted transition-colors duration-200 focus:border-accent/50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
           />
         </div>
 
@@ -208,7 +208,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
           <button
             type="submit"
             disabled={isSending || tooShort}
-            className="group inline-flex min-h-[44px] items-center gap-2 rounded-full bg-accent px-6 py-3 font-[family-name:var(--font-display)] text-sm font-semibold text-bg transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-none"
+            className="group inline-flex min-h-[44px] items-center gap-2 rounded-full bg-accent px-6 py-3 font-[family-name:var(--font-display)] text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-none"
           >
             {isSending ? contactForm.submittingLabel : contactForm.submitLabel}
             <FiSend
@@ -228,7 +228,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
                 ? "text-accent"
                 : status === "error"
                   ? "text-accent/80"
-                  : "text-text-muted/50"
+                  : "text-text-muted"
             }`}
           >
             {status === "sent"

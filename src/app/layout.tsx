@@ -1,55 +1,119 @@
-import type { Metadata } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono, Playfair_Display, Syne, Instrument_Serif } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import { ModeProvider } from "@/components/mode/ModeProvider";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
-import { NavWheel } from "@/components/navigation/NavWheel";
-import { RouteChangeCleanup } from "@/components/RouteChangeCleanup";
+import { contact, site } from "@/lib/content/site";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+/*
+ * Fonts are self-hosted (src/app/fonts) so the site never waits on, or breaks
+ * because of, a third-party font request. Four families, each with one job:
+ *   Space Grotesk   — headings / display
+ *   Inter           — body copy
+ *   JetBrains Mono  — labels, metadata, code-ish details
+ *   Instrument Serif — quiet italic accents (quotes, taglines)
+ */
+const spaceGrotesk = localFont({
+  src: "./fonts/space-grotesk-latin-wght-normal.woff2",
   variable: "--font-display",
-  subsets: ["latin"],
+  weight: "300 700",
   display: "swap",
 });
 
-const inter = Inter({
+const inter = localFont({
+  src: "./fonts/inter-latin-wght-normal.woff2",
   variable: "--font-body",
-  subsets: ["latin"],
+  weight: "100 900",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin-wght-normal.woff2",
   variable: "--font-mono",
-  subsets: ["latin"],
+  weight: "100 800",
   display: "swap",
 });
 
-const playfairDisplay = Playfair_Display({
+const instrumentSerif = localFont({
+  src: [
+    { path: "./fonts/instrument-serif-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/instrument-serif-latin-400-italic.woff2", weight: "400", style: "italic" },
+  ],
   variable: "--font-serif",
-  subsets: ["latin"],
-  display: "swap",
-  style: ["normal", "italic"],
-});
-
-const syne = Syne({
-  variable: "--font-syne",
-  subsets: ["latin"],
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument",
-  subsets: ["latin"],
-  display: "swap",
-  weight: "400",
-  style: ["normal", "italic"],
-});
+/** Absolute site URL — set NEXT_PUBLIC_SITE_URL in production (used for link previews, sitemap, schema). */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
+
+const TITLE = "Randel Serafica — Full-Stack Developer & Startup Founder";
+const DESCRIPTION =
+  "Randel Serafica — full-stack developer and startup founder from Cauayan, Isabela. Computer science student, competition-tested team lead, and builder of products for the Philippine market.";
 
 export const metadata: Metadata = {
-  title: "Randel Serafica — Full-Stack Developer & Startup Founder",
-  description:
-    "Full-stack developer and startup founder — I build products, lead the teams behind them, and make sure both scale.",
+  ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
+  title: { default: TITLE, template: "%s — Randel Serafica" },
+  description: DESCRIPTION,
+  applicationName: "Randel Serafica — Portfolio",
+  authors: [{ name: site.name, url: contact.github }],
+  keywords: [
+    "Randel Serafica",
+    "full-stack developer",
+    "startup founder",
+    "Philippines",
+    "Next.js",
+    "React Native",
+    "portfolio",
+  ],
+  openGraph: {
+    type: "profile",
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: "Randel Serafica",
+    locale: "en_PH",
+    firstName: "Randel",
+    lastName: "Serafica",
+  },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0F0F0F",
+  colorScheme: "dark",
+};
+
+/** Structured data so search engines and AI tools can read who this is without running the page. */
+const personJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: site.name,
+  jobTitle: "Full-Stack Developer & Startup Founder",
+  description: DESCRIPTION,
+  email: `mailto:${contact.email}`,
+  ...(SITE_URL ? { url: SITE_URL } : {}),
+  sameAs: [contact.github, contact.linkedin],
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Cauayan",
+    addressRegion: "Isabela",
+    addressCountry: "PH",
+  },
+  alumniOf: {
+    "@type": "CollegeOrUniversity",
+    name: "University of Saint Louis Tuguegarao",
+  },
+  knowsAbout: [
+    "Full-stack development",
+    "React",
+    "Next.js",
+    "TypeScript",
+    "Python",
+    "React Native",
+    "Supabase",
+    "PostgreSQL",
+  ],
 };
 
 export default function RootLayout({
@@ -60,14 +124,22 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${syne.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="h-full overflow-hidden">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-text focus:px-4 focus:py-2 focus:font-[family-name:var(--font-display)] focus:text-sm focus:font-semibold focus:text-bg"
+        >
+          Skip to content
+        </a>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd).replace(/</g, "\\u003c") }}
+        />
         <ModeProvider>
-          <RouteChangeCleanup />
           <SmoothScroll>
             <Nav />
-            <NavWheel />
             {children}
           </SmoothScroll>
         </ModeProvider>

@@ -4,6 +4,8 @@ import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import OptionWheel from "./OptionWheel";
 import { useSnapScroll } from "@/components/SmoothScroll";
+import { useActiveSection } from "@/lib/hooks/useActiveSection";
+import { useModeStore } from "@/lib/store/mode";
 
 /* ─── Section configuration ─────────────────────────────────── */
 
@@ -12,18 +14,23 @@ const SECTIONS = [
   { id: "about", label: "About" },
   { id: "projects", label: "Projects" },
   { id: "skills", label: "Skills" },
+  { id: "background", label: "Background" },
   { id: "resume", label: "Resume" },
   { id: "footer", label: "Contact" },
 ] as const;
 
 const SECTION_LABELS = SECTIONS.map((s) => s.label);
+const SECTION_IDS = SECTIONS.map((s) => s.id);
 
 /* ─── NavWheel: appears on left-edge hover ──────────────────── */
 
 export function NavWheel() {
   const [visible, setVisible] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { currentPage, scrollToSection, scrollLocked } = useSnapScroll();
+  const { scrollToSection, scrollLocked } = useSnapScroll();
+  const particlesActive = useModeStore((s) => s.particlesActive);
+  const activeId = useActiveSection(SECTION_IDS, particlesActive);
+  const currentIndex = Math.max(0, SECTIONS.findIndex((s) => s.id === activeId));
 
   const show = useCallback(() => {
     if (hideTimerRef.current) {
@@ -57,7 +64,7 @@ export function NavWheel() {
     <>
       {/* Invisible trigger zone: thin strip along the left edge */}
       <div
-        className="fixed left-0 top-0 z-[60] h-full w-[24px]"
+        className="fixed left-0 top-0 z-[60] hidden h-full w-[24px] md:block [@media(hover:none)]:hidden"
         onMouseEnter={show}
         onMouseLeave={hide}
         aria-hidden="true"
@@ -67,7 +74,7 @@ export function NavWheel() {
       <AnimatePresence>
         {visible && (
           <motion.div
-            className="fixed left-0 top-0 z-[59] h-full w-[380px] pointer-events-auto"
+            className="fixed left-0 top-0 z-[59] hidden h-full w-[380px] pointer-events-auto md:block [@media(hover:none)]:hidden"
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -30 }}
@@ -82,7 +89,7 @@ export function NavWheel() {
             <div className="relative h-full w-full">
               <OptionWheel
                 items={SECTION_LABELS}
-                defaultSelected={currentPage}
+                defaultSelected={currentIndex}
                 onChange={handleChange}
                 textColor="#8b9098"
                 activeColor="#edede9"

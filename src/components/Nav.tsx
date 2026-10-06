@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ModeToggle } from "@/components/mode/ModeToggle";
 import { useSnapScroll } from "@/components/SmoothScroll";
+import { useActiveSection } from "@/lib/hooks/useActiveSection";
+import { useHideOnScrollDown } from "@/lib/hooks/useScrollDirection";
+import { useModeStore } from "@/lib/store/mode";
+import { footer as footerContent } from "@/lib/content/site";
 
 /* ─── Nav Links ─────────────────────────────────────────────── */
 
@@ -11,19 +17,13 @@ const NAV_LINKS = [
   { label: "About", href: "#about" },
   { label: "Projects", href: "#projects" },
   { label: "Skills", href: "#skills" },
+  { label: "Background", href: "#background" },
   { label: "Contact", href: "#footer" },
 ] as const;
 
 /* ─── Section IDs in page order ─────────────────────────────── */
 
-const SECTION_IDS = ["hero", "about", "projects", "skills", "resume", "footer"];
-
-/* ─── Custom Hook: useActiveSection via snap scroll context ── */
-
-function useActiveSection(): string {
-  const { currentPage } = useSnapScroll();
-  return SECTION_IDS[currentPage] ?? "hero";
-}
+const SECTION_IDS = ["hero", "about", "projects", "skills", "background", "resume", "footer"] as const;
 
 /* ─── Hamburger Icon ────────────────────────────────────────── */
 
@@ -75,25 +75,15 @@ const menuItemVariants = {
 
 export function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const activeSection = useActiveSection();
-  const { scrollLocked, scrollProgress } = useSnapScroll();
-  const lastScrollRef = useRef(0);
+  const particlesActive = useModeStore((s) => s.particlesActive);
+  const activeSection = useActiveSection(SECTION_IDS, particlesActive);
+  const { scrollLocked, containerRef } = useSnapScroll();
+  const hidden = useHideOnScrollDown();
+  const pathname = usePathname();
 
-  // Show nav after scroll is unlocked
-  const navVisible = !scrollLocked && !hidden;
-
-  // Hide on scroll down, show on scroll up — computed during render, not in useEffect
-  const currentScroll = scrollProgress;
-  const delta = currentScroll - lastScrollRef.current;
-  if (delta > 0.02 && !hidden) {
-    // Use setTimeout to batch the state update outside render
-    setTimeout(() => setHidden(true), 0);
-  } else if (delta < -0.01 && hidden) {
-    setTimeout(() => setHidden(false), 0);
-  }
-  lastScrollRef.current = currentScroll;
-
+  // Show nav after scroll is unlocked; hide it while scrolling down, reveal on scroll up
+  // (never while the mobile menu is open).
+  const navVisible = !scrollLocked && (!hidden || mobileOpen);
   // Close mobile menu on resize past breakpoint
   useEffect(() => {
     const handleResize = () => {
@@ -148,16 +138,16 @@ export function Nav() {
       >
         <div className="mx-auto flex items-center justify-between px-6 lg:px-10 py-4">
           {/* ─── LEFT: Page links ─── */}
-          <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+          <nav className="hidden md:flex items-center gap-7" aria-label="Main navigation">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 className={`
-                  relative font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.15em]
-                  transition-all duration-300
+                  relative py-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.12em]
+                  transition-colors duration-300
                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm
-                  ${isActive(link.href) ? "text-text" : "text-text-muted/60 hover:text-text-muted"}
+                  ${isActive(link.href) ? "text-text" : "text-text-muted hover:text-text"}
                 `}
               >
                 {link.label}
@@ -185,19 +175,20 @@ export function Nav() {
           </button>
 
           {/* ─── CENTER: Name (full refresh to landing) ─── */}
-          <button
-            onClick={() => {
-              // If already on home, reload. Otherwise navigate to root.
-              if (window.location.pathname === "/") {
-                window.location.reload();
-              } else {
-                window.location.href = "/";
+          <Link
+            href="/"
+            onClick={(e) => {
+              // Already home: glide to the top instead of reloading the page.
+              if (pathname === "/") {
+                e.preventDefault();
+                containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
               }
             }}
-            className="absolute left-1/2 -translate-x-1/2 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-all duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm cursor-pointer"
+            aria-label="Randel Serafica — back to top"
+            className="absolute left-1/2 -translate-x-1/2 max-[480px]:left-16 max-[480px]:translate-x-0 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-colors duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm"
           >
             Randel
-          </button>
+          </Link>
 
           {/* ─── RIGHT: Mode Toggle (glassmorphism pill) ─── */}
           <ModeToggle />
@@ -261,8 +252,8 @@ export function Nav() {
 
               {/* Footer line */}
               <div className="mt-auto pt-8 border-t border-white/5">
-                <p className="font-[family-name:var(--font-mono)] text-xs text-text-muted/50">
-                  Let&apos;s build something that actually ships.
+                <p className="font-[family-name:var(--font-mono)] text-xs text-text-muted">
+                  {footerContent.personalityLine}
                 </p>
               </div>
             </motion.nav>

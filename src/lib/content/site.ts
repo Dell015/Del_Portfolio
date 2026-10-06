@@ -9,18 +9,24 @@ export const site = {
 
 export const bio = {
   short:
-    "I'm Randel — a full-stack developer and startup founder. I build products that solve problems I find genuinely interesting, and I make sure they're meant to scale from day one.",
+    "I'm Randel — a full-stack developer and startup founder from Cauayan, Isabela. I design products for problems I find genuinely interesting, lead the teams behind them, and build them to scale from day one.",
 } as const;
 
-export const scatterFragments = [
-  "leads before it's asked",
-  "ships fast, fixes faster",
-  "founder at heart",
-  "full-stack, full send",
-  "curiosity-driven",
-  "figures it out",
-  "still building, always",
-  "scales teams and code",
+/** Concrete facts shown in About — specifics instead of slogans. */
+export const facts = [
+  "Based in Cauayan, Isabela, Philippines",
+  "BS Computer Science, University of Saint Louis Tuguegarao (2027)",
+  "Led teams of 3–5 in national and regional startup competitions",
+  "Builds for the Philippine market: local users, local pricing",
+  "Enterprise ERP internship experience (under NDA)",
+  "Currently open to work",
+] as const;
+
+export const stats = [
+  { value: "7", label: "Products designed" },
+  { value: "3–5", label: "People per team led" },
+  { value: "5", label: "Tech stacks used" },
+  { value: "2", label: "Competition placements" },
 ] as const;
 
 export const contact = {
@@ -31,17 +37,17 @@ export const contact = {
 } as const;
 
 export const footer = {
-  personalityLine: "Let's build something that actually ships.",
+  personalityLine: "Let's build something worth shipping.",
 } as const;
 
 /** Hand-reveal / resume section copy.
- *  `href` stays "#" until the PDF exists — ResumeButton detects that and renders
- *  a non-downloading placeholder rather than a broken link. */
+ *  Set `href` to the PDF path (e.g. "/Randel_Serafica_Resume.pdf") once it is in /public.
+ *  While it is "#", the button turns into "Request my resume" (an email link). */
 export const resume = {
   eyebrow: "Almost there",
-  ctaLabel: "Download Resume",
+  ctaLabel: "Download resume",
+  requestLabel: "Request my resume",
   href: "#",
-  placeholderNote: "PDF coming soon — placeholder link",
 } as const;
 
 /** Quick nav links in the footer's secondary row. Mirrors Nav.tsx anchors. */
@@ -90,4 +96,64 @@ export const CONTACT_LIMITS = {
   messageMin: 10,
   messageMax: 2000,
   emailMax: 254,
+} as const;
+
+/** "Background" section — experience, education, competitions, trainings.
+ *  Client and code details from the internship are under NDA, so the entry
+ *  describes the kind of system only. Do not add specifics. */
+export const credentials = {
+  eyebrow: "Background",
+  heading: "The track record so far.",
+  groups: [
+    {
+      title: "Experience",
+      items: [
+        {
+          primary: "Software Development Intern",
+          secondary: "On-the-job training · Enterprise ERP system",
+          note: "Worked on a large, complex enterprise resource planning system. Client and implementation details are confidential under NDA.",
+        },
+      ],
+    },
+    {
+      title: "Education",
+      items: [
+        {
+          primary: "BS Computer Science",
+          secondary: "University of Saint Louis Tuguegarao · 2023–2027",
+          note: "Thesis leader on Karela — a 5-member team project combining adaptive fitness modeling with crowdsourced civic reporting.",
+        },
+      ],
+    },
+    {
+      title: "Competitions",
+      items: [
+        {
+          primary: "Philippine Startup Challenge 11 — Regional Finalist",
+          secondary: "DICT Region II · 2025 · Founding CEO & Lead Developer",
+        },
+        {
+          primary: "IgnITE Start-Up Competition — 1st Runner-Up",
+          secondary: "2025 · Founding CEO & Lead Developer",
+        },
+        {
+          primary: "IGNITE OGIS Start-Up Competition",
+          secondary: "2026 · In progress · Seated",
+        },
+      ],
+    },
+    {
+      title: "Training",
+      items: [
+        {
+          primary: "TCON 8 Cybersecurity Conference",
+          secondary: "HackthenorthPH · Participant",
+        },
+        {
+          primary: "AWS Cloud Networking & EC2 Workshop",
+          secondary: "AWS User Group Philippines · Participant",
+        },
+      ],
+    },
+  ],
 } as const;

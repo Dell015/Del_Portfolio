@@ -8,6 +8,10 @@ interface ModeState {
   mode: Mode;
   reducedMotion: boolean;
   hydrated: boolean;
+  /** True while the hero's particle canvas is mounted. The Projects section
+   *  reads this to choose between the 3D sphere and the plain grid. */
+  particlesActive: boolean;
+  setParticlesActive: (active: boolean) => void;
   setMode: (mode: Mode) => void;
   toggleMode: () => void;
   hydrate: () => void;
@@ -19,6 +23,8 @@ export const useModeStore = create<ModeState>((set, get) => ({
   mode: "clean",
   reducedMotion: false,
   hydrated: false,
+  particlesActive: false,
+  setParticlesActive: (particlesActive) => set({ particlesActive }),
 
   setMode: (mode) => {
     set({ mode });

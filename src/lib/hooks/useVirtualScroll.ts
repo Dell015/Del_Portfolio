@@ -129,51 +129,72 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
   }, [enabled, scrollProgress, lockScroll]);
 
   // ── Intercept wheel/touch events ONLY when locked ──
+  // Input moves a *target*; the visible position eases toward it every frame, so a
+  // mouse wheel's 100px steps glide instead of snapping. Touchpad deltas are small
+  // and frequent, so the same easing is imperceptible for them.
   useEffect(() => {
     if (!lockedState) return;
 
     let touchStartY = 0;
+    let target = virtualPx.current;
+    let raf = 0;
+    let last = 0;
 
-    function applyDelta(delta: number) {
-      const prev = virtualPx.current;
-      const next = Math.max(0, Math.min(TOTAL_BUDGET, prev + delta));
+    function release(resetToZero: boolean) {
+      cancelAnimationFrame(raf);
+      isLocked.current = false;
+      if (resetToZero) hasEnteredZone.current = false;
+      else sequenceComplete.current = true;
+      setLockedState(false);
+      unlockScroll();
+    }
 
-      if (next === prev && !(next === 0 && delta < 0)) return;
-
-      virtualPx.current = next;
-
-      // Derive phases
-      const phases = derivePhases(next);
+    function apply(px: number) {
+      virtualPx.current = px;
+      const phases = derivePhases(px);
       gatherRef.current = phases.gather;
       condenseRef.current = phases.condense;
       ringCompressRef.current = phases.ringCompress;
       explodeRef.current = phases.explode;
       smallFadeRef.current = phases.smallFade;
+      return phases;
+    }
 
-      // ── Unlock conditions ──
+    function frame(now: number) {
+      const dt = Math.min(48, now - last || 16);
+      last = now;
+      const k = 1 - Math.exp(-dt / 90);
+      let next = virtualPx.current + (target - virtualPx.current) * k;
+      if (Math.abs(target - next) < 0.3) next = target;
 
-      // Completed: SMALL_FADE reached 1.0 → release lock, resume normal scroll
+      const phases = apply(next);
+
+      // Finished the whole sequence → hand scrolling back to the page.
       if (phases.smallFade >= 1) {
-        isLocked.current = false;
-        sequenceComplete.current = true;
-        setLockedState(false);
-        unlockScroll();
+        release(false);
         return;
       }
+      if (next !== target) raf = requestAnimationFrame(frame);
+      else raf = 0;
+    }
 
-      // Scrolled back to 0 → release lock, let user scroll back up to About
-      if (next === 0 && delta < 0) {
-        isLocked.current = false;
-        hasEnteredZone.current = false;
-        setLockedState(false);
-        unlockScroll();
+    function push(delta: number) {
+      // Already at the start and pushing back up → leave the zone immediately.
+      if (target <= 0 && virtualPx.current < 1 && delta < 0) {
+        release(true);
+        return;
+      }
+      target = Math.max(0, Math.min(TOTAL_BUDGET, target + delta));
+      if (!raf) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
       }
     }
 
     function onWheel(e: WheelEvent) {
       e.preventDefault();
       e.stopPropagation();
-      applyDelta(e.deltaY);
+      push(e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY);
     }
 
     function onTouchStart(e: TouchEvent) {
@@ -186,7 +207,7 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
       const currentY = e.touches[0].clientY;
       const delta = (touchStartY - currentY) * 2;
       touchStartY = currentY;
-      applyDelta(delta);
+      push(delta);
     }
 
     window.addEventListener("wheel", onWheel, { passive: false, capture: true });
@@ -194,6 +215,7 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
     window.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
 
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("wheel", onWheel, { capture: true });
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove, { capture: true });

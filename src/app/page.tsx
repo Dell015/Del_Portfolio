@@ -1,7 +1,8 @@
 import { Hero } from "@/components/hero/Hero";
 import { About } from "@/components/about/About";
 import { AmbientGradient } from "@/components/AmbientGradient";
-import { ProjectSphereSection } from "@/components/projects/sphere/ProjectSphereSection";
+import { Credentials } from "@/components/background/Credentials";
+import { ProjectsSection } from "@/components/projects/ProjectsSection";
 import { SkillsField } from "@/components/skills/SkillsField";
 import { HandRevealSection } from "@/components/resume/HandRevealSection";
 import { Footer } from "@/components/footer/Footer";
@@ -15,11 +16,14 @@ export default function Home() {
   return (
     <>
       <AmbientGradient />
-      <Hero />
-      <About />
-      <ProjectSphereSection />
-      <SkillsField />
-      <HandRevealSection />
+      <main id="main" tabIndex={-1} className="outline-none">
+        <Hero />
+        <About />
+        <ProjectsSection />
+        <SkillsField />
+        <Credentials />
+        <HandRevealSection />
+      </main>
       <Footer contactEnabled={contactEnabled} />
     </>
   );

@@ -15,7 +15,7 @@ import { useSnapScroll } from "@/components/SmoothScroll";
 
 const HEADLINE_TOP = "FULLSTACK";
 const HEADLINE_BOTTOM = "DEVELOPER";
-const PHOTO_SRC = "/images/randel.png";
+const PHOTO_SRC = "/images/randel.webp";
 
 // Timing constants for intro animation
 const CHAR_STAGGER = 0.045;
@@ -262,7 +262,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
           style={{ y: yBioTopExit, opacity: opacityBioTop }}
         >
           <p className="font-[family-name:var(--font-body)] text-base leading-relaxed text-text-muted">
-            Turning ideas into real products with clean interfaces and fast execution.
+            A CS student from Cauayan, Isabela who designs, architects and builds products end to end.
           </p>
         </motion.div>
 
@@ -274,7 +274,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
           style={{ y: yBioBottomExit, opacity: opacityBioBottom }}
         >
           <p className="font-[family-name:var(--font-body)] text-base leading-relaxed text-text-muted">
-            Your next app — designed, built, and shipped. From zero to launch, no shortcuts.
+            Seven products designed, two competition placements, and a habit of understanding every line I write.
           </p>
         </motion.div>
       </motion.div>

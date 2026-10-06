@@ -6,7 +6,7 @@
   --surface: #1A1A1A;
   --surface-2: #222222;
   --text: #F5F5F5;
-  --text-muted: #A0A0A0;
+  --text-muted: #A8A8A8;
   --accent: #D11A2A;
   --border: rgba(245, 245, 245, 0.08);
 
@@ -67,4 +67,112 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* === Accessibility & polish ============================================== */
+
+/* One visible focus ring everywhere; components may refine it. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(209, 26, 42, 0.45);
+  color: #fff;
+}
+
+/* Balanced line breaks on headings; no widows on short paragraphs. */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+
+/* Firefox: match the thin dark scrollbar. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-2) var(--bg);
+}
+
+/* Respect the OS "reduce motion" setting for every CSS animation/transition.
+   JS-driven motion (framer-motion, WebGL) checks the same preference itself. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Cursor spotlight (cards) ────────────────────────────────────────────── */
+.spotlight-card {
+  position: relative;
+  --sx: 50%;
+  --sy: 50%;
+}
+.spotlight-card::before,
+.spotlight-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Border light: a 1px ring revealed only under the cursor */
+.spotlight-card::before {
+  padding: 1px;
+  background: radial-gradient(260px circle at var(--sx) var(--sy), rgba(209, 26, 42, 0.75), transparent 65%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* Surface light: a faint wash under the cursor */
+.spotlight-card::after {
+  background: radial-gradient(360px circle at var(--sx) var(--sy), rgba(255, 255, 255, 0.045), transparent 70%);
+}
+.spotlight-card:hover::before,
+.spotlight-card:hover::after {
+  opacity: 1;
+}
+@media (hover: none) {
+  .spotlight-card::before,
+  .spotlight-card::after {
+    display: none;
+  }
+}
+
+/* ── Dot-grid field (Skills background) ──────────────────────────────────── */
+.dot-field {
+  --mx: 50%;
+  --my: 30%;
+}
+.dot-field__base,
+.dot-field__lit,
+.dot-field__glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.dot-field__base {
+  background-image: radial-gradient(rgba(245, 245, 245, 0.13) 1px, transparent 1.4px);
+  background-size: 30px 30px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+}
+.dot-field__lit {
+  background-image: radial-gradient(rgba(255, 90, 100, 0.95) 1.3px, transparent 1.8px);
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(240px circle at var(--mx) var(--my), #000, transparent 70%);
+  mask-image: radial-gradient(240px circle at var(--mx) var(--my), #000, transparent 70%);
+}
+.dot-field__glow {
+  background: radial-gradient(520px circle at var(--mx) var(--my), rgba(209, 26, 42, 0.09), transparent 70%);
 }

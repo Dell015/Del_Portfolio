@@ -82,26 +82,26 @@ export default async function ProjectCaseStudy({
           {/* Quick meta row */}
           <div className="flex flex-wrap gap-6 text-sm text-text-muted">
             <div className="flex items-center gap-2">
-              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted/60">
+              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">
                 Role
               </span>
               <span className="font-medium text-text">{project.role}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted/60">
+              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">
                 Team
               </span>
               <span className="font-medium text-text">{project.teamSize}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted/60">
+              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">
                 Platform
               </span>
               <span className="font-medium text-text capitalize">{project.platform}</span>
             </div>
             {project.caseStudy?.timeline && (
               <div className="flex items-center gap-2">
-                <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted/60">
+                <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wider text-text-muted">
                   Status
                 </span>
                 <span className="font-medium text-text">{project.caseStudy.timeline}</span>
@@ -234,7 +234,7 @@ export default async function ProjectCaseStudy({
                     Live Site
                   </a>
                 ) : (
-                  <span className="flex items-center gap-2 text-sm text-text-muted/40">
+                  <span className="flex items-center gap-2 text-sm text-text-muted">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
@@ -254,7 +254,7 @@ export default async function ProjectCaseStudy({
                     Source Code
                   </a>
                 ) : (
-                  <span className="flex items-center gap-2 text-sm text-text-muted/40">
+                  <span className="flex items-center gap-2 text-sm text-text-muted">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                     </svg>
@@ -271,26 +271,26 @@ export default async function ProjectCaseStudy({
               </h3>
               <dl className="space-y-3 text-sm">
                 <div>
-                  <dt className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-wider text-text-muted/60">
+                  <dt className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-text-muted">
                     Role
                   </dt>
                   <dd className="mt-0.5 text-text">{project.role}</dd>
                 </div>
                 <div>
-                  <dt className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-wider text-text-muted/60">
+                  <dt className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-text-muted">
                     Team
                   </dt>
                   <dd className="mt-0.5 text-text">{project.teamSize}</dd>
                 </div>
                 <div>
-                  <dt className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-wider text-text-muted/60">
+                  <dt className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-text-muted">
                     Platform
                   </dt>
                   <dd className="mt-0.5 text-text capitalize">{project.platform}</dd>
                 </div>
                 {project.caseStudy?.timeline && (
                   <div>
-                    <dt className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-wider text-text-muted/60">
+                    <dt className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-text-muted">
                       Timeline
                     </dt>
                     <dd className="mt-0.5 text-text">{project.caseStudy.timeline}</dd>
@@ -361,7 +361,7 @@ function Section({
 
 function Placeholder({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border bg-surface/50 px-4 py-3 text-sm italic text-text-muted/60">
+    <div className="rounded-lg border border-dashed border-border bg-surface/50 px-4 py-3 text-sm italic text-text-muted">
       {children}
     </div>
   );

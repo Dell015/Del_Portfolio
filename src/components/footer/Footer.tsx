@@ -12,7 +12,11 @@ import {
   footerNav,
   site,
 } from "@/lib/content/site";
-import ScrollFloat from "@/components/ScrollFloat";
+import { MaskedHeading } from "@/components/motion/MaskedHeading";
+import { SpotlightCard } from "@/components/motion/SpotlightCard";
+import { Parallax } from "@/components/motion/Parallax";
+import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
+import { useLocalTime } from "@/lib/hooks/useLocalTime";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useModeStore } from "@/lib/store/mode";
 import { ContactForm } from "./ContactForm";
@@ -61,6 +65,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
   const { containerRef } = useSnapScroll();
   const reducedMotion = useModeStore((s) => s.reducedMotion);
   const sectionRef = useRef<HTMLElement>(null);
+  const localTime = useLocalTime("Asia/Manila");
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -100,43 +105,37 @@ export function Footer({ contactEnabled = false }: FooterProps) {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-14 md:gap-16">
+        {/* ══ STATEMENT — the one thing this page should end on ══ */}
+        <div className="flex flex-col gap-8 md:gap-10">
+          <motion.p
+            className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {contactForm.eyebrow}
+          </motion.p>
+
+          <h2 className="sr-only">{footerContent.personalityLine}</h2>
+          <div aria-hidden="true" className="font-[family-name:var(--font-display)] text-[clamp(2.6rem,8.4vw,7.5rem)] font-bold leading-[0.98] tracking-tighter text-text">
+            <MaskedHeading as="h3">Let&apos;s build</MaskedHeading>
+            <MaskedHeading as="h3" delay={0.08}>
+              something <span className="font-[family-name:var(--font-serif)] font-normal italic text-accent">worth</span>
+            </MaskedHeading>
+            <MaskedHeading as="h3" delay={0.16}>shipping.</MaskedHeading>
+          </div>
+
+          <EmailCta />
+        </div>
+
         {/* ══ ROW 1 — Identity + contact form (left) / socials (right) ══ */}
-        <div className="grid gap-12 md:grid-cols-[1.15fr_0.85fr] lg:gap-20">
-          {/* Left column */}
+        <div className={contactEnabled ? "grid gap-12 md:grid-cols-[1.15fr_0.85fr] lg:gap-20" : "grid gap-12"}>
+          {/* Left column — only when the form can actually send */}
+          {contactEnabled && (
           <div className="flex flex-col items-center text-center md:items-start md:text-left">
             <motion.p
-              className="mb-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {contactForm.eyebrow}
-            </motion.p>
-
-            <ScrollFloat
-              containerClassName="font-[family-name:var(--font-display)] text-4xl font-bold leading-[1.1] text-text md:text-5xl lg:text-6xl"
-              animationDuration={1}
-              ease="back.inOut(2)"
-              scrollStart="center bottom+=50%"
-              scrollEnd="bottom bottom-=40%"
-              stagger={0.03}
-            >
-              {site.name}
-            </ScrollFloat>
-
-            <motion.p
-              className="mt-3 font-[family-name:var(--font-serif)] text-lg italic text-text-muted md:text-xl"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {footerContent.personalityLine}
-            </motion.p>
-
-            <motion.p
-              className="mt-6 mb-6 max-w-md text-sm leading-relaxed text-text-muted/70"
+              className="mb-6 max-w-md text-sm leading-relaxed text-text-muted"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
@@ -149,6 +148,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
               <ContactForm enabled={contactEnabled} />
             </div>
           </div>
+          )}
 
           {/* Right column — socials. Vertical stack rather than a horizontal row:
               four icon+value pairs would wrap badly in a narrow column. */}
@@ -163,8 +163,8 @@ export function Footer({ contactEnabled = false }: FooterProps) {
               Elsewhere
             </motion.p>
 
-            <ul className="flex w-full max-w-xs flex-col gap-1">
-              {SOCIALS.map(({ label, value, href, Icon, external }, i) => (
+            <ul className={`grid w-full gap-2.5 ${contactEnabled ? "max-w-sm" : "sm:grid-cols-3"}`}>
+              {SOCIALS.filter((x) => x.label !== "Email").map(({ label, value, href, Icon, external }, i) => (
                 <motion.li
                   key={label}
                   initial={{ opacity: 0, y: 15 }}
@@ -176,18 +176,19 @@ export function Footer({ contactEnabled = false }: FooterProps) {
                     ease: [0.22, 1, 0.36, 1],
                   }}
                 >
+                  <SpotlightCard className="rounded-xl border border-border bg-surface/40">
                   <a
                     href={href}
                     target={external ? "_blank" : undefined}
                     rel={external ? "noopener noreferrer" : undefined}
-                    className="group flex min-h-[44px] items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-300 hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="group flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     <Icon
                       className="h-4 w-4 shrink-0 text-text-muted transition-colors duration-300 group-hover:text-accent"
                       aria-hidden="true"
                     />
                     <span className="flex min-w-0 flex-col">
-                      <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.18em] text-text-muted/50">
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.18em] text-text-muted">
                         {label}
                       </span>
                       <span className="truncate text-sm text-text-muted transition-colors duration-300 group-hover:text-text">
@@ -199,6 +200,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
                       aria-hidden="true"
                     />
                   </a>
+                  </SpotlightCard>
                 </motion.li>
               ))}
             </ul>
@@ -265,20 +267,25 @@ export function Footer({ contactEnabled = false }: FooterProps) {
             <span className="font-[family-name:var(--font-mono)] text-xs tracking-wide text-text-muted">
               {availability.label}
             </span>
+            {localTime && (
+              <span className="border-l border-border pl-2.5 font-[family-name:var(--font-mono)] text-xs tracking-wide text-text-muted">
+                {localTime} in Cauayan
+              </span>
+            )}
           </motion.div>
         </div>
 
         {/* ══ ROW 3 — Built with (left) / copyright (right) ══ */}
         <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between md:gap-6">
           <div className="flex flex-col items-center gap-3 md:flex-row md:gap-4">
-            <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.2em] text-text-muted/40">
+            <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-text-muted">
               Built with
             </span>
             <ul className="flex flex-wrap items-center justify-center gap-2">
               {builtWith.map((tech, i) => (
                 <motion.li
                   key={tech}
-                  className="rounded-full border border-border bg-surface-2/40 px-3 py-1 font-[family-name:var(--font-mono)] text-[10px] tracking-wide text-text-muted/70"
+                  className="rounded-full border border-border bg-surface-2/40 px-3 py-1 font-[family-name:var(--font-mono)] text-[11px] tracking-wide text-text-muted"
                   initial={{ opacity: 0, y: 12, scale: 0.9 }}
                   whileInView={{ opacity: 1, y: 0, scale: 1 }}
                   viewport={{ once: true, margin: "-40px" }}
@@ -295,17 +302,67 @@ export function Footer({ contactEnabled = false }: FooterProps) {
           </div>
 
           <motion.p
-            className="text-xs text-text-muted/40"
+            className="text-xs text-text-muted"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: 0.2 }}
           >
-            © {new Date().getFullYear()} {site.name}. Built with intention.
+            © {new Date().getFullYear()} {site.name}
           </motion.p>
         </div>
       </div>
+
+      {/* Oversized wordmark rising from the bottom edge */}
+      <Parallax distance={50} aria-hidden className="pointer-events-none relative mt-14 select-none md:mt-20">
+        <p
+          className="-mb-[0.18em] text-center font-[family-name:var(--font-display)] text-[15.5vw] font-bold uppercase leading-[0.8] tracking-tighter text-transparent"
+          style={{
+            backgroundImage: "linear-gradient(to bottom, rgba(245,245,245,0.16), rgba(245,245,245,0.02) 85%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+          }}
+        >
+          Randel
+        </p>
+      </Parallax>
+
+      {/* Warm light from below */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]"
+        style={{ background: "radial-gradient(70% 90% at 50% 100%, rgba(209,26,42,0.16), transparent 70%)" }}
+      />
     </footer>
+  );
+}
+
+/** The email as a large link, plus a one-click copy. */
+function EmailCta() {
+  return (
+    <motion.div
+      className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6"
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.6, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <a
+        href={`mailto:${contact.email}`}
+        className="group relative inline-flex items-center gap-3 break-all font-[family-name:var(--font-display)] text-xl font-semibold text-text sm:text-2xl md:text-3xl focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-accent"
+      >
+        {contact.email}
+        <FiArrowUpRight
+          className="h-6 w-6 shrink-0 text-accent transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1"
+          aria-hidden="true"
+        />
+        <span
+          aria-hidden="true"
+          className="absolute -bottom-1.5 left-0 h-px w-full origin-left scale-x-30 bg-accent transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100"
+        />
+      </a>
+      <CopyEmailButton />
+    </motion.div>
   );
 }
 

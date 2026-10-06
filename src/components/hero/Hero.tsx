@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useModeStore } from "@/lib/store/mode";
 import { useSnapScroll } from "@/components/SmoothScroll";
+import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { HeroStatic } from "./HeroStatic";
 import { HeroParticleCanvas } from "./HeroParticleCanvas";
 import { AboutHeroText } from "@/components/about/AboutHeroText";
@@ -14,124 +15,48 @@ import {
   type PointCloud,
 } from "@/lib/particles/sampleImageToPoints";
 
-const PARTICLE_COUNT = 80000;
-const PORTRAIT_SRC = "/images/randel.png";
+/** Particles per device tier. Weak GPUs/CPUs get a lighter cloud, not a stutter. */
+const PARTICLE_COUNT = { high: 80000, low: 28000 } as const;
+const PORTRAIT_SRC = "/images/randel.webp";
 
-/** Words that cycle in the hero headline — each with a unique font */
-const CYCLING_WORDS = [
-  { text: "Founder", font: "var(--font-syne)", style: "normal" },
-  { text: "Developer", font: "var(--font-mono)", style: "normal" },
-  { text: "Team Lead", font: "var(--font-instrument)", style: "italic" },
-  { text: "Builder", font: "var(--font-display)", style: "normal" },
-];
-
-/** Characters used during scramble animation */
-const SCRAMBLE_CHARS = "!@#$%^&*()_+-=[]{}|;:,./<>?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+/** Words that cycle in the hero headline. */
+const CYCLING_WORDS = ["Founder", "Developer", "Team Lead", "Builder"] as const;
 
 /**
- * Single character that scrambles through random chars before resolving.
- */
-function ScrambleChar({
-  char,
-  delay,
-  isExiting,
-}: {
-  char: string;
-  delay: number;
-  isExiting: boolean;
-}) {
-  const [display, setDisplay] = useState(char === " " ? "\u00A0" : SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]);
-  const [resolved, setResolved] = useState(false);
-
-  useEffect(() => {
-    if (isExiting) {
-      // Scramble out: resolved → random → fade
-      setResolved(false);
-      let frame = 0;
-      const maxFrames = 6;
-      const interval = setInterval(() => {
-        frame++;
-        setDisplay(SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]);
-        if (frame >= maxFrames) clearInterval(interval);
-      }, 40);
-      return () => clearInterval(interval);
-    } else {
-      // Scramble in: random chars → resolve to actual char
-      let frame = 0;
-      const scrambleFrames = 4 + Math.floor(Math.random() * 4); // 4-8 frames of scramble
-      const timer = setTimeout(() => {
-        const interval = setInterval(() => {
-          frame++;
-          if (frame >= scrambleFrames) {
-            setDisplay(char === " " ? "\u00A0" : char);
-            setResolved(true);
-            clearInterval(interval);
-          } else {
-            setDisplay(SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)]);
-          }
-        }, 50);
-        return () => clearInterval(interval);
-      }, delay);
-      return () => clearTimeout(timer);
-    }
-  }, [char, delay, isExiting]);
-
-  return (
-    <motion.span
-      className="inline-block text-accent"
-      animate={{
-        opacity: isExiting ? [1, 1, 0] : resolved ? 1 : 0.6,
-        y: isExiting ? [0, 0, -10] : 0,
-        scale: resolved ? 1 : 0.95,
-      }}
-      transition={{ duration: isExiting ? 0.3 : 0.15, ease: "easeOut" }}
-    >
-      {display}
-    </motion.span>
-  );
-}
-
-/**
- * Cycling text — scramble/decode entrance, scramble-out exit.
+ * Cycling word — each word rises out of a clipped line box while the previous
+ * one leaves upward. Opacity is left alone on purpose: the motion of the mask
+ * is the whole effect, which keeps it calm over a moving particle field.
  */
 function CyclingText() {
   const [index, setIndex] = useState(0);
-  const [isExiting, setIsExiting] = useState(false);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Start exit
-      setIsExiting(true);
-      // After exit animation, switch word
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % CYCLING_WORDS.length);
-        setIsExiting(false);
-      }, 400);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (reduced) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % CYCLING_WORDS.length), 3200);
+    return () => clearInterval(id);
+  }, [reduced]);
 
-  const longestWord = CYCLING_WORDS.reduce((a, b) => a.text.length > b.text.length ? a : b);
-  const current = CYCLING_WORDS[index];
+  const longest = CYCLING_WORDS.reduce((a, b) => (a.length > b.length ? a : b));
 
   return (
-    <span className="relative inline-flex align-bottom h-[1.1em]" style={{ clipPath: 'inset(-10px -100vw)' }}>
-      <span className="invisible whitespace-nowrap" style={{ fontFamily: longestWord.font }}>
-        {longestWord.text}
+    <span className="relative inline-flex h-[1.12em] overflow-hidden align-bottom text-accent">
+      {/* Reserves the widest word's width so nothing around it shifts */}
+      <span className="invisible whitespace-nowrap" aria-hidden="true">
+        {longest}
       </span>
-      <span
-        className="absolute inset-0 flex items-center justify-center whitespace-nowrap"
-        style={{ fontFamily: current.font, fontStyle: current.style }}
-      >
-        {current.text.split("").map((char, i) => (
-          <ScrambleChar
-            key={`${index}-${i}`}
-            char={char}
-            delay={i * 60}
-            isExiting={isExiting}
-          />
-        ))}
-      </span>
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={CYCLING_WORDS[index]}
+          className="absolute inset-0 flex items-center justify-center whitespace-nowrap"
+          initial={{ y: "100%" }}
+          animate={{ y: "0%" }}
+          exit={{ y: "-100%" }}
+          transition={{ duration: 0.7, ease: [0.65, 0, 0.35, 1] }}
+        >
+          {CYCLING_WORDS[index]}
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 }
@@ -139,58 +64,75 @@ function CyclingText() {
 export function Hero() {
   const mode = useModeStore((s) => s.mode);
   const reducedMotion = useModeStore((s) => s.reducedMotion);
-  const isImmersive = mode === "immersive" && !reducedMotion;
-  const { unlockScroll } = useSnapScroll();
+  const { tier, webglAvailable } = useDeviceCapability();
+  // Immersive needs WebGL; without it (or while the probe hasn't run) show the static hero.
+  const isImmersive = mode === "immersive" && !reducedMotion && webglAvailable;
+  const particleCount = tier === "low" ? PARTICLE_COUNT.low : PARTICLE_COUNT.high;
+  const setParticlesActive = useModeStore((st) => st.setParticlesActive);
+  const { unlockScroll, lockScroll, containerRef } = useSnapScroll();
 
   const [clouds, setClouds] = useState<{
     cloudA: PointCloud;
     cloudB: PointCloud;
   } | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [revealTriggered, setRevealTriggered] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const introDoneRef = useRef(false);
 
+  // Immersive intro: the page is held at the top until "Find out" is pressed.
+  // Re-lock whenever Immersive is (re)entered — switching over from Clean leaves
+  // the scroll container unlocked otherwise — and release for every other case
+  // (Clean mode, no WebGL, or a particle failure).
   useEffect(() => {
     if (!isImmersive || error) {
       unlockScroll();
+      return;
     }
-  }, [isImmersive, error, unlockScroll]);
+    if (!introDoneRef.current) {
+      containerRef.current?.scrollTo({ top: 0 });
+      lockScroll();
+    }
+  }, [isImmersive, error, unlockScroll, lockScroll, containerRef]);
 
   useEffect(() => {
     if (!isImmersive) return;
 
     let cancelled = false;
-    setLoading(true);
-    setError(false);
 
     async function loadClouds() {
       try {
         const rawCloudA = await sampleImageToPoints(PORTRAIT_SRC, {
-          targetCount: PARTICLE_COUNT,
+          targetCount: particleCount,
           alphaThreshold: 20,
         });
         if (cancelled) return;
 
-        const cloudA = normalizeCloudCount(rawCloudA, PARTICLE_COUNT);
+        const cloudA = normalizeCloudCount(rawCloudA, particleCount);
         const cloudB = normalizeCloudCount(
-          generateProceduralCloud(PARTICLE_COUNT, "scatter"),
-          PARTICLE_COUNT
+          generateProceduralCloud(particleCount, "scatter"),
+          particleCount
         );
 
         setClouds({ cloudA, cloudB });
-        setLoading(false);
       } catch (err) {
         if (cancelled) return;
         console.error("Failed to load portrait:", err);
         setError(true);
-        setLoading(false);
       }
     }
 
     loadClouds();
     return () => { cancelled = true; };
-  }, [isImmersive]);
+  }, [isImmersive, particleCount]);
+
+  // Tell the rest of the page whether the shared particle canvas is really there
+  // (the Projects section swaps sphere <-> grid on this).
+  const particlesMounted = isImmersive && !error && clouds !== null;
+  useEffect(() => {
+    setParticlesActive(particlesMounted);
+    return () => setParticlesActive(false);
+  }, [particlesMounted, setParticlesActive]);
 
   const handleRevealClick = useCallback(() => {
     setRevealTriggered(true);
@@ -202,6 +144,7 @@ export function Hero() {
 
   const handleRevealComplete = useCallback(() => {
     setRevealed(true);
+    introDoneRef.current = true;
     setTimeout(() => unlockScroll(), 600);
   }, [unlockScroll]);
 
@@ -209,7 +152,7 @@ export function Hero() {
     return <HeroStatic />;
   }
 
-  if (loading || !clouds) {
+  if (!clouds) {
     return <HeroStatic />;
   }
 
@@ -225,6 +168,8 @@ export function Hero() {
         cloudB={clouds.cloudB}
         revealTriggered={revealTriggered}
         onRevealComplete={handleRevealComplete}
+        maxDpr={tier === "low" ? 1 : 1.75}
+        onFatalError={() => setError(true)}
       />
 
       {/* Text overlay — z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}
@@ -236,25 +181,25 @@ export function Hero() {
               className="flex flex-col items-center gap-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.97, filter: "blur(8px)" }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
             >
-              {/* "I'm a" — drops in from above with slight blur */}
+              {/* "I'm a" — settles in from above */}
               <motion.p
-                className="font-[family-name:var(--font-display)] text-xl sm:text-2xl font-medium tracking-wide text-text-muted/70"
-                initial={{ opacity: 0, y: -30, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                className="font-[family-name:var(--font-display)] text-xl sm:text-2xl font-medium tracking-wide text-text-muted"
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
               >
                 I&apos;m a
               </motion.p>
 
               {/* Big cycling word — scales up from small with a bounce */}
               <motion.h1
-                className="text-[clamp(3.5rem,10vw,8rem)] font-bold leading-none tracking-tighter"
-                initial={{ opacity: 0, scale: 0.7, filter: "blur(10px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                transition={{ duration: 1.0, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                className="font-[family-name:var(--font-display)] text-[clamp(3.5rem,10vw,8rem)] font-bold leading-none tracking-tighter"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.9, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
               >
                 <CyclingText />
               </motion.h1>
@@ -262,9 +207,9 @@ export function Hero() {
               {/* Subtext — fades in with a letter-spacing tightening effect */}
               <motion.p
                 className="mt-4 max-w-sm font-[family-name:var(--font-serif)] text-lg italic text-text-muted sm:text-xl"
-                initial={{ opacity: 0, letterSpacing: "0.2em" }}
-                animate={{ opacity: 1, letterSpacing: "0em" }}
-                transition={{ duration: 0.9, delay: 1.4, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 1.1, ease: [0.22, 1, 0.36, 1] }}
               >
                 Which one are you about to meet?
               </motion.p>
@@ -273,19 +218,15 @@ export function Hero() {
               <motion.button
                 onClick={handleRevealClick}
                 disabled={revealTriggered}
-                className="pointer-events-auto mt-6 group flex items-center gap-2 rounded-full border border-accent/40 bg-accent/5 px-7 py-3 font-[family-name:var(--font-display)] text-sm font-medium text-accent backdrop-blur-sm transition-all duration-300 hover:bg-accent/15 hover:border-accent/80 hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-                initial={{ opacity: 0, y: 20 }}
+                className="pointer-events-auto mt-8 group flex items-center gap-2 rounded-full bg-accent px-7 py-3 font-[family-name:var(--font-display)] text-sm font-semibold text-white transition-colors duration-300 hover:bg-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 1.8, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.7, delay: 1.5, ease: [0.22, 1, 0.36, 1] }}
               >
                 Find out
-                <motion.span
-                  className="inline-block"
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
-                >
+                <span aria-hidden="true" className="inline-block transition-transform duration-300 group-hover:translate-x-1">
                   →
-                </motion.span>
+                </span>
               </motion.button>
 
             </motion.div>
@@ -299,7 +240,10 @@ export function Hero() {
             >
               <AboutHeroText
                 visible={true}
-                onPhotoVisible={() => setTimeout(() => unlockScroll(), 400)}
+                onPhotoVisible={() => {
+                  introDoneRef.current = true;
+                  setTimeout(() => unlockScroll(), 400);
+                }}
               />
             </motion.div>
           )}

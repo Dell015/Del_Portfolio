@@ -7,6 +7,10 @@ export interface Project {
   description: string;
   role: string;
   teamSize: string;
+  /** Honest, short build status shown on cards and case studies. */
+  status: string;
+  /** Plain-language one-liner for non-technical readers. */
+  plain: string;
   techStack: string[];
   identityGradient: [string, string];
   accentColor?: string;
@@ -33,6 +37,8 @@ export const projects: Project[] = [
       "Hybrid fitness + civic intelligence platform combining adaptive running algorithms with crowdsourced urban sensing. Tracks physical activity, adapts via an AI coach named Ani, rewards consistency through an RPG progression system, and connects daily effort to real civic impact in the community.",
     role: "Lead Developer & Architect",
     teamSize: "5 members + adviser",
+    status: "Thesis build · closest to launch",
+    plain: "A running app that adapts to you and turns everyday exercise into reports that help your city.",
     techStack: [
       "React Native",
       "Expo SDK 51+",
@@ -71,6 +77,8 @@ export const projects: Project[] = [
       "Inclusive, skills-first job platform for skilled non-degree-holding Filipinos (blue-collar workers, undergraduates). Eliminates the need for college degrees, polished resumes, and even internet access as hiring barriers. Competed at Philippine Startup Challenge (Regional Finalist) and IgnITE Start-Up Competition (1st Runner Up).",
     role: "Lead Developer / Founding CEO",
     teamSize: "3–4 members",
+    status: "Competition build · PSC 11 Regional Finalist",
+    plain: "A job platform for skilled Filipinos who don't have a degree or reliable internet.",
     techStack: ["Next.js", "PostgreSQL", "Offline-first architecture"],
     identityGradient: ["#2B6CB0", "#7FC1F5"],
     caseStudy: {
@@ -80,7 +88,7 @@ export const projects: Project[] = [
       challenge:
         "Building a job platform that works for people who may not have a degree, a resume, consistent internet, or experience with digital hiring platforms. Every design and technical decision must account for these constraints without patronizing the user.",
       nextSteps:
-        "Post-competition iteration planned. Validated product-market fit through two competitions with different team configurations.",
+        "Placed at two competitions (PSC 11 Regional Finalist, IgnITE 1st Runner-Up) with different team configurations. Next: user interviews with workers and employers in Cagayan Valley to validate the matching model before a pilot.",
     },
   },
   {
@@ -94,6 +102,8 @@ export const projects: Project[] = [
       "Social drinking game webapp built around the philosophy: one phone, passed around the table, eye contact enforced. Curated card library, wildcard system, coin economy, escalation engine, customizable decks — every session unique. Designed for Filipino barkadas ages 18–30.",
     role: "Solo Developer",
     teamSize: "Solo project",
+    status: "In development",
+    plain: "A party game that keeps friends talking instead of scrolling.",
     techStack: [
       "Next.js",
       "Tailwind CSS",
@@ -125,6 +135,8 @@ export const projects: Project[] = [
       "A Universal Integrity & Logic Auditor. Challenges users to prove they genuinely understand work they submit — a codebase, thesis, business plan, pitch deck, or any document representing their thinking. Uses Socratic questioning, a Gate mechanic that locks progress until flaws are fixed, and produces a verifiable Defense Transcript. Not an AI detector — a mentor.",
     role: "Solo Developer & Architect",
     teamSize: "Solo project",
+    status: "In development · MVP stage",
+    plain: "A tool that checks whether you truly understand the work you hand in.",
     techStack: [
       "Angular",
       "TypeScript",
@@ -159,6 +171,8 @@ export const projects: Project[] = [
       "Private, web-based vehicle companion. Your knowledge about your vehicle lives in one place, belongs entirely to you, and gets smarter the longer you use it. Three phases: lean core (logging + reminders), 3D interactive layer (Three.js vehicle viewer with clickable hotspots), and AI diagnostic layer (Claude-powered chatbot using your own history as context).",
     role: "Solo Developer",
     teamSize: "Solo project",
+    status: "In development",
+    plain: "One private place for everything about your car or motorcycle.",
     techStack: [
       "Next.js",
       "TypeScript",
@@ -196,6 +210,8 @@ export const projects: Project[] = [
       "Real-time seat and dining platform built around three mechanisms: Exposure Control (choose your social comfort level), Presence Mode (sensor-driven phone-down sessions that make being present the default), and Explore Mode (neutral geographic discovery via Apple Maps + OpenStreetMap, no trending or algorithmic ranking). Includes QR check-in, 5-minute table claims, pre-ordering, and staff management.",
     role: "Lead Developer",
     teamSize: "Team project — Randel as lead dev",
+    status: "Competition build · IGNITE OGIS 2026",
+    plain: "An app for choosing where you sit and how you eat out, without the algorithm.",
     techStack: [
       "React Native",
       "Expo SDK 54",
@@ -235,6 +251,8 @@ export const projects: Project[] = [
       "A private savings companion that treats saving like a notebook, not a bank. Pick an item (PC, phone, car), see its parts tree, save toward specific components with a 3-slot concurrent system, and get EWMA-based predictions grounded in your real budget. Parts 'light up' as you fund them. No bank linking, no payments — just honest tracking with a collectible-progress feel.",
     role: "Solo Developer",
     teamSize: "Solo project",
+    status: "In development",
+    plain: "A savings notebook that shows which parts of what you want you can already afford.",
     techStack: [
       "Next.js 16",
       "React 19",

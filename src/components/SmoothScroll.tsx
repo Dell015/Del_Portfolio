@@ -60,19 +60,18 @@ export function useSnapScroll() {
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [totalPages, setTotalPages] = useState(0);
-  const [scrollLocked, setScrollLocked] = useState(true);
+  const [lockedState, setLockedState] = useState(true);
   const pathname = usePathname();
+  // Only the home page ever locks scrolling (until the immersive hero is revealed).
+  const scrollLocked = lockedState && pathname === "/";
 
   // Disable browser scroll restoration and force scroll to top on mount.
   // This prevents the particle system from rendering in a stale mid-scroll state on reload.
-  // Also clear any leftover hash so refresh always starts at the hero/landing.
+  // A #hash in the URL is kept: it is a deep link (e.g. "/#projects" from a case
+  // study's back link) and the effect below scrolls to it.
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
-    }
-    // Clear hash from URL without triggering navigation
-    if (window.location.hash) {
-      window.history.replaceState(null, "", window.location.pathname);
     }
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
@@ -96,20 +95,14 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
   // When navigating back to home page with a hash, unlock scroll and scroll to section
   useEffect(() => {
-    if (pathname !== "/") {
-      // Non-home pages should never be scroll-locked
-      setScrollLocked(false);
-      return;
-    }
+    if (pathname !== "/") return;
 
     const hash = window.location.hash.slice(1);
     if (!hash) return;
 
-    // Unlock scroll since user is returning (already saw the hero)
-    setScrollLocked(false);
-
-    // Wait for DOM to settle then scroll to the target section
+    // Wait for DOM to settle, unlock (they've effectively skipped the intro), then scroll
     const timer = setTimeout(() => {
+      setLockedState(false);
       const el = document.getElementById(hash);
       if (el) {
         el.scrollIntoView({ behavior: "smooth" });
@@ -118,6 +111,93 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
     return () => clearTimeout(timer);
   }, [pathname]);
+
+  // Mouse-wheel smoothing. A physical wheel reports big discrete steps (~100px),
+  // which the browser applies as a jump. Touchpads and touch already send fine,
+  // continuous deltas, so those are left to the browser. Only wheel-like events
+  // are intercepted and eased toward a target position instead.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let target = container.scrollTop;
+    let current = container.scrollTop;
+    let raf = 0;
+    let last = 0;
+    let animating = false;
+    // Positions this loop wrote recently, so its own scroll events aren't mistaken
+    // for an outside scroll.
+    const written: number[] = [];
+
+    const maxScroll = () => container.scrollHeight - container.clientHeight;
+
+    function step(now: number) {
+      const dt = Math.min(48, now - last || 16);
+      last = now;
+      // Frame-rate independent exponential ease (~120ms to settle most of the way)
+      const k = 1 - Math.exp(-dt / 85);
+      current += (target - current) * k;
+      if (Math.abs(target - current) < 0.4) {
+        current = target;
+        animating = false;
+      }
+      container!.scrollTop = current;
+      written.push(container!.scrollTop);
+      if (written.length > 4) written.shift();
+      if (animating) raf = requestAnimationFrame(step);
+    }
+
+    function isWheelLike(e: WheelEvent) {
+      if (e.deltaMode === 1) return true; // line mode: always a wheel
+      if (e.deltaX !== 0) return false;
+      // Wheel notches are large whole numbers; touchpads send small/fractional ones.
+      return Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY);
+    }
+
+    function onWheel(e: WheelEvent) {
+      if (e.ctrlKey || e.defaultPrevented) return; // pinch-zoom / already handled
+      if (getComputedStyle(container!).overflowY === "hidden") return; // locked
+      if (!isWheelLike(e)) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("textarea, [data-native-scroll], .overflow-x-auto")) return;
+
+      e.preventDefault();
+      if (!animating) {
+        target = container!.scrollTop;
+        current = target;
+      }
+      const delta = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY;
+      target = Math.max(0, Math.min(maxScroll(), target + delta));
+      if (!animating) {
+        animating = true;
+        last = performance.now();
+        raf = requestAnimationFrame(step);
+      }
+    }
+
+    // Anything else that moves the page (keyboard, scrollbar drag, anchor jumps)
+    // must take over from the eased animation instead of fighting it.
+    function onScrollSync() {
+      if (animating && !written.some((w) => Math.abs(w - container!.scrollTop) < 1.5)) {
+        animating = false;
+        cancelAnimationFrame(raf);
+      }
+      if (!animating) {
+        target = container!.scrollTop;
+        current = target;
+        written.length = 0;
+      }
+    }
+
+    container.addEventListener("wheel", onWheel, { passive: false });
+    container.addEventListener("scroll", onScrollSync, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      container.removeEventListener("wheel", onWheel);
+      container.removeEventListener("scroll", onScrollSync);
+    };
+  }, []);
 
   // Track scroll position — updates external store, NOT React state
   useEffect(() => {
@@ -147,11 +227,11 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   }, []);
 
   const unlockScroll = useCallback(() => {
-    setScrollLocked(false);
+    setLockedState(false);
   }, []);
 
   const lockScroll = useCallback(() => {
-    setScrollLocked(true);
+    setLockedState(true);
   }, []);
 
   const scrollToSection = useCallback((id: string) => {
@@ -202,7 +282,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     >
       <div
         ref={containerRef}
-        className={`h-screen ${scrollLocked ? "overflow-hidden" : "overflow-y-auto"}`}
+        className={`relative h-screen ${scrollLocked ? "overflow-hidden" : "overflow-y-auto"}`}
       >
         {children}
       </div>

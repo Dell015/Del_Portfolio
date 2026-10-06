@@ -7,13 +7,13 @@ import { useModeStore } from "@/lib/store/mode";
 /**
  * ModeProvider hydrates the mode store from localStorage and
  * sets up the prefers-reduced-motion listener. Place once in layout.
+ * Children always render, so the server HTML contains the real page.
  *
  * When the mode toggles, it triggers a quick opacity dip (1 → 0 → 1)
  * over ~0.35s to create a cross-fade feel without remounting children.
  */
 export function ModeProvider({ children }: { children: React.ReactNode }) {
   const hydrate = useModeStore((s) => s.hydrate);
-  const hydrated = useModeStore((s) => s.hydrated);
   const mode = useModeStore((s) => s.mode);
   const reducedMotion = useModeStore((s) => s.reducedMotion);
 
@@ -44,13 +44,10 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mode, reducedMotion, controls]);
 
-  // Prevent flash of wrong mode by not rendering until hydrated.
-  // This is a brief moment on first paint — content still loads fast
-  // because the store hydrates synchronously from localStorage.
-  if (!hydrated) {
-    return null;
-  }
-
+  // Always render children. The server (and anything that doesn't run JS — search
+  // crawlers, link previews, AI readers) gets the full "clean" page; the stored
+  // mode is applied right after hydration. Returning null here used to ship an
+  // empty <body>, which made the whole site invisible to non-browser readers.
   return (
     <motion.div animate={controls} style={{ opacity: 1 }}>
       {children}

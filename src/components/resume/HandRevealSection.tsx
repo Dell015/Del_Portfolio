@@ -10,6 +10,7 @@ import {
 import {
   motion,
   useMotionValueEvent,
+  useReducedMotion,
   useScroll,
   useTransform,
 } from "framer-motion";
@@ -27,7 +28,9 @@ import {
 } from "@/lib/particles/sampleImageToPoints";
 import { HandParticleCanvas } from "./HandParticleCanvas";
 import { HandRevealStatic } from "./HandRevealStatic";
+import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { ResumeButton } from "./ResumeButton";
+import { ResumeCard } from "./ResumeCard";
 
 const GOD_SRC = "/hand-god.png";
 const ADAM_SRC = "/hand-adam.png";
@@ -52,7 +55,7 @@ const PIN_HEIGHT_VH = 300;
 
 /** Progress at which the button becomes interactive — the hands are essentially
  *  closed by here, and gating clicks avoids an invisible-but-clickable target. */
-const BUTTON_ACTIVE_AT = 0.78;
+const BUTTON_ACTIVE_AT = 0.88;
 
 type Orientation = "landscape" | "portrait";
 
@@ -99,6 +102,10 @@ function getOrientationServerSnapshot(): Orientation {
  */
 export function HandRevealSection() {
   const { webglAvailable, tier } = useDeviceCapability();
+  const reducedMotion = useReducedMotion();
+
+  // Reduced-motion visitors get the button without a 300vh scrubbed animation.
+  if (reducedMotion) return <HandRevealStatic />;
 
   // `unknown` is the SSR/hydration snapshot. Render nothing structural until the
   // probe resolves, so we never flash a fallback at capable devices.
@@ -198,37 +205,25 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
     setButtonActive((prev) => (prev === active ? prev : active));
   });
 
-  // Button visuals ride motion values directly — no re-render per frame.
+  // Everything below rides motion values, so scrolling never re-renders React.
   //
-  // Every input range is stated across the FULL 0→1 progress domain, with the
-  // final value repeated to hold it. Relying on out-of-range clamping proved
-  // unsafe here: measured against a live browser, an `opacity` transform declared
-  // as [0.15, 0.82] → [0.25, 1] did not hold at 1 past 0.82 — it ramped back down
-  // to 0.25 by progress 1.0, inverting the whole effect over the final fifth of
-  // the section. `scale` and `boxShadow` on the same element clamped correctly, so
-  // this is specific to opacity. Pinning the domain end to end removes the
-  // dependency on that behaviour entirely.
-  const buttonOpacity = useTransform(
-    scrollYProgress,
-    [0.15, 0.82, 1],
-    [0.25, 1, 1],
-  );
-  const buttonScale = useTransform(scrollYProgress, [0.15, 0.82, 1], [0.88, 1, 1]);
-  const buttonGlow = useTransform(
-    scrollYProgress,
-    [0.5, 0.9, 1],
-    [
-      "0 0 0px rgba(209,26,42,0)",
-      "0 0 42px rgba(209,26,42,0.55)",
-      "0 0 42px rgba(209,26,42,0.55)",
-    ],
-  );
-  const eyebrowOpacity = useTransform(
-    scrollYProgress,
-    [0, 0.12, 0.5, 1],
-    [0, 1, 0, 0],
-  );
-  const hintOpacity = useTransform(scrollYProgress, [0.82, 0.95, 1], [0, 1, 1]);
+  // Each range spans the FULL 0→1 progress domain with the final value repeated
+  // to hold it. Relying on out-of-range clamping proved unsafe: an opacity
+  // transform declared as [0.15, 0.82] → [0.25, 1] ramped back down past 0.82.
+  //
+  // Story over the pinned scroll: the hands reach in → touch (flash) → fade back
+  // as the resume rises out of the contact point → its actions appear below it.
+  const handsOpacity = useTransform(scrollYProgress, [0, 0.62, 0.9, 1], [1, 1, 0.16, 0.16]);
+  const handsScale = useTransform(scrollYProgress, [0, 0.62, 1], [1, 1, 1.1]);
+  const flashOpacity = useTransform(scrollYProgress, [0, 0.6, 0.68, 0.84, 1], [0, 0, 0.9, 0, 0]);
+  const flashScale = useTransform(scrollYProgress, [0, 0.6, 0.84, 1], [0.4, 0.4, 2.4, 2.4]);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.66, 0.8, 1], [0, 0, 1, 1]);
+  const cardY = useTransform(scrollYProgress, [0, 0.66, 0.88, 1], [90, 90, 0, 0]);
+  const cardRotate = useTransform(scrollYProgress, [0, 0.66, 0.88, 1], [26, 26, 0, 0]);
+  const cardScale = useTransform(scrollYProgress, [0, 0.66, 0.88, 1], [0.8, 0.8, 1, 1]);
+  const actionsOpacity = useTransform(scrollYProgress, [0, 0.8, 0.92, 1], [0, 0, 1, 1]);
+  const actionsY = useTransform(scrollYProgress, [0, 0.8, 0.92, 1], [18, 18, 0, 0]);
+  const eyebrowOpacity = useTransform(scrollYProgress, [0, 0.12, 0.5, 0.66, 1], [0, 1, 1, 0, 0]);
 
   if (failed) return <HandRevealStatic />;
 
@@ -246,7 +241,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
         {/* Particles mount only once sampled and only while near the viewport;
             the render loop stops entirely when the section scrolls away. */}
         {clouds && (
-          <div className="absolute inset-0 z-[1]">
+          <motion.div className="absolute inset-0 z-[1]" style={{ opacity: handsOpacity, scale: handsScale }}>
             <HandParticleCanvas
               godCloud={clouds.god}
               adamCloud={clouds.adam}
@@ -254,37 +249,47 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
               progressRef={progressRef}
               active={visible}
             />
-          </div>
+          </motion.div>
         )}
 
         {/* Overlay content. The wrapper ignores pointer events so it never
             swallows scroll; the button re-enables them on itself. */}
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-6">
           <motion.p
-            className="absolute top-[18%] font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
+            className="absolute top-[18%] font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.18em] text-accent"
             style={{ opacity: eyebrowOpacity }}
           >
             {resume.eyebrow}
           </motion.p>
 
-          {/* Sits dead centre — the same point the two fingertips close on. */}
+          {/* Contact flash — a soft ring that opens where the fingertips meet */}
           <motion.div
-            className="pointer-events-auto rounded-full"
+            aria-hidden="true"
+            className="absolute h-[34vmin] w-[34vmin] rounded-full"
             style={{
-              opacity: buttonOpacity,
-              scale: buttonScale,
-              boxShadow: buttonGlow,
+              opacity: flashOpacity,
+              scale: flashScale,
+              background:
+                "radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(209,26,42,0.45) 28%, transparent 66%)",
             }}
-          >
-            <ResumeButton active={buttonActive} />
-          </motion.div>
+          />
 
-          <motion.p
-            className="absolute bottom-[16%] text-center text-xs text-text-muted/50 italic"
-            style={{ opacity: hintOpacity }}
-          >
-            {resume.placeholderNote}
-          </motion.p>
+          <div className="flex flex-col items-center gap-8">
+            <motion.div
+              className="w-[min(58vw,300px)] sm:w-[min(34vh,300px)]"
+              style={{ opacity: cardOpacity, y: cardY, rotateX: cardRotate, scale: cardScale, transformPerspective: 1100 }}
+            >
+              <ResumeCard />
+            </motion.div>
+
+            <motion.div
+              className="pointer-events-auto flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
+              style={{ opacity: actionsOpacity, y: actionsY }}
+            >
+              <ResumeButton active={buttonActive} />
+              <CopyEmailButton />
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>

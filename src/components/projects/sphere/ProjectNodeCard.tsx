@@ -60,7 +60,7 @@ export function ProjectNodeCard({
             {/* View Project link */}
             <Link
               href={`/projects/${project.slug}`}
-              className="mt-3 block w-full rounded-lg border py-1.5 text-center font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest transition-all duration-200"
+              className="mt-3 block w-full rounded-lg border py-1.5 text-center font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest transition-all duration-200"
               style={{
                 borderColor: project.identityGradient[0],
                 backgroundColor: `${project.identityGradient[0]}15`,
