@@ -6,7 +6,14 @@ import { useModeStore } from "@/lib/store/mode";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { HeroStatic } from "./HeroStatic";
-import { HeroParticleCanvas } from "./HeroParticleCanvas";
+import dynamic from "next/dynamic";
+
+// Three.js + postprocessing is the heaviest thing on the page and is only needed in
+// Immersive mode. Loading it on demand keeps it out of the Clean-mode first load.
+const HeroParticleCanvas = dynamic(
+  () => import("./HeroParticleCanvas").then((m) => m.HeroParticleCanvas),
+  { ssr: false },
+);
 import { AboutHeroText } from "@/components/about/AboutHeroText";
 import {
   sampleImageToPoints,

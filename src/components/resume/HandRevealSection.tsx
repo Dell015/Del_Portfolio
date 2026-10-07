@@ -26,7 +26,13 @@ import {
   subsampleCloud,
   type PointCloud,
 } from "@/lib/particles/sampleImageToPoints";
-import { HandParticleCanvas } from "./HandParticleCanvas";
+import dynamic from "next/dynamic";
+
+// Loaded only when the section is near the viewport (see `visible` below).
+const HandParticleCanvas = dynamic(
+  () => import("./HandParticleCanvas").then((m) => m.HandParticleCanvas),
+  { ssr: false },
+);
 import { HandRevealStatic } from "./HandRevealStatic";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { ResumeButton } from "./ResumeButton";

@@ -564,6 +564,15 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
           }
         }
       }
+    } else if (detectedIndex.current !== null) {
+      // The sphere stopped being interactive (scrolled away / dissolving) while a node
+      // was hovered. Clear it, or the position-update block below keeps re-opening the
+      // card every frame even though nothing can be hovered any more.
+      detectedIndex.current = null;
+      suppressedIndex.current = null;
+      document.body.style.cursor = "auto";
+      onHover(null, 0, 0);
+      setHoveredIndex(null);
     }
 
     // Fade in/out + hover effects
@@ -955,6 +964,7 @@ export function HeroParticleCanvas({
   /** Latest scroll value for the rAF loops below — reading it from a ref means those
    *  loops no longer tear down and re-register on every scroll tick. */
   const scrollRef = useRef(scrollProgress);
+  const lastSyncRef = useRef(0);
   useEffect(() => {
     scrollRef.current = scrollProgress;
   }, [scrollProgress]);
@@ -1034,23 +1044,33 @@ export function HeroParticleCanvas({
       // SPHERE_FORM: after lock releases (smallFade = 1), drive from continued scroll
       // Map scroll past the lock-trigger point → sphere formation
       // Use scatterRef as the "big particles appear" signal and sphereRef for formation
+      // Targets for the big-particle phases. They are eased toward (not assigned) so
+      // any jump in the target — releasing the interactive hold, a fast flick back up,
+      // the rewind starting — glides instead of snapping.
+      let scatterTarget = 0;
+      let sphereTarget = 0;
       if (virtualScroll.smallFadeRef.current >= 1) {
-        // Once sphere is fully formed and interactive, freeze values so OrbitControls
-        // rotation/zoom doesn't get overridden by scroll-linked phase changes
-        if (sphereInteractive) {
-          scatterRef.current = 1;
-          sphereRef.current = 1;
+        const postLockScroll = scrollRef.current - LOCK_TRIGGER;
+        if (sphereInteractive && postLockScroll > 1.0) {
+          // Sphere is formed and being explored: hold it so OrbitControls rotation and
+          // zoom aren't fought by small scroll changes. Released once the user scrolls
+          // clearly back up, so the sphere can dissolve on the way to the top.
+          scatterTarget = 1;
+          sphereTarget = 1;
         } else {
-          // Post-unlock: map additional scroll distance to sphere
-          const postLockScroll = scrollRef.current - LOCK_TRIGGER;
           // Give 0.5 scroll-pages for scatter to settle, then 1.0 for sphere formation
-          scatterRef.current = Math.min(1, Math.max(0, postLockScroll / 0.5));
-          sphereRef.current = Math.min(1, Math.max(0, (postLockScroll - 0.5) / 1.0));
+          scatterTarget = Math.min(1, Math.max(0, postLockScroll / 0.5));
+          sphereTarget = Math.min(1, Math.max(0, (postLockScroll - 0.5) / 1.0));
         }
-      } else {
-        scatterRef.current = 0;
-        sphereRef.current = 0;
       }
+      const now = performance.now();
+      const dt = Math.min(64, now - lastSyncRef.current || 16);
+      lastSyncRef.current = now;
+      const k = 1 - Math.exp(-dt / 140);
+      scatterRef.current += (scatterTarget - scatterRef.current) * k;
+      sphereRef.current += (sphereTarget - sphereRef.current) * k;
+      if (Math.abs(scatterTarget - scatterRef.current) < 0.002) scatterRef.current = scatterTarget;
+      if (Math.abs(sphereTarget - sphereRef.current) < 0.002) sphereRef.current = sphereTarget;
 
       // ── Hand-off: fade the whole canvas out once the Projects section scrolls
       // past the viewport, then stop the render loop entirely. Reverses on scroll-up.
@@ -1104,6 +1124,12 @@ export function HeroParticleCanvas({
       if (next !== last) {
         last = next;
         setSphereInteractive(next);
+        if (!next) {
+          // Sphere dissolved (scrolling back up) — a project card has nothing to
+          // point at any more, so drop it and release the pointer cursor.
+          closeCardRef.current?.();
+          document.body.style.cursor = "auto";
+        }
       }
       rafId = requestAnimationFrame(check);
     }

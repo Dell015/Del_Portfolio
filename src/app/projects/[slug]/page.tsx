@@ -15,7 +15,7 @@ export async function generateMetadata({
   const project = projects.find((p) => p.slug === slug);
   if (!project) return { title: "Project not found" };
   return {
-    title: `${project.name} — Randel Serafica`,
+    title: project.name, // the layout's title template appends the site name
     description: project.pitch,
   };
 }
@@ -30,7 +30,7 @@ export default async function ProjectCaseStudy({
   if (!project) notFound();
 
   return (
-    <main className="min-h-screen bg-bg text-text">
+    <main id="main" tabIndex={-1} className="min-h-screen bg-bg text-text outline-none">
       {/* Hero */}
       <div className="relative overflow-hidden">
         <div

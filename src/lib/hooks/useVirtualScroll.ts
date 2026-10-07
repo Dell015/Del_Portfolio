@@ -44,8 +44,7 @@ function derivePhases(virtualPx: number): PhaseValues {
   const gatherEnd = PHASE_BUDGETS.GATHER;
   const condenseEnd = gatherEnd + PHASE_BUDGETS.CONDENSE;
   const explodeEnd = condenseEnd + PHASE_BUDGETS.EXPLODE;
-  const fadeEnd = explodeEnd + PHASE_BUDGETS.SMALL_FADE;
-
+  
   const gather = clamp01(virtualPx / PHASE_BUDGETS.GATHER);
 
   const condenseStart = gatherEnd;
@@ -96,6 +95,22 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
   // Track if the full sequence completed (don't re-lock after finishing)
   const sequenceComplete = useRef(false);
 
+  const rewindRaf = useRef(0);
+
+  /** Set the virtual position and derive every phase ref from it. */
+  const applyPhases = useCallback((px: number) => {
+    virtualPx.current = px;
+    const phases = derivePhases(px);
+    gatherRef.current = phases.gather;
+    condenseRef.current = phases.condense;
+    ringCompressRef.current = phases.ringCompress;
+    explodeRef.current = phases.explode;
+    smallFadeRef.current = phases.smallFade;
+    return phases;
+  }, []);
+
+  useEffect(() => () => cancelAnimationFrame(rewindRaf.current), []);
+
   // Track locked state for effect re-runs (ref for instant access, state for effect deps)
   const [lockedState, setLockedState] = useState(false);
 
@@ -104,29 +119,38 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
     if (!enabled) return;
     if (isLocked.current) return;
 
-    // If user scrolled back above the trigger after completing, reset so they can re-enter
+    // The user scrolled back above the trigger after completing the sequence.
+    // Play it in reverse (crossfade back to the small particles, un-explode,
+    // un-condense, un-gather) instead of snapping every phase to zero.
     if (sequenceComplete.current && scrollProgress < LOCK_TRIGGER - 0.1) {
       sequenceComplete.current = false;
       hasEnteredZone.current = false;
-      // Reset virtual accumulator so phases start from 0 on re-entry
-      virtualPx.current = 0;
-      gatherRef.current = 0;
-      condenseRef.current = 0;
-      ringCompressRef.current = 0;
-      explodeRef.current = 0;
-      smallFadeRef.current = 0;
+
+      cancelAnimationFrame(rewindRaf.current);
+      const from = virtualPx.current;
+      if (from <= 0) return;
+      const duration = 450 + 900 * (from / TOTAL_BUDGET);
+      const t0 = performance.now();
+      const run = (now: number) => {
+        const t = Math.min(1, (now - t0) / duration);
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // easeInOutQuad
+        applyPhases(from * (1 - eased));
+        if (t < 1) rewindRaf.current = requestAnimationFrame(run);
+      };
+      rewindRaf.current = requestAnimationFrame(run);
     }
 
     if (sequenceComplete.current) return;
 
     if (scrollProgress >= LOCK_TRIGGER && !hasEnteredZone.current) {
-      // Entering the zone — lock scroll
+      // Entering the zone — lock scroll (and stop any rewind still in flight)
+      cancelAnimationFrame(rewindRaf.current);
       hasEnteredZone.current = true;
       isLocked.current = true;
       setLockedState(true);
       lockScroll();
     }
-  }, [enabled, scrollProgress, lockScroll]);
+  }, [enabled, scrollProgress, lockScroll, applyPhases]);
 
   // ── Intercept wheel/touch events ONLY when locked ──
   // Input moves a *target*; the visible position eases toward it every frame, so a
@@ -149,16 +173,7 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
       unlockScroll();
     }
 
-    function apply(px: number) {
-      virtualPx.current = px;
-      const phases = derivePhases(px);
-      gatherRef.current = phases.gather;
-      condenseRef.current = phases.condense;
-      ringCompressRef.current = phases.ringCompress;
-      explodeRef.current = phases.explode;
-      smallFadeRef.current = phases.smallFade;
-      return phases;
-    }
+    const apply = applyPhases;
 
     function frame(now: number) {
       const dt = Math.min(48, now - last || 16);
@@ -220,7 +235,7 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove, { capture: true });
     };
-  }, [lockedState, unlockScroll]);
+  }, [lockedState, unlockScroll, applyPhases]);
 
   return {
     virtualPx,

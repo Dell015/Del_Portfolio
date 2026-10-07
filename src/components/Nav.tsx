@@ -14,11 +14,11 @@ import { footer as footerContent } from "@/lib/content/site";
 /* ─── Nav Links ─────────────────────────────────────────────── */
 
 const NAV_LINKS = [
-  { label: "About", href: "#about" },
-  { label: "Projects", href: "#projects" },
-  { label: "Skills", href: "#skills" },
-  { label: "Background", href: "#background" },
-  { label: "Contact", href: "#footer" },
+  { label: "About", href: "/#about" },
+  { label: "Projects", href: "/#projects" },
+  { label: "Skills", href: "/#skills" },
+  { label: "Background", href: "/#background" },
+  { label: "Contact", href: "/#footer" },
 ] as const;
 
 /* ─── Section IDs in page order ─────────────────────────────── */
@@ -123,7 +123,7 @@ export function Nav() {
   }, []);
 
   const isActive = (href: string) => {
-    const sectionId = href.replace("#", "");
+    const sectionId = href.split("#")[1] ?? "";
     return activeSection === sectionId;
   };
 

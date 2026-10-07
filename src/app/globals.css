@@ -176,3 +176,16 @@ p {
 .dot-field__glow {
   background: radial-gradient(520px circle at var(--mx) var(--my), rgba(209, 26, 42, 0.09), transparent 70%);
 }
+
+/* ── Hero entrance: CSS only, so it runs before hydration ────────────────── */
+@keyframes hero-rise {
+  from { opacity: 0.01; transform: translateY(14px); }
+  to   { opacity: 1;    transform: none; }
+}
+.hero-rise {
+  animation: hero-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise { animation: none; }
+}

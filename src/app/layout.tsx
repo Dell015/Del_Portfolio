@@ -53,6 +53,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
+  alternates: { canonical: "/" },
   title: { default: TITLE, template: "%s — Randel Serafica" },
   description: DESCRIPTION,
   applicationName: "Randel Serafica — Portfolio",
