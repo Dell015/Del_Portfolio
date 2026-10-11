@@ -189,3 +189,25 @@ p {
 @media (prefers-reduced-motion: reduce) {
   .hero-rise { animation: none; }
 }
+
+/* Project card call-to-action on the sphere: tinted with the project's own colors
+   (--c / --c2 are set on the card). */
+.node-card-cta {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--c) 32%, transparent),
+    color-mix(in srgb, var(--c2) 18%, transparent)
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, transparent);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.node-card-cta:hover {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--c) 55%, transparent),
+    color-mix(in srgb, var(--c2) 32%, transparent)
+  );
+  box-shadow:
+    inset 0 0 0 1px var(--c),
+    0 0 24px -4px color-mix(in srgb, var(--c) 60%, transparent);
+}

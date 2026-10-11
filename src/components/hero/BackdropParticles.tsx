@@ -12,7 +12,11 @@ import { getPalette, type SphereSettings } from "@/lib/sphere/settings";
  * to the next section as motion instead of a plain fade.
  */
 
-const COUNT = { high: 2600, low: 1100 } as const;
+const COUNT = { high: 3400, low: 1500 } as const;
+
+/** The field is a hollow shell around the sphere, so every viewing angle sees it. */
+const SHELL_INNER = 3.4;
+const SHELL_OUTER = 15;
 
 const vertexShader = /* glsl */ `
   attribute float aSpeed;
@@ -33,19 +37,21 @@ const vertexShader = /* glsl */ `
   void main() {
     vec3 pos = position;
 
-    // Slow upward flow that wraps, so the field never empties
-    float flow = uTime * (0.03 + aSpeed * 0.05);
-    pos.y = mod(pos.y + flow + 6.0, 12.0) - 6.0;
+    // Slow orbit around the vertical axis, each particle at its own pace. A shell
+    // has no edges, so there is never a "void" whichever way the sphere is turned.
+    float ang = uTime * (0.012 + aSpeed * 0.02);
+    float ca = cos(ang);
+    float sa = sin(ang);
+    pos.xz = vec2(ca * pos.x - sa * pos.z, sa * pos.x + ca * pos.z);
 
     // Gentle per-particle sway
-    pos.x += sin(uTime * 0.15 * aSpeed + aPhase * 6.2831) * 0.4;
-    pos.z += sin(uTime * 0.10 + aPhase * 3.0) * 0.3;
-    pos.y += cos(uTime * 0.12 * aSpeed + aPhase * 5.1) * 0.25;
+    pos.y += sin(uTime * 0.12 * aSpeed + aPhase * 6.2831) * 0.35;
+    pos.x += cos(uTime * 0.10 * aSpeed + aPhase * 5.1) * 0.25;
 
-    // Exit: rush up and toward the camera, faster for the quicker particles
+    // Exit: swell outward and lift, faster for the quicker particles
     float e = uExit * uExit;
-    pos.y += e * (6.0 + aSpeed * 14.0);
-    pos.z += e * (3.0 + aSpeed * 5.0);
+    pos *= 1.0 + e * (0.35 + aSpeed * 0.9);
+    pos.y += e * (4.0 + aSpeed * 10.0);
 
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
@@ -53,11 +59,14 @@ const vertexShader = /* glsl */ `
     float dist = max(0.4, -mv.z);
     float size = uSize * (0.55 + aSpeed * 0.9) * uDpr * (uResolution.y / 900.0) / dist;
     // Streak the point a little as it speeds up
-    gl_PointSize = size * (1.0 + uExit * 1.5);
+    // Cap the size and fade out whatever drifts right past the camera, so nothing
+    // balloons into a blob when the sphere is orbited.
+    gl_PointSize = min(size * (1.0 + uExit * 1.5), 7.0 * uDpr);
+    float nearFade = smoothstep(1.5, 5.0, dist);
 
     vColor = mix(uColorA, uColorB, aPhase);
     float twinkle = 0.75 + 0.25 * sin(uTime * (0.6 + aSpeed) + aPhase * 40.0);
-    vAlpha = uAlpha * (0.18 + aSpeed * 0.35) * twinkle * (1.0 - uExit * 0.5);
+    vAlpha = uAlpha * (0.18 + aSpeed * 0.35) * twinkle * (1.0 - uExit * 0.5) * nearFade;
   }
 `;
 
@@ -103,10 +112,17 @@ export function BackdropParticles({ alphaRef, exitRef, settingsRef, lowPower = f
     const pos = new Float32Array(count * 3);
     const speed = new Float32Array(count);
     const phase = new Float32Array(count);
+    const r0 = SHELL_INNER ** 3;
+    const r1 = SHELL_OUTER ** 3;
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (rand() - 0.5) * 22;
-      pos[i * 3 + 1] = (rand() - 0.5) * 12;
-      pos[i * 3 + 2] = -6 + rand() * 9;
+      // Uniform over the shell's volume
+      const r = Math.cbrt(r0 + rand() * (r1 - r0));
+      const cosPhi = 2 * rand() - 1;
+      const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
+      const theta = rand() * Math.PI * 2;
+      pos[i * 3] = r * sinPhi * Math.cos(theta);
+      pos[i * 3 + 1] = r * cosPhi;
+      pos[i * 3 + 2] = r * sinPhi * Math.sin(theta);
       speed[i] = 0.3 + rand() * 1.1;
       phase[i] = rand();
     }
