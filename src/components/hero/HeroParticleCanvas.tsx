@@ -334,12 +334,14 @@ interface ParticleSystemProps {
   preRevealRef: React.MutableRefObject<boolean>;
   cursorNearSphereRef: React.MutableRefObject<boolean>;
   settingsRef: React.MutableRefObject<SphereSettings>;
+  /** True while a project node (or its card) is hovered: the sphere must hold perfectly still. */
+  holdRef: React.MutableRefObject<boolean>;
 }
 
 function ParticleSystem({
   cloudA, cloudB, progressRef, dissolveRef, ambientRef,
   gatherRef, condenseRef, ringCompressRef, explodeRef, smallFadeRef, scatterRef, sphereRef, scaleRef,
-  mouseRef, mouseActiveRef, preRevealRef, cursorNearSphereRef, settingsRef,
+  mouseRef, mouseActiveRef, preRevealRef, cursorNearSphereRef, settingsRef, holdRef,
 }: ParticleSystemProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -431,7 +433,8 @@ function ParticleSystem({
     const group = groupRef.current;
     if (group && sphereRef.current > 0.5) {
       const targetSpeed = cursorNearSphereRef.current ? 0 : -0.0015 * settingsRef.current.spin;
-      rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
+      // Hovering a node stops the spin outright, not gradually, so the node stays under the cursor
+      rotSpeedRef.current = holdRef.current ? 0 : THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
       group.rotation.y += rotSpeedRef.current;
     } else if (group && group.rotation.y !== 0) {
       // Back at the top: the portrait must sit exactly where the headline expects it.
@@ -466,6 +469,10 @@ function ParticleSystem({
 
 // ─── Project Nodes (rendered in same canvas) ───────────────────────────────────
 
+/** Pointer position in canvas pixels. Hover is tested in pixels, so a camera that is
+ *  still easing or orbiting can't slide a node out from under a resting cursor. */
+const _pointerPx = { x: 0, y: 0, valid: false };
+
 interface ProjectNodesProps {
   sphereProgress: React.MutableRefObject<number>;
   onHover: (index: number | null, screenX: number, screenY: number) => void;
@@ -480,9 +487,10 @@ interface ProjectNodesProps {
   settingsRef: React.MutableRefObject<SphereSettings>;
   /** 0 on screen -> 1 gone: nodes swell with the sphere as the section scrolls away. */
   exitRef: React.MutableRefObject<number>;
+  holdRef: React.MutableRefObject<boolean>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cursorNearSphereRef, settingsRef, exitRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cursorNearSphereRef, settingsRef, exitRef, holdRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -509,7 +517,9 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
 
     // Rotation: opposite direction from sphere, stops on hover, drag, or cursor proximity
     const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003 * settingsRef.current.spin;
-    rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
+    // A hovered node (or its card) freezes the nodes outright: easing out would let the
+    // node slide from under the cursor and drop the hover.
+    rotSpeedRef.current = holdRef.current ? 0 : THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
 
     if (sphereProgress.current > 0.5) {
       groupRef.current.rotation.y += rotSpeedRef.current;
@@ -525,7 +535,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       const mouseY = mouseRef.current.y;
       
       // If mouse left the window, clear hover
-      if (Math.abs(mouseX) > 50 || Math.abs(mouseY) > 50) {
+      if (!_pointerPx.valid || Math.abs(mouseX) > 50 || Math.abs(mouseY) > 50) {
         suppressedIndex.current = null;
         if (detectedIndex.current !== null) {
           detectedIndex.current = null;
@@ -534,11 +544,8 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
           setTimeout(() => setHoveredIndex(null), 300);
         }
       } else {
-        // Convert mouse world pos to screen pixels
-        // We need actual pixel coords, use the same projection as nodes
-        const mouseProj = _v1.set(mouseX, mouseY, 0).project(camera);
-        const mousePxX = ((mouseProj.x + 1) / 2) * size.width;
-        const mousePxY = ((1 - mouseProj.y) / 2) * size.height;
+        const mousePxX = _pointerPx.x;
+        const mousePxY = _pointerPx.y;
 
         let closestIdx: number | null = null;
         let closestDist = 60; // threshold in pixels
@@ -792,6 +799,22 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
   return null;
 }
 
+/** Mirrors "a node or its card is hovered" into one ref every rotating layer reads. */
+function HoldSync({
+  holdRef,
+  nodeHoveredRef,
+  cardHoveredRef,
+}: {
+  holdRef: React.MutableRefObject<boolean>;
+  nodeHoveredRef: React.MutableRefObject<number | null>;
+  cardHoveredRef: React.MutableRefObject<boolean>;
+}) {
+  useFrame(() => {
+    holdRef.current = nodeHoveredRef.current !== null || cardHoveredRef.current;
+  });
+  return null;
+}
+
 // ─── Cursor Proximity Detection ────────────────────────────────────────────────
 
 function CursorProximity({
@@ -848,11 +871,16 @@ function MouseTracker({
       screenToWorld(e.clientX, e.clientY, _v2);
       mouseRef.current.set(_v2.x, _v2.y, 0);
       mouseActiveRef.current = true;
+      const r = canvas.getBoundingClientRect();
+      _pointerPx.x = e.clientX - r.left;
+      _pointerPx.y = e.clientY - r.top;
+      _pointerPx.valid = true;
     }
 
     function onPointerLeave() {
       mouseActiveRef.current = false;
       mouseRef.current.set(999, 999, 0);
+      _pointerPx.valid = false;
     }
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -987,6 +1015,8 @@ export function HeroParticleCanvas({
   // ── Visitor customization (saved) + a remount key for the Refresh button ──
   const [settings, setSettings] = useState<SphereSettings>(() => loadSphereSettings());
   const settingsRef = useRef(settings);
+  /** Rotation hold: a node or its card is hovered. */
+  const holdRotationRef = useRef(false);
   const [canvasKey, setCanvasKey] = useState(0);
   /** Which canvas generation is live. A discarded canvas reports a lost WebGL context
    *  while it is torn down; that must not be mistaken for a GPU failure. */
@@ -1388,6 +1418,7 @@ export function HeroParticleCanvas({
         style={{ background: "transparent", pointerEvents: "none" }}
       >
         <CameraAdjust sphereProgress={sphereRef} sphereInteractive={sphereInteractive} />
+        <HoldSync holdRef={holdRotationRef} nodeHoveredRef={nodeHoveredRef} cardHoveredRef={cardHoveredRef} />
         <MouseTracker mouseRef={mouseRef} mouseActiveRef={mouseActiveRef} />
         <CursorProximity mouseRef={mouseRef} cursorNearSphereRef={cursorNearSphereRef} sphereInteractive={sphereInteractive} />
         <ParticleSystem
@@ -1409,6 +1440,7 @@ export function HeroParticleCanvas({
           preRevealRef={preRevealRef}
           cursorNearSphereRef={cursorNearSphereRef}
           settingsRef={settingsRef}
+          holdRef={holdRotationRef}
         />
         <BackdropParticles
           alphaRef={backdropAlphaRef}
@@ -1427,6 +1459,7 @@ export function HeroParticleCanvas({
           cursorNearSphereRef={cursorNearSphereRef}
           settingsRef={settingsRef}
           exitRef={exitRef}
+          holdRef={holdRotationRef}
         />
         <BigParticles
           alphaRef={bigAlphaRef}
@@ -1437,6 +1470,7 @@ export function HeroParticleCanvas({
           cursorNearSphereRef={cursorNearSphereRef}
           settingsRef={settingsRef}
           exitRef={exitRef}
+          holdRef={holdRotationRef}
         />
         <TweenDriver
           progressRef={progressRef}

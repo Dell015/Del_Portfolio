@@ -113,9 +113,8 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // Mouse-wheel smoothing. A physical wheel reports big discrete steps (~100px),
-  // which the browser applies as a jump. Touchpads and touch already send fine,
-  // continuous deltas, so those are left to the browser. Only wheel-like events
-  // are intercepted and eased toward a target position instead.
+  // which the browser applies as a jump. All vertical wheel and touchpad input is
+  // eased toward a target position instead.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -135,8 +134,13 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     function step(now: number) {
       const dt = Math.min(48, now - last || 16);
       last = now;
-      // Frame-rate independent exponential ease (~120ms to settle most of the way)
-      const k = 1 - Math.exp(-dt / 85);
+      // A scroll lock (hero sequence) took over: drop any momentum still in flight.
+      if (getComputedStyle(container!).overflowY === "hidden") {
+        animating = false;
+        return;
+      }
+      // Frame-rate independent exponential ease (~150ms to settle most of the way)
+      const k = 1 - Math.exp(-dt / 110);
       current += (target - current) * k;
       if (Math.abs(target - current) < 0.4) {
         current = target;
@@ -149,10 +153,11 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     }
 
     function isWheelLike(e: WheelEvent) {
-      if (e.deltaMode === 1) return true; // line mode: always a wheel
-      if (e.deltaX !== 0) return false;
-      // Wheel notches are large whole numbers; touchpads send small/fractional ones.
-      return Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY);
+      // Smooth every vertical wheel/touchpad delta by accumulating it into one
+      // eased target. (Detecting "real" mouse wheels by delta size missed
+      // high-DPI and scaled displays, which send fractional steps and fell
+      // through to the browser's stepped scrolling.)
+      return Math.abs(e.deltaY) >= Math.abs(e.deltaX);
     }
 
     function onWheel(e: WheelEvent) {
@@ -167,7 +172,8 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         target = container!.scrollTop;
         current = target;
       }
-      const delta = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY;
+      const delta =
+        e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * container!.clientHeight : e.deltaY;
       target = Math.max(0, Math.min(maxScroll(), target + delta));
       if (!animating) {
         animating = true;

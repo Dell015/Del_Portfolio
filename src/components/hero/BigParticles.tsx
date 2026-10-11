@@ -70,6 +70,8 @@ export interface BigParticlesProps {
   settingsRef: React.MutableRefObject<SphereSettings>;
   /** 0 on screen -> 1 gone: the sphere swells outward as the section scrolls away. */
   exitRef: React.MutableRefObject<number>;
+  /** True while a project node (or its card) is hovered: hold perfectly still. */
+  holdRef: React.MutableRefObject<boolean>;
   /** Whether on mobile (reduces count) */
   isMobile?: boolean;
 }
@@ -99,7 +101,7 @@ const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
 const _color2 = new THREE.Color();
 
-export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, scaleRef, cursorNearSphereRef, settingsRef, exitRef, isMobile = false }: BigParticlesProps) {
+export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, scaleRef, cursorNearSphereRef, settingsRef, exitRef, holdRef, isMobile = false }: BigParticlesProps) {
   const count = isMobile ? COUNT_MOBILE : COUNT_DESKTOP;
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -177,7 +179,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
 
     // Rotate the mesh, stops when cursor is near sphere
     const targetRotSpeed = (cursorNearSphereRef?.current) ? 0 : -0.0015 * settingsRef.current.spin;
-    rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetRotSpeed, 0.03);
+    rotSpeedRef.current = holdRef.current ? 0 : THREE.MathUtils.lerp(rotSpeedRef.current, targetRotSpeed, 0.03);
     if (sp > 0.5) {
       mesh.rotation.y += rotSpeedRef.current;
     }

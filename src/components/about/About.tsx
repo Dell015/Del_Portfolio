@@ -1,280 +1,317 @@
 "use client";
 
-import { useRef, useState, useId, type KeyboardEvent } from "react";
-import { motion, AnimatePresence, useReducedMotion, type PanInfo } from "framer-motion";
-import { Reveal } from "@/components/motion/Reveal";
-import { Parallax } from "@/components/motion/Parallax";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import { projects } from "@/lib/content/projects";
+import { stats } from "@/lib/content/site";
 import { EASE } from "@/components/motion/tokens";
-import { facts, stats } from "@/lib/content/site";
 
-const SWIPE_THRESHOLD = 60;
+/**
+ * About, as one terminal window with two tabs.
+ *
+ * `developer` is the work. `personal` is the person. The window ends every tab with
+ * a prompt ("want to see the source?"). Press Enter on a keyboard, tap the prompt on
+ * a phone. The command is "typed", runs, and the window moves on: developer →
+ * personal → history → back to the code.
+ *
+ * Reduced motion: no typing or fades, the commands still work.
+ */
 
-const TABS = [
-  { label: "Development", panel: "dev" },
-  { label: "Beyond the code", panel: "life" },
+type TabId = "developer" | "personal";
+
+const TABS: { id: TabId; file: string }[] = [
+  { id: "developer", file: "developer.sh" },
+  { id: "personal", file: "personal.log" },
+];
+
+/** Milestones for the history view, in the order they are told (no dates claimed). */
+const HISTORY = [
+  { tag: "root", text: "Cauayan, Isabela. Where every one of these products starts: someone nearby with a real problem." },
+  { tag: "learn", text: "Started by generating code I could not explain. Stopped, and rebuilt the habit: understand every layer first." },
+  { tag: "lead", text: "Led teams of 3–5 through national and regional startup competitions." },
+  { tag: "place", text: "HIRED.PH: Philippine Startup Challenge 11 regional finalist, and IgnITE Start-Up Competition 1st runner up." },
+  { tag: "work", text: "Enterprise ERP internship (under NDA)." },
+  { tag: "now", text: "BS Computer Science, University of Saint Louis Tuguegarao, 2027. Thesis build, plus open to work." },
 ] as const;
 
-const slideVariants = {
-  enter: (direction: number) => ({ x: direction > 0 ? 48 : -48, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (direction: number) => ({ x: direction > 0 ? -48 : 48, opacity: 0 }),
-};
+const OFF_CLOCK = [
+  { k: "gym", v: "regular, and the one hour with nothing to debug" },
+  { k: "games", v: "valorant, the finals, genshin, mobile legends" },
+  { k: "music", v: "classical to rock, no genre loyalty" },
+  { k: "engines", v: "cars and big bikes. this is how garahe started" },
+  { k: "next", v: "photography, and finally some travelling" },
+] as const;
 
-const headingClass =
-  "mb-8 font-[family-name:var(--font-display)] text-4xl font-bold leading-[1.08] tracking-tight text-text md:text-5xl lg:text-6xl [&_em]:not-italic [&_em]:text-accent";
-
-function DevelopmentPanel() {
+function Prompt({ children }: { children: React.ReactNode }) {
   return (
     <div>
-      <h2 className={headingClass}>
-        I build products <em>end to end.</em>
-      </h2>
-
-      <Reveal>
-        <p className="max-w-xl text-lg leading-relaxed text-text-muted md:text-xl">
-          I&apos;m a computer science student who designs the product, architects the
-          system, writes the code and leads the team around it. I used to generate code
-          I couldn&apos;t explain. Now I make sure I understand every layer I build on.
-        </p>
-      </Reveal>
-
-      <Reveal delay={0.08}>
-        <ul className="mt-10 grid gap-3 text-base text-text sm:grid-cols-2">
-          {facts.map((fact) => (
-            <li key={fact} className="flex gap-3">
-              <span
-                aria-hidden="true"
-                className="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-              />
-              {fact}
-            </li>
-          ))}
-        </ul>
-      </Reveal>
-
-      <dl className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
-        {stats.map((stat, i) => (
-          <Reveal
-            key={stat.label}
-            delay={0.05 * i}
-            className="rounded-xl border border-border bg-surface p-5"
-          >
-            <dd className="font-[family-name:var(--font-display)] text-3xl font-bold text-text md:text-4xl">
-              {stat.value}
-            </dd>
-            <dt className="mt-1 text-sm text-text-muted">{stat.label}</dt>
-          </Reveal>
-        ))}
-      </dl>
-
-      <Reveal delay={0.1}>
-        <p className="mt-12 max-w-lg font-[family-name:var(--font-serif)] text-2xl italic text-text-muted">
-          &ldquo;Understand it before you ship it.&rdquo;
-        </p>
-      </Reveal>
+      <span className="text-[var(--tab-accent)]">$</span>{" "}
+      <span className="text-text">{children}</span>
     </div>
   );
 }
 
-const lifeCards = [
-  {
-    title: "Built for here",
-    description:
-      "Filipino users, Philippine pricing, local problems. Karela's pilot city is Tuguegarao, and HIRED.PH is designed for workers with no degree and patchy internet.",
-  },
-  {
-    title: "Founder mindset",
-    description:
-      "I think in products, not features. Every project starts with “who is this for?” Then I lead the team, from 3 to 5 people, to build it.",
-  },
-  {
-    title: "Gym, games & music",
-    description:
-      "Regular at the gym. Valorant, The Finals, Genshin and Mobile Legends on the side. A playlist that runs from classical to rock.",
-  },
-  {
-    title: "Engines & big bikes",
-    description:
-      "Cars and big bikes have my attention, and they directly inspired garahe. I'm also curious about photography and plan to start travelling.",
-  },
-] as const;
-
-function PersonalPanel() {
+/** A block that "prints" in after its predecessors. Instant for reduced motion. */
+function Out({ i, children, reduced }: { i: number; children: React.ReactNode; reduced: boolean }) {
+  if (reduced) return <div>{children}</div>;
   return (
-    <div>
-      <h2 className={headingClass}>
-        The person behind <em>the terminal.</em>
-      </h2>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.12 + i * 0.16, ease: EASE.out }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
-      <Reveal>
-        <p className="max-w-xl text-lg leading-relaxed text-text-muted md:text-xl">
-          I&apos;m from Cauayan, Isabela, and I build for the people around me. Away
-          from the editor you&apos;ll find me at the gym, in a Valorant lobby, or down a
-          cars-and-big-bikes rabbit hole, which is exactly how garahe started.
+function DeveloperBody({ reduced }: { reduced: boolean }) {
+  return (
+    <div className="space-y-3">
+      <Out i={0} reduced={reduced}>
+        <Prompt>whoami</Prompt>
+        <div>randel serafica / cs student / cauayan, isabela</div>
+      </Out>
+      <Out i={1} reduced={reduced}>
+        <Prompt>cat about.md</Prompt>
+        <p className="max-w-[62ch]">
+          I design the product, architect the system, write the code and lead the team around
+          it. I used to ship code I couldn&apos;t explain. Now I understand every layer I build
+          on.
         </p>
-      </Reveal>
+      </Out>
+      <Out i={2} reduced={reduced}>
+        <Prompt>git log --oneline projects/</Prompt>
+        <ul>
+          {projects.map((p, i) => (
+            <li key={p.slug} className="flex gap-3">
+              <span className="w-[3ch] shrink-0 text-text-muted/45">{String(7 - i).padStart(3, "0")}</span>
+              <span className="w-[8ch] shrink-0 text-text sm:w-[9ch]">{p.name.toLowerCase()}</span>
+              <span className="truncate">{p.status.toLowerCase()}</span>
+            </li>
+          ))}
+        </ul>
+      </Out>
+      <Out i={3} reduced={reduced}>
+        <Prompt>./numbers</Prompt>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className="flex items-baseline gap-2">
+              <dd className="text-lg font-semibold text-[var(--tab-accent)]">{s.value}</dd>
+              <dt className="text-[11px] leading-tight">{s.label.toLowerCase()}</dt>
+            </div>
+          ))}
+        </dl>
+      </Out>
+    </div>
+  );
+}
 
-      <ul className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
-        {lifeCards.map((item, i) => (
-          <Reveal
-            as="li"
-            key={item.title}
-            delay={0.05 * i}
-            className="rounded-xl border border-border bg-surface p-6"
-          >
-            <h3 className="mb-2 font-[family-name:var(--font-display)] text-lg font-semibold text-text">
-              {item.title}
-            </h3>
-            <p className="text-sm leading-relaxed text-text-muted">{item.description}</p>
-          </Reveal>
-        ))}
-      </ul>
-
-      <Reveal delay={0.1}>
-        <p className="mt-12 max-w-md font-[family-name:var(--font-serif)] text-2xl italic text-text-muted">
-          &ldquo;Let&apos;s build something worth shipping.&rdquo;
+function PersonalBody({ reduced, showHistory }: { reduced: boolean; showHistory: boolean }) {
+  return (
+    <div className="space-y-3">
+      <Out i={0} reduced={reduced}>
+        <Prompt>whoami --off-the-clock</Prompt>
+        <p className="max-w-[62ch]">
+          From Cauayan, Isabela, building for the people around me. The code is the job. This is
+          the rest of the day.
         </p>
-      </Reveal>
+      </Out>
+      <Out i={1} reduced={reduced}>
+        <Prompt>ls ~/off-the-clock</Prompt>
+        <ul>
+          {OFF_CLOCK.map((r) => (
+            <li key={r.k} className="flex gap-3">
+              <span className="w-[8ch] shrink-0 text-text sm:w-[9ch]">{r.k}</span>
+              <span>{r.v}</span>
+            </li>
+          ))}
+        </ul>
+      </Out>
+      {showHistory && (
+        <Out i={0} reduced={reduced}>
+          <Prompt>git log --graph --oneline history/</Prompt>
+          <ul>
+            {HISTORY.map((h, i) => (
+              <li key={h.tag} className="flex gap-3">
+                <span aria-hidden="true" className="w-[2ch] shrink-0 text-[var(--tab-accent)]">
+                  {i === HISTORY.length - 1 ? "*" : "|"}
+                </span>
+                <span className="w-[6ch] shrink-0 text-text">{h.tag}</span>
+                <span>{h.text}</span>
+              </li>
+            ))}
+          </ul>
+        </Out>
+      )}
     </div>
   );
 }
 
 export function About() {
-  const [activeTab, setActiveTab] = useState<0 | 1>(0);
-  const [direction, setDirection] = useState(0);
-  const reduced = useReducedMotion();
-  const uid = useId();
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const reduced = !!useReducedMotion();
+  const sectionRef = useRef<HTMLElement>(null);
+  const inView = useInView(sectionRef, { amount: 0.5 });
+  const [tab, setTab] = useState<TabId>("developer");
+  const [showHistory, setShowHistory] = useState(false);
+  const [typing, setTyping] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const tabId = (i: number) => `${uid}-tab-${i}`;
-  const panelId = (i: number) => `${uid}-panel-${i}`;
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  const switchTab = (next: 0 | 1, focus = false) => {
-    if (next === activeTab) return;
-    setDirection(next > activeTab ? 1 : -1);
-    setActiveTab(next);
-    if (focus) tabRefs.current[next]?.focus();
-  };
+  const personal = tab === "personal";
+  // The prompt at the bottom of each state, and what running it does.
+  const prompt = !personal
+    ? { question: "want to see the source?", cmd: "./source --why" }
+    : !showHistory
+      ? { question: "want to see the history?", cmd: "git log --graph" }
+      : { question: "want to see the code again?", cmd: "cd ~/projects" };
 
-  const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+  const selectTab = useCallback((next: TabId) => {
+    setTab(next);
+    setShowHistory(false);
+  }, []);
+
+  const run = useCallback(() => {
+    if (typing) return;
+    const apply = () => {
+      setTyping(null);
+      if (!personal) selectTab("personal");
+      else if (!showHistory) setShowHistory(true);
+      else selectTab("developer");
+    };
+    if (reduced) return apply();
+    setTyping(prompt.cmd);
+    timer.current = setTimeout(apply, 520);
+  }, [typing, personal, showHistory, reduced, prompt.cmd, selectTab]);
+
+  // Enter runs the prompt while the window is on screen (and nothing else has focus).
+  useEffect(() => {
+    if (!inView) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.repeat) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && el !== document.body && el.closest("button, a, input, textarea, select, [role=tab]")) return;
+      e.preventDefault();
+      run();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inView, run]);
+
+  const onTabKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       e.preventDefault();
-      switchTab(activeTab === 0 ? 1 : 0, true);
+      selectTab(tab === "developer" ? "personal" : "developer");
     }
   };
-
-  const handleDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < -SWIPE_THRESHOLD && activeTab === 0) switchTab(1);
-    else if (info.offset.x > SWIPE_THRESHOLD && activeTab === 1) switchTab(0);
-  };
-
-  const Active = activeTab === 0 ? DevelopmentPanel : PersonalPanel;
-  const Inactive = activeTab === 0 ? PersonalPanel : DevelopmentPanel;
 
   return (
     <section
       id="about"
+      ref={sectionRef}
       data-snap-section=""
       aria-label="About"
-      className="relative min-h-screen py-28 md:py-36"
+      // Opaque and above the fixed particle canvas, so nothing floats behind the text.
+      className="relative z-[2] flex min-h-screen items-center bg-bg py-24 md:py-28"
     >
-      {/* Depth layers: far, slow-moving glows behind the content */}
-      <Parallax
-        aria-hidden
-        distance={140}
-        className="pointer-events-none absolute right-[5%] top-20 h-40 w-40 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(209,26,42,0.07) 0%, transparent 70%)" }}
-      />
-      <Parallax
-        aria-hidden
-        distance={90}
-        className="pointer-events-none absolute left-[2%] top-[55%] h-48 w-48 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(209,26,42,0.05) 0%, transparent 70%)" }}
-      />
+      <div className="mx-auto w-full max-w-4xl px-4 sm:px-8">
+        <p className="mb-4 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-text-muted">
+          About / two tabs, one person
+        </p>
 
-      <div className="relative z-10 w-full px-8 md:px-16 lg:px-24">
-        {/* Tabs */}
         <div
-          role="tablist"
-          aria-label="About me"
-          className="mb-12 flex items-center gap-8"
+          className="overflow-hidden rounded-xl border border-border bg-[#0a0a0a] font-[family-name:var(--font-mono)] text-[12px] leading-[1.7] text-text-muted shadow-[0_40px_100px_-40px_rgba(0,0,0,0.95)] sm:text-[13px]"
+          style={{ ["--tab-accent" as string]: personal ? "#e0a458" : "#d11a2a" }}
         >
-          {TABS.map((tab, i) => {
-            const selected = activeTab === i;
-            return (
-              <button
-                key={tab.panel}
-                ref={(el) => {
-                  tabRefs.current[i] = el;
-                }}
-                role="tab"
-                id={tabId(i)}
-                type="button"
-                aria-selected={selected}
-                aria-controls={panelId(i)}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => switchTab(i as 0 | 1)}
-                onKeyDown={onTabKeyDown}
-                className={`relative py-1 font-[family-name:var(--font-mono)] text-sm uppercase tracking-[0.12em] transition-colors duration-300 ${
-                  selected ? "text-text" : "text-text-muted hover:text-text"
-                }`}
-              >
-                {tab.label}
-                {selected && (
-                  <motion.span
-                    layoutId="about-tab-indicator"
-                    aria-hidden="true"
-                    className="absolute -bottom-2 left-0 right-0 h-[2px] rounded-full bg-accent"
-                    transition={{ duration: 0.35, ease: EASE.out }}
-                  />
-                )}
-              </button>
-            );
-          })}
-          <span
-            aria-hidden="true"
-            className="ml-auto hidden font-[family-name:var(--font-mono)] text-xs text-text-muted md:block"
+          {/* Title bar + tabs */}
+          <div className="flex items-end gap-1 border-b border-border bg-[#101010] px-3 pt-2.5">
+            <div className="mr-3 mb-2.5 hidden items-center gap-1.5 sm:flex" aria-hidden="true">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#3a3a3a]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#3a3a3a]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#3a3a3a]" />
+            </div>
+            <div role="tablist" aria-label="About me" className="flex gap-1" onKeyDown={onTabKey}>
+              {TABS.map((t) => {
+                const selected = tab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    role="tab"
+                    id={`about-tab-${t.id}`}
+                    aria-selected={selected}
+                    aria-controls="about-panel"
+                    tabIndex={selected ? 0 : -1}
+                    type="button"
+                    onClick={() => selectTab(t.id)}
+                    className={`relative rounded-t-md px-3.5 py-2 text-[12px] transition-colors ${
+                      selected ? "bg-[#0a0a0a] text-text" : "text-text-muted hover:text-text"
+                    }`}
+                  >
+                    {t.file}
+                    {selected && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-0 top-0 h-[2px] rounded-t-md bg-[var(--tab-accent)]"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="mb-2.5 ml-auto hidden text-[11px] text-text-muted/60 md:block">
+              randel@cauayan ~ /about
+            </span>
+          </div>
+
+          {/* Output */}
+          <div
+            role="tabpanel"
+            id="about-panel"
+            aria-labelledby={`about-tab-${tab}`}
+            className="min-h-[26rem] px-4 py-5 sm:px-6"
           >
-            ← swipe or drag →
-          </span>
-        </div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={tab}
+                initial={reduced ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduced ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                {tab === "developer" ? (
+                  <DeveloperBody reduced={reduced} />
+                ) : (
+                  <PersonalBody reduced={reduced} showHistory={showHistory} />
+                )}
+              </motion.div>
+            </AnimatePresence>
 
-        {/* Active panel (animated) */}
-        <div className="relative overflow-x-clip">
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
-            <motion.div
-              key={activeTab}
-              role="tabpanel"
-              id={panelId(activeTab)}
-              aria-labelledby={tabId(activeTab)}
-              custom={direction}
-              variants={slideVariants}
-              initial={reduced ? false : "enter"}
-              animate="center"
-              exit={reduced ? undefined : "exit"}
-              transition={{ duration: 0.4, ease: EASE.out }}
-              drag={reduced ? false : "x"}
-              dragDirectionLock
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.12}
-              onDragEnd={handleDragEnd}
-              // Horizontal drag switches tabs; vertical gestures still scroll the page.
-              style={{ touchAction: "pan-y" }}
+            {/* The prompt. Enter on a keyboard, tap on touch. */}
+            <button
+              type="button"
+              onClick={run}
+              className="group mt-6 flex w-full items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-left transition-colors hover:border-[var(--tab-accent)] focus-visible:border-[var(--tab-accent)] focus-visible:outline-none"
+              aria-label={`${prompt.question} Run ${prompt.cmd}`}
             >
-              <Active />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* The other tab's content stays in the document (hidden) so it is
-            still readable by search engines, AI tools and "find in page". */}
-        <div
-          role="tabpanel"
-          id={panelId(activeTab === 0 ? 1 : 0)}
-          aria-labelledby={tabId(activeTab === 0 ? 1 : 0)}
-          hidden
-        >
-          <Inactive />
+              <span className="text-[var(--tab-accent)]">$</span>
+              {typing ? (
+                <span className="text-text">
+                  {typing}
+                  <span className="ml-0.5 inline-block h-[1em] w-[0.5ch] translate-y-[2px] bg-text" />
+                </span>
+              ) : (
+                <>
+                  <span className="text-text">{prompt.question}</span>
+                  <span className="inline-block h-[1em] w-[0.5ch] translate-y-[2px] animate-pulse bg-text-muted" />
+                </>
+              )}
+              <span className="ml-auto shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-text-muted transition-colors group-hover:text-text">
+                <span className="hidden pointer-fine:inline">press enter ↵</span>
+                <span className="pointer-fine:hidden">tap to run ↵</span>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </section>
