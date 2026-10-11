@@ -184,7 +184,7 @@ export function Nav() {
                 containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
               }
             }}
-            aria-label="Randel Serafica — back to top"
+            aria-label="Randel Serafica, back to top"
             className="absolute left-1/2 -translate-x-1/2 max-[480px]:left-16 max-[480px]:translate-x-0 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-colors duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm"
           >
             Randel
@@ -210,7 +210,7 @@ export function Nav() {
               aria-hidden="true"
             />
 
-            {/* Slide-in Panel — glassmorphism */}
+            {/* Slide-in Panel, glassmorphism */}
             <motion.nav
               id="mobile-menu"
               className="fixed top-0 right-0 z-50 h-full w-[280px] md:hidden flex flex-col pt-24 px-8 pb-8 backdrop-blur-xl"

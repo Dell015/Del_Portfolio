@@ -34,7 +34,7 @@ function DevelopmentPanel() {
         <p className="max-w-xl text-lg leading-relaxed text-text-muted md:text-xl">
           I&apos;m a computer science student who designs the product, architects the
           system, writes the code and leads the team around it. I used to generate code
-          I couldn&apos;t explain — now I make sure I understand every layer I build on.
+          I couldn&apos;t explain. Now I make sure I understand every layer I build on.
         </p>
       </Reveal>
 
@@ -85,7 +85,7 @@ const lifeCards = [
   {
     title: "Founder mindset",
     description:
-      "I think in products, not features. Every project starts with “who is this for?” — then I lead the team, from 3 to 5 people, to build it.",
+      "I think in products, not features. Every project starts with “who is this for?” Then I lead the team, from 3 to 5 people, to build it.",
   },
   {
     title: "Gym, games & music",
@@ -110,7 +110,7 @@ function PersonalPanel() {
         <p className="max-w-xl text-lg leading-relaxed text-text-muted md:text-xl">
           I&apos;m from Cauayan, Isabela, and I build for the people around me. Away
           from the editor you&apos;ll find me at the gym, in a Valorant lobby, or down a
-          cars-and-big-bikes rabbit hole — which is exactly how garahe started.
+          cars-and-big-bikes rabbit hole, which is exactly how garahe started.
         </p>
       </Reveal>
 

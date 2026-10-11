@@ -5,8 +5,8 @@ import { useSnapScroll } from "@/components/SmoothScroll";
 
 /**
  * `hidden` is true while the user is scrolling down past `offset` px, and false
- * as soon as they scroll back up. Runs from a passive scroll listener — never
- * from render — and ignores sub-`threshold` jitter so trackpads don't flicker it.
+ * as soon as they scroll back up. Runs from a passive scroll listener, never
+ * from render, and ignores sub-`threshold` jitter so trackpads don't flicker it.
  */
 export function useHideOnScrollDown(offset = 160, threshold = 6): boolean {
   const { containerRef } = useSnapScroll();

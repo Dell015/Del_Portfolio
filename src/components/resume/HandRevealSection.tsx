@@ -45,12 +45,12 @@ const ADAM_SRC = "/hand-adam.png";
  * Particle ceiling per hand.
  *
  * The current crops yield 30,793 and 34,170 points at 1:1 sampling, so `high` sits
- * above both and nothing is dropped — the hands render at full source fidelity.
+ * above both and nothing is dropped, the hands render at full source fidelity.
  * The ceiling only bites if larger crops are supplied later, and `subsampleCloud`
  * then thins them uniformly instead of truncating.
  *
  * It previously capped at 22,000 with `normalizeCloudCount`, which keeps the first
- * N points in top-to-bottom scan order — silently deleting the bottom 84px of a
+ * N points in top-to-bottom scan order, silently deleting the bottom 84px of a
  * 180px-tall hand. Roughly half of each hand was simply missing.
  */
 const BUDGET = { high: 60_000, low: 12_000 } as const;
@@ -59,7 +59,7 @@ const BUDGET = { high: 60_000, low: 12_000 } as const;
  *  the pattern already established for pinning on this page. */
 const PIN_HEIGHT_VH = 300;
 
-/** Progress at which the button becomes interactive — the hands are essentially
+/** Progress at which the button becomes interactive, the hands are essentially
  *  closed by here, and gating clicks avoids an invisible-but-clickable target. */
 const BUTTON_ACTIVE_AT = 0.88;
 
@@ -68,7 +68,7 @@ type Orientation = "landscape" | "portrait";
 // ─── Orientation as an external store ─────────────────────────────────────────
 //
 // Viewport orientation is external mutable state, so `useSyncExternalStore` is the
-// right primitive — the same approach SmoothScroll uses for scroll progress. It
+// right primitive, the same approach SmoothScroll uses for scroll progress. It
 // also removes the need to debounce: the snapshot is a string, so React's Object.is
 // comparison means a re-render happens only when the orientation actually flips,
 // not on every resize event.
@@ -86,14 +86,14 @@ function getOrientationSnapshot(): Orientation {
   return window.innerWidth < window.innerHeight ? "portrait" : "landscape";
 }
 
-/** Never actually used — this subtree doesn't server-render (see the hydration
- *  gate in HandRevealSection) — but useSyncExternalStore requires it. */
+/** Never actually used, this subtree doesn't server-render (see the hydration
+ *  gate in HandRevealSection), but useSyncExternalStore requires it. */
 function getOrientationServerSnapshot(): Orientation {
   return "landscape";
 }
 
 /**
- * Hand-reveal section — two particle hands converging on the resume download,
+ * Hand-reveal section, two particle hands converging on the resume download,
  * immediately above the footer.
  *
  * Always renders particles. There is no Clean-mode image version: flat PNGs of the
@@ -134,7 +134,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
 
   /**
    * Pristine samples. Held in state rather than a ref so the positioned clouds
-   * can be derived with `useMemo` — an orientation flip then re-derives without
+   * can be derived with `useMemo`, an orientation flip then re-derives without
    * re-decoding the PNGs and without a setState-in-effect round trip.
    */
   const [rawSamples, setRawSamples] = useState<{
@@ -166,7 +166,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
         // from TOTAL pixels, but ~76% of these images are transparent, so a
         // targetCount request would under-sample by roughly 4x.
         //
-        // alphaThreshold is low (10) on purpose — it keeps the soft antialiased
+        // alphaThreshold is low (10) on purpose, it keeps the soft antialiased
         // pixels around the silhouette, which is what makes the edge read as a
         // drawn contour rather than a cut-out.
         const interval = tier === "high" ? 1 : 2;
@@ -268,7 +268,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
             {resume.eyebrow}
           </motion.p>
 
-          {/* Contact flash — a soft ring that opens where the fingertips meet */}
+          {/* Contact flash, a soft ring that opens where the fingertips meet */}
           <motion.div
             aria-hidden="true"
             className="absolute h-[34vmin] w-[34vmin] rounded-full"
@@ -307,7 +307,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
  *
  * Landscape keeps the fresco's geometry: God's hand points left (its tip is the
  * leftmost point), Adam's points right. Portrait rotates both a quarter turn so
- * the fingers face the vertical gap — otherwise the hands would approach from
+ * the fingers face the vertical gap, otherwise the hands would approach from
  * top and bottom while pointing sideways, and would never appear to reach for
  * each other.
  *

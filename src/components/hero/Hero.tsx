@@ -30,7 +30,7 @@ const PORTRAIT_SRC = "/images/randel.webp";
 const CYCLING_WORDS = ["Founder", "Developer", "Team Lead", "Builder"] as const;
 
 /**
- * Cycling word — each word rises out of a clipped line box while the previous
+ * Cycling word, each word rises out of a clipped line box while the previous
  * one leaves upward. Opacity is left alone on purpose: the motion of the mask
  * is the whole effect, which keeps it calm over a moving particle field.
  */
@@ -88,8 +88,8 @@ export function Hero() {
   const introDoneRef = useRef(false);
 
   // Immersive intro: the page is held at the top until "Find out" is pressed.
-  // Re-lock whenever Immersive is (re)entered — switching over from Clean leaves
-  // the scroll container unlocked otherwise — and release for every other case
+  // Re-lock whenever Immersive is (re)entered, switching over from Clean leaves
+  // the scroll container unlocked otherwise, and release for every other case
   // (Clean mode, no WebGL, or a particle failure).
   useEffect(() => {
     if (!isImmersive || error) {
@@ -143,7 +143,7 @@ export function Hero() {
 
   const handleRevealClick = useCallback(() => {
     setRevealTriggered(true);
-    // Fade out text early — before particles finish forming
+    // Fade out text early, before particles finish forming
     setTimeout(() => {
       setRevealed(true);
     }, 1200);
@@ -169,7 +169,7 @@ export function Hero() {
       data-snap-section=""
       className="relative flex h-screen flex-col items-center justify-center"
     >
-      {/* Particle canvas — persists through all sections (fixed position) */}
+      {/* Particle canvas, persists through all sections (fixed position) */}
       <HeroParticleCanvas
         cloudA={clouds.cloudA}
         cloudB={clouds.cloudB}
@@ -179,7 +179,7 @@ export function Hero() {
         onFatalError={() => setError(true)}
       />
 
-      {/* Text overlay — z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}
+      {/* Text overlay, z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}
       <div className={`pointer-events-none ${revealed ? "absolute inset-0 z-0" : "relative z-10 flex flex-col items-center text-center px-6"}`}>
         <AnimatePresence mode="wait">
           {!revealed ? (
@@ -191,7 +191,7 @@ export function Hero() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
             >
-              {/* "I'm a" — settles in from above */}
+              {/* "I'm a", settles in from above */}
               <motion.p
                 className="font-[family-name:var(--font-display)] text-xl sm:text-2xl font-medium tracking-wide text-text-muted"
                 initial={{ opacity: 0, y: -12 }}
@@ -201,7 +201,7 @@ export function Hero() {
                 I&apos;m a
               </motion.p>
 
-              {/* Big cycling word — scales up from small with a bounce */}
+              {/* Big cycling word, scales up from small with a bounce */}
               <motion.h1
                 className="font-[family-name:var(--font-display)] text-[clamp(3.5rem,10vw,8rem)] font-bold leading-none tracking-tighter"
                 initial={{ opacity: 0, y: 24 }}
@@ -211,7 +211,7 @@ export function Hero() {
                 <CyclingText />
               </motion.h1>
 
-              {/* Subtext — fades in with a letter-spacing tightening effect */}
+              {/* Subtext, fades in with a letter-spacing tightening effect */}
               <motion.p
                 className="mt-4 max-w-sm font-[family-name:var(--font-serif)] text-lg italic text-text-muted sm:text-xl"
                 initial={{ opacity: 0, y: 12 }}
@@ -221,7 +221,7 @@ export function Hero() {
                 Which one are you about to meet?
               </motion.p>
 
-              {/* CTA — slides up with a gentle glow pulse */}
+              {/* CTA, slides up with a gentle glow pulse */}
               <motion.button
                 onClick={handleRevealClick}
                 disabled={revealTriggered}

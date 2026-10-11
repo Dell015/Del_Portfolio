@@ -1,12 +1,12 @@
 /**
  * Contact-form email delivery.
  *
- * Server-only. Never import this from a client component — it reads the API key
+ * Server-only. Never import this from a client component, it reads the API key
  * from the environment, and a key that reaches the browser lets anyone send mail
  * as you.
  *
  * Provider: Resend, called over plain `fetch` rather than the `resend` SDK. Same
- * result, no extra dependency. To switch providers, replace `deliver()` — nothing
+ * result, no extra dependency. To switch providers, replace `deliver()`, nothing
  * else in the app knows which service is behind this module.
  */
 
@@ -119,7 +119,7 @@ async function deliver(payload: ContactMessage): Promise<SendResult> {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      // Logged server-side only — the client gets a generic message so provider
+      // Logged server-side only, the client gets a generic message so provider
       // internals and quota state aren't exposed.
       console.error(`[contact] Resend responded ${res.status}: ${detail}`);
       return { ok: false, error: "provider_error" };

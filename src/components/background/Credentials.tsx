@@ -11,7 +11,7 @@ import { SpotlightCard } from "@/components/motion/SpotlightCard";
 import { EASE } from "@/components/motion/tokens";
 
 /**
- * "Background" — experience, education, competitions, training.
+ * "Background", experience, education, competitions, training.
  *
  * A vertical timeline: a line draws itself as you scroll and each group's marker
  * lights up when it arrives. The header stays pinned beside it on wide screens.
@@ -60,7 +60,7 @@ export function Credentials() {
           </SectionHeader>
           <Reveal delay={0.1}>
             <p className="max-w-sm text-base leading-relaxed text-text-muted">
-              School, startup competitions and an enterprise internship — the places I learned
+              School, startup competitions and an enterprise internship, the places I learned
               to ship, and to lead the people shipping with me.
             </p>
           </Reveal>

@@ -6,7 +6,7 @@ import { Parallax } from "@/components/motion/Parallax";
 
 /**
  * The default hero (and the fallback for immersive mode): who I am, what I do, a
- * face, and clear next steps — readable in a few seconds by anyone, with no
+ * face, and clear next steps, readable in a few seconds by anyone, with no
  * WebGL, scroll-jacking or hidden interactions.
  */
 export function HeroStatic() {
@@ -19,7 +19,7 @@ export function HeroStatic() {
       className="relative flex min-h-screen items-center overflow-hidden px-6 pb-16 pt-28 md:px-16 lg:px-24"
     >
       <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
-        {/* Portrait — first on small screens so the person is the first thing seen */}
+        {/* Portrait, first on small screens so the person is the first thing seen */}
         {/* No entrance animation here on purpose: this image is the Largest Contentful
             Paint, and fading it in would delay that metric by the animation length. */}
         <div className="relative order-first mx-auto w-full max-w-[420px] lg:order-last lg:max-w-none">

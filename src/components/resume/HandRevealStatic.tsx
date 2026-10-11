@@ -8,7 +8,7 @@ import { ResumeCard } from "./ResumeCard";
 
 /**
  * The resume section for devices that can't (or shouldn't) run the particle
- * scene: WebGL missing, reduced motion, or a failed load. No pinning — there is
+ * scene: WebGL missing, reduced motion, or a failed load. No pinning, there is
  * no animation to scrub through, so a tall scroll track would be dead space.
  */
 export function HandRevealStatic() {

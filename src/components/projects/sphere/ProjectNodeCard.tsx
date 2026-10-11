@@ -10,9 +10,9 @@ interface ProjectNodeCardProps {
   screenX: number;
   /** Screen Y in pixels */
   screenY: number;
-  /** Cursor entered the card — parent cancels any pending dismissal. */
+  /** Cursor entered the card, parent cancels any pending dismissal. */
   onPointerEnter: () => void;
-  /** Cursor left the card — parent schedules dismissal. */
+  /** Cursor left the card, parent schedules dismissal. */
   onPointerLeave: () => void;
 }
 
@@ -27,7 +27,7 @@ export function ProjectNodeCard({
     <div className="pointer-events-none absolute inset-0 z-30">
       {/* Anchor at the node's screen position */}
       <div className="absolute" style={{ left: `${screenX}px`, top: `${screenY}px` }}>
-        {/* Centering wrapper — keeps the card above the node */}
+        {/* Centering wrapper, keeps the card above the node */}
         <div style={{ transform: "translate(-50%, -110%)" }}>
           <motion.div
             data-project-node-card=""

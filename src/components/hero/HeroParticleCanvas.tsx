@@ -18,7 +18,7 @@ import { useSphereHoverStore } from "@/lib/store/sphereHover";
 
 const SPHERE_RADIUS = 2.2;
 const _nodeColor = new THREE.Color();
-// Scratch vectors, reused every frame — allocating per node per frame in the
+// Scratch vectors, reused every frame, allocating per node per frame in the
 // hover/projection code produced constant GC pressure (visible as micro-stutter).
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -203,7 +203,7 @@ const vertexShader = /* glsl */ `
     }
 
     // === SPHERE PHASES (new) ===
-    // Phase: Gather — pull toward center
+    // Phase: Gather, pull toward center
     if (uGather > 0.0) {
       float g = uGather * uGather; // ease-in
       pos = mix(pos, vec3(0.0), g * 0.85);
@@ -214,7 +214,7 @@ const vertexShader = /* glsl */ `
       pos.z += sin(angle) * r * 0.1 * g;
     }
 
-    // Phase: Condense — tight vortex at center
+    // Phase: Condense, tight vortex at center
     if (uCondense > 0.0) {
       float swirlSpeed = 3.0 + uCondense * 5.0;
       float angle = speed * 20.0 + uTime * swirlSpeed;
@@ -223,7 +223,7 @@ const vertexShader = /* glsl */ `
       pos = mix(pos, condensed, uCondense);
     }
 
-    // Phase: Ring Compress — secondary ring closes inward (staggered behind condense)
+    // Phase: Ring Compress, secondary ring closes inward (staggered behind condense)
     if (uRingCompress > 0.0) {
       // Affects a band of particles (speed 0.3–0.8) for a visible subset effect
       float bandMask = smoothstep(0.25, 0.45, speed) * (1.0 - smoothstep(0.7, 0.9, speed));
@@ -237,7 +237,7 @@ const vertexShader = /* glsl */ `
       pos = mix(pos, ringPos, bandMask * uRingCompress * 0.7);
     }
 
-    // Phase: Explode — burst outward
+    // Phase: Explode, burst outward
     if (uExplode > 0.0) {
       // Elastic ease-out
       float t = uExplode;
@@ -246,7 +246,7 @@ const vertexShader = /* glsl */ `
       pos = mix(pos, explodeDir * 5.0, elastic * 0.8);
     }
 
-    // Phase: Scatter — settle into calm drift
+    // Phase: Scatter, settle into calm drift
     if (uScatter > 0.0) {
       vec3 scatterTarget = sphereTarget * uScale * 1.5;
       // Add gentle noise
@@ -258,7 +258,7 @@ const vertexShader = /* glsl */ `
       pos = mix(pos, scatterTarget, uScatter);
     }
 
-    // Phase: Sphere formation — lerp to fibonacci sphere
+    // Phase: Sphere formation, lerp to fibonacci sphere
     if (uSphere > 0.0) {
       float s = uSphere * uSphere * (3.0 - 2.0 * uSphere); // smoothstep
       pos = mix(pos, sphereTarget * uScale, s);
@@ -283,7 +283,7 @@ const vertexShader = /* glsl */ `
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
-    // Point size — adjust for sphere phases
+    // Point size, adjust for sphere phases
     float baseSize = uPointSize * (uResolution.y / 900.0) * uDpr;
     float ambientSizeScale = mix(1.0, 0.7, uAmbient);
     float sphereSizeScale = mix(ambientSizeScale, 0.9, spherePhase);
@@ -335,7 +335,7 @@ function ParticleSystem({
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
   const rotSpeedRef = useRef(-0.0015);
-  /** Own elapsed clock — survives frameloop toggles (see stepTime). */
+  /** Own elapsed clock, survives frameloop toggles (see stepTime). */
   const timeRef = useRef(0);
   const { size } = useThree();
 
@@ -418,7 +418,7 @@ function ParticleSystem({
     // size on standard and high-density screens.
     mat.uniforms.uDpr.value = state.viewport.dpr;
 
-    // Rotate sphere (small particles) — stops when cursor is near
+    // Rotate sphere (small particles), stops when cursor is near
     if (groupRef.current && sphereRef.current > 0.5) {
       const targetSpeed = cursorNearSphereRef.current ? 0 : -0.0015;
       rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
@@ -455,7 +455,7 @@ interface ProjectNodesProps {
   mouseRef: React.MutableRefObject<THREE.Vector3>;
   /** Set to true by the parent to force-dismiss hover (background click / Escape). */
   clearHoverRef: React.MutableRefObject<boolean>;
-  /** Whether the cursor is near the sphere — pauses node rotation. */
+  /** Whether the cursor is near the sphere, pauses node rotation. */
   cursorNearSphereRef: React.MutableRefObject<boolean>;
 }
 
@@ -484,7 +484,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
       document.body.style.cursor = "auto";
     }
 
-    // Rotation: opposite direction from sphere — stops on hover, drag, or cursor proximity
+    // Rotation: opposite direction from sphere, stops on hover, drag, or cursor proximity
     const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003;
     rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
 
@@ -496,7 +496,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     const s = scaleRef.current;
     groupRef.current.scale.setScalar(s);
 
-    // Manual hover detection — compare in screen pixels for reliability
+    // Manual hover detection, compare in screen pixels for reliability
     if (interactive && sphereProgress.current > 0.7) {
       const mouseX = mouseRef.current.x;
       const mouseY = mouseRef.current.y;
@@ -512,7 +512,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
         }
       } else {
         // Convert mouse world pos to screen pixels
-        // We need actual pixel coords — use the same projection as nodes
+        // We need actual pixel coords, use the same projection as nodes
         const mouseProj = _v1.set(mouseX, mouseY, 0).project(camera);
         const mousePxX = ((mouseProj.x + 1) / 2) * size.width;
         const mousePxY = ((1 - mouseProj.y) / 2) * size.height;
@@ -607,7 +607,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     });
 
     // Update card position while the cursor is STILL on the node.
-    // Must key off detectedIndex (not the delayed `hoveredIndex` state) — otherwise
+    // Must key off detectedIndex (not the delayed `hoveredIndex` state), otherwise
     // this keeps firing onHover(index) after hover-out and cancels the dismiss timer,
     // which leaves the card stuck on screen forever.
     if (detectedIndex.current !== null && groupRef.current) {
@@ -634,7 +634,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
             <sphereGeometry args={[0.25, 8, 8]} />
             <meshBasicMaterial />
           </mesh>
-          {/* Core orb — white */}
+          {/* Core orb, white */}
           <mesh raycast={() => null}>
             <sphereGeometry args={[0.12, 16, 16]} />
             <meshBasicMaterial
@@ -646,7 +646,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
               depthWrite={false}
             />
           </mesh>
-          {/* Outer glow shell — soft white */}
+          {/* Outer glow shell, soft white */}
           <mesh raycast={() => null}>
             <sphereGeometry args={[0.2, 12, 12]} />
             <meshBasicMaterial
@@ -703,7 +703,7 @@ function TweenDriver({
   useFrame((state, delta) => {
     if (!triggered || completedRef.current) return;
     // Delta-accumulated, NOT state.clock.elapsedTime: a frameloop toggle resets that
-    // clock to 0, which would stall the reveal — and the reveal is what unlocks scroll.
+    // clock to 0, which would stall the reveal, and the reveal is what unlocks scroll.
     elapsedRef.current = stepTime(elapsedRef.current, delta);
     const duration = 4.5;
     const linearT = Math.min(1, elapsedRef.current / duration);
@@ -736,7 +736,7 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
     camera.updateProjectionMatrix();
   }, [camera, size, sphereInteractive]);
 
-  // Smoothly zoom out when sphere phase starts — but stop once sphere is interactive
+  // Smoothly zoom out when sphere phase starts, but stop once sphere is interactive
   // so OrbitControls has full authority over the camera
   useFrame(() => {
     if (sphereInteractive) return;
@@ -844,7 +844,7 @@ function DragRotate({ isInteractingRef }: { isInteractingRef: React.MutableRefOb
   }, [camera]);
 
   useEffect(() => {
-    // Listen on window — the canvas has pointerEvents:none so we use window.
+    // Listen on window, the canvas has pointerEvents:none so we use window.
     // Pointer events (not mouse events) so touch drags rotate the sphere too.
     let releaseTimer: ReturnType<typeof setTimeout> | null = null;
     function onMouseDown(e: PointerEvent) {
@@ -911,7 +911,7 @@ interface HeroParticleCanvasProps {
   onRevealComplete?: () => void;
   /** Max device-pixel-ratio the canvas may render at (lower = cheaper). */
   maxDpr?: number;
-  /** Called if the GPU context is lost and doesn't come back — caller should fall back to the static page. */
+  /** Called if the GPU context is lost and doesn't come back, caller should fall back to the static page. */
   onFatalError?: () => void;
 }
 
@@ -948,7 +948,7 @@ export function HeroParticleCanvas({
   /** true = render loop stopped, canvas hidden (Skills / Activity / Resume / Footer) */
   const [frozen, setFrozen] = useState(false);
   const frozenRef = useRef(false);
-  /** Latest card teardown fn — called when the sphere zone is left. */
+  /** Latest card teardown fn, called when the sphere zone is left. */
   const closeCardRef = useRef<(() => void) | null>(null);
   const cursorNearSphereRef = useRef(false);
 
@@ -961,7 +961,7 @@ export function HeroParticleCanvas({
   } | null>(null);
 
   const { scrollProgress } = useSnapScroll();
-  /** Latest scroll value for the rAF loops below — reading it from a ref means those
+  /** Latest scroll value for the rAF loops below, reading it from a ref means those
    *  loops no longer tear down and re-register on every scroll tick. */
   const scrollRef = useRef(scrollProgress);
   const lastSyncRef = useRef(0);
@@ -969,11 +969,11 @@ export function HeroParticleCanvas({
     scrollRef.current = scrollProgress;
   }, [scrollProgress]);
 
-  // Virtual scroll — only enabled after portrait reveal completes (prevents blocking hero scroll)
+  // Virtual scroll, only enabled after portrait reveal completes (prevents blocking hero scroll)
   const [revealDone, setRevealDone] = useState(false);
   const virtualScroll = useVirtualScroll(revealDone);
 
-  // Force all phase refs to 0 on mount — prevents stale state from scroll restoration
+  // Force all phase refs to 0 on mount, prevents stale state from scroll restoration
   useEffect(() => {
     progressRef.current = 0;
     dissolveRef.current = 0;
@@ -999,7 +999,7 @@ export function HeroParticleCanvas({
   // Scroll-linked: DISSOLVE + AMBIENT only (pre-lock zone, driven by raw scroll)
   useEffect(() => {
     if (progressRef.current < 0.95) {
-      // Not yet revealed — no phases
+      // Not yet revealed, no phases
       dissolveRef.current = 0;
       ambientRef.current = 0;
       return;
@@ -1015,11 +1015,11 @@ export function HeroParticleCanvas({
       dissolveRef.current = Math.min(1, t * 2.5);
       ambientRef.current = t * 0.3;
     } else if (sp < LOCK_TRIGGER) {
-      // Ambient drift — living background before lock zone
+      // Ambient drift, living background before lock zone
       dissolveRef.current = 1;
       ambientRef.current = Math.min(1, 0.3 + (sp - SP.DISSOLVE_END) * 0.5);
     } else {
-      // In or past lock zone — keep dissolve/ambient at max
+      // In or past lock zone, keep dissolve/ambient at max
       dissolveRef.current = 1;
       ambientRef.current = 1;
     }
@@ -1045,8 +1045,8 @@ export function HeroParticleCanvas({
       // Map scroll past the lock-trigger point → sphere formation
       // Use scatterRef as the "big particles appear" signal and sphereRef for formation
       // Targets for the big-particle phases. They are eased toward (not assigned) so
-      // any jump in the target — releasing the interactive hold, a fast flick back up,
-      // the rewind starting — glides instead of snapping.
+      // any jump in the target, releasing the interactive hold, a fast flick back up,
+      // the rewind starting, glides instead of snapping.
       let scatterTarget = 0;
       let sphereTarget = 0;
       if (virtualScroll.smallFadeRef.current >= 1) {
@@ -1074,7 +1074,7 @@ export function HeroParticleCanvas({
 
       // ── Hand-off: fade the whole canvas out once the Projects section scrolls
       // past the viewport, then stop the render loop entirely. Reverses on scroll-up.
-      // Never runs before the hero reveal finishes — the reveal is what unlocks scroll.
+      // Never runs before the hero reveal finishes, the reveal is what unlocks scroll.
       const projectsEl = revealDone
         ? (projectsElRef.current ?? (projectsElRef.current = document.getElementById("projects")))
         : null;
@@ -1094,7 +1094,7 @@ export function HeroParticleCanvas({
           frozenRef.current = hidden >= 1;
           setFrozen(frozenRef.current);
           if (frozenRef.current) {
-            // Leaving the sphere zone — drop any open card and release the cursor
+            // Leaving the sphere zone, drop any open card and release the cursor
             closeCardRef.current?.();
             document.body.style.cursor = "auto";
           }
@@ -1125,7 +1125,7 @@ export function HeroParticleCanvas({
         last = next;
         setSphereInteractive(next);
         if (!next) {
-          // Sphere dissolved (scrolling back up) — a project card has nothing to
+          // Sphere dissolved (scrolling back up), a project card has nothing to
           // point at any more, so drop it and release the pointer cursor.
           closeCardRef.current?.();
           document.body.style.cursor = "auto";
@@ -1140,13 +1140,13 @@ export function HeroParticleCanvas({
   // Handle node hover
   const setHoveredIndex = useSphereHoverStore((s) => s.setHoveredIndex);
   const cardDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Cursor is over the card itself — keeps it alive while the user reaches for the link. */
+  /** Cursor is over the card itself, keeps it alive while the user reaches for the link. */
   const cardHoveredRef = useRef(false);
   /** Node currently under the cursor (null = none). */
   const nodeHoveredRef = useRef<number | null>(null);
   /** Flag read by ProjectNodes to force-drop its hover state. */
   const clearNodeHoverRef = useRef(false);
-  /** Where the last pointerdown landed — used to tell a click apart from a drag. */
+  /** Where the last pointerdown landed, used to tell a click apart from a drag. */
   const pointerDownRef = useRef({ x: 0, y: 0 });
 
   const cancelDismiss = useCallback(() => {
@@ -1217,13 +1217,13 @@ export function HeroParticleCanvas({
     }
 
     function onPointerUp(e: PointerEvent) {
-      // Ignore drags — rotating the sphere shouldn't close the card
+      // Ignore drags, rotating the sphere shouldn't close the card
       const moved = Math.hypot(
         e.clientX - pointerDownRef.current.x,
         e.clientY - pointerDownRef.current.y,
       );
       if (moved > 6) return;
-      // A tap on a project node (touch) is the "open" gesture — don't dismiss it.
+      // A tap on a project node (touch) is the "open" gesture, don't dismiss it.
       if (e.pointerType === "touch" && nodeHoveredRef.current !== null) return;
       // Clicks inside the card belong to the card
       const target = e.target;
@@ -1263,7 +1263,7 @@ export function HeroParticleCanvas({
       className="fixed inset-0 z-[1]"
       style={{
         // Must stay "none": this is a fixed, full-viewport layer, so its scroll chain is
-        // the document (overflow:hidden) rather than the SmoothScroll container — making it
+        // the document (overflow:hidden) rather than the SmoothScroll container, making it
         // hit-testable swallows the wheel and scrolling dies. Hover/drag are handled by
         // window listeners, and the project card re-enables pointer events on itself.
         pointerEvents: "none",
@@ -1344,7 +1344,7 @@ export function HeroParticleCanvas({
             mipmapBlur
           />
         </EffectComposer>
-        {/* Custom drag-to-rotate — doesn't intercept scroll events */}
+        {/* Custom drag-to-rotate, doesn't intercept scroll events */}
         {sphereInteractive && (
           <DragRotate
             isInteractingRef={isInteractingRef}

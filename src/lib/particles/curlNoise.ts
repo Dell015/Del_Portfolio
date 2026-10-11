@@ -93,7 +93,7 @@ export function transitionBell(t: number): number {
 }
 
 /**
- * GLSL source for curl noise — to be injected into the ShaderMaterial.
+ * GLSL source for curl noise, to be injected into the ShaderMaterial.
  * This keeps the GPU doing the curl computation per-particle in real time,
  * rather than computing it on CPU and uploading every frame.
  */

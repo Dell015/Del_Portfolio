@@ -26,7 +26,7 @@ interface SampleOptions {
   gridInterval?: number;
   /** Minimum alpha value (0-255) to include a pixel */
   alphaThreshold?: number;
-  /** Target particle count — if set, adjusts gridInterval to approximate this count */
+  /** Target particle count, if set, adjusts gridInterval to approximate this count */
   targetCount?: number;
 }
 
@@ -94,7 +94,7 @@ export async function sampleImageToPoints(
     positions: new Float32Array(tempPositions),
     colors: new Float32Array(tempColors),
     count,
-    // One grid step in normalised units — the on-screen spacing of neighbouring
+    // One grid step in normalised units, the on-screen spacing of neighbouring
     // particles once the cloud is scaled.
     gridStep: gridInterval * scale,
   };
@@ -144,7 +144,7 @@ export function generateProceduralCloud(
         // Horizontal span
         x = (t - 0.5) * 4.5;
 
-        // Wave: moderate amplitude — fills vertical space without being too tall
+        // Wave: moderate amplitude, fills vertical space without being too tall
         const wave1 = Math.sin(t * Math.PI * 2.5 + layer * 0.5) * 0.55;
         const wave2 = Math.sin(t * Math.PI * 6 + layer * 1.2) * 0.2;
         const wave3 = Math.sin(t * Math.PI * 11 + layer * 0.8) * 0.08;
@@ -227,7 +227,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(new Error(`Failed to load image: ${src} — ${e}`));
+    img.onerror = (e) => reject(new Error(`Failed to load image: ${src}, ${e}`));
     img.src = src;
   });
 }
@@ -298,8 +298,8 @@ export function rotateCloudZ(cloud: PointCloud, radians: number): PointCloud {
  * Translates the cloud so its *fingertip* sits at the origin.
  *
  * The tip is the extreme point along `axis` in `direction`. Rather than trusting
- * a single extreme point — which could be a stray semi-transparent pixel that
- * survived the alpha threshold — this takes the extreme 1% of points and uses
+ * a single extreme point, which could be a stray semi-transparent pixel that
+ * survived the alpha threshold, this takes the extreme 1% of points and uses
  * their median on the perpendicular axis. That keeps the anchor on the actual
  * fingertip mass instead of an outlier.
  *
@@ -394,7 +394,7 @@ function mulberry32(seed: number): () => number {
  * Reduces a cloud to `target` points without distorting its shape.
  *
  * Do NOT use `normalizeCloudCount` for this. It keeps the first N points, and the
- * sampler emits points in top-to-bottom scan order — so on a 30,793-point hand
+ * sampler emits points in top-to-bottom scan order, so on a 30,793-point hand
  * capped at 22,000 it silently discarded the bottom 84px of a 180px-tall hand,
  * i.e. just under half the subject. That is a shape change disguised as a budget.
  *
@@ -448,7 +448,7 @@ export function subsampleCloud(
   };
 }
 
-/** Structural clone — transforms here mutate in place, so callers that need the
+/** Structural clone, transforms here mutate in place, so callers that need the
  *  pristine sample (e.g. re-deriving a portrait layout) clone first. */
 export function cloneCloud(cloud: PointCloud): PointCloud {
   return {

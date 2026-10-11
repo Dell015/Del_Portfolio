@@ -82,7 +82,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
       data-snap-section=""
       className="relative overflow-hidden px-6 pt-24 pb-16 md:pt-32 md:pb-20"
     >
-      {/* Gradient divider — marks the footer as a landing, not a continuation of
+      {/* Gradient divider, marks the footer as a landing, not a continuation of
           the atmospheric section above it. */}
       <div
         aria-hidden="true"
@@ -93,7 +93,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
         }}
       />
 
-      {/* Decorative parallax bloom — full bleed */}
+      {/* Decorative parallax bloom, full bleed */}
       <motion.div
         aria-hidden="true"
         className="pointer-events-none absolute top-[20%] right-[8%] h-40 w-40 rounded-full"
@@ -105,7 +105,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-14 md:gap-16">
-        {/* ══ STATEMENT — the one thing this page should end on ══ */}
+        {/* ══ STATEMENT, the one thing this page should end on ══ */}
         <div className="flex flex-col gap-8 md:gap-10">
           <motion.p
             className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-accent"
@@ -129,9 +129,9 @@ export function Footer({ contactEnabled = false }: FooterProps) {
           <EmailCta />
         </div>
 
-        {/* ══ ROW 1 — Identity + contact form (left) / socials (right) ══ */}
+        {/* ══ ROW 1, Identity + contact form (left) / socials (right) ══ */}
         <div className={contactEnabled ? "grid gap-12 md:grid-cols-[1.15fr_0.85fr] lg:gap-20" : "grid gap-12"}>
-          {/* Left column — only when the form can actually send */}
+          {/* Left column, only when the form can actually send */}
           {contactEnabled && (
           <div className="flex flex-col items-center text-center md:items-start md:text-left">
             <motion.p
@@ -150,7 +150,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
           </div>
           )}
 
-          {/* Right column — socials. Vertical stack rather than a horizontal row:
+          {/* Right column, socials. Vertical stack rather than a horizontal row:
               four icon+value pairs would wrap badly in a narrow column. */}
           <div className="flex flex-col items-center md:items-start">
             <motion.p
@@ -209,7 +209,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
 
         <Divider />
 
-        {/* ══ ROW 2 — Quick nav (left) / availability (right) ══ */}
+        {/* ══ ROW 2, Quick nav (left) / availability (right) ══ */}
         <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between md:gap-6">
           <nav aria-label="Footer">
             <ul className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2">
@@ -244,7 +244,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
             <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-              {/* Radar ping. Dropped entirely under reduced-motion — a looping
+              {/* Radar ping. Dropped entirely under reduced-motion, a looping
                   animation is exactly what that preference is asking to avoid. */}
               {availability.active && !reducedMotion && (
                 <motion.span
@@ -275,7 +275,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
           </motion.div>
         </div>
 
-        {/* ══ ROW 3 — Built with (left) / copyright (right) ══ */}
+        {/* ══ ROW 3, Built with (left) / copyright (right) ══ */}
         <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between md:gap-6">
           <div className="flex flex-col items-center gap-3 md:flex-row md:gap-4">
             <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-text-muted">

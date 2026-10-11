@@ -5,7 +5,7 @@ import { useDeviceCapability } from "./useDeviceCapability";
 
 /**
  * Whether purely decorative WebGL (background shaders) may run.
- * False during SSR, on weak/no-GPU devices, and for reduced-motion users —
+ * False during SSR, on weak/no-GPU devices, and for reduced-motion users -
  * decoration should never cost frames the content needs.
  */
 export function useEffectsEnabled(): boolean {

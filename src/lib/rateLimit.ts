@@ -1,7 +1,7 @@
 /**
  * Minimal in-memory sliding-window rate limiter.
  *
- * Scope and limitations — read before relying on this:
+ * Scope and limitations, read before relying on this:
  * - State is per-process. On serverless (Vercel) each warm instance keeps its own
  *   window, so a determined attacker hitting cold starts can exceed the nominal
  *   limit. It stops casual abuse and accidental double-submits, which is what a
@@ -38,7 +38,7 @@ function prune(now: number) {
 }
 
 export interface RateLimitOptions {
-  /** Bucket identifier — e.g. `contact:ip:1.2.3.4` or `contact:global`. */
+  /** Bucket identifier, e.g. `contact:ip:1.2.3.4` or `contact:global`. */
   key: string;
   /** Max allowed hits inside the window. */
   limit: number;
@@ -50,7 +50,7 @@ export interface RateLimitResult {
   allowed: boolean;
   /** Hits left in the current window (0 when blocked). */
   remaining: number;
-  /** Seconds until the oldest hit ages out — suitable for a `Retry-After` header. */
+  /** Seconds until the oldest hit ages out, suitable for a `Retry-After` header. */
   retryAfterSec: number;
 }
 

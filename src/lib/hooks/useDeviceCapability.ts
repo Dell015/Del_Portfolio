@@ -7,7 +7,7 @@ export type GpuTier = "unknown" | "none" | "low" | "high";
 export interface DeviceCapability {
   /** `unknown` during SSR and the hydration render. */
   tier: GpuTier;
-  /** False when WebGL can't be created at all — callers must fall back to static. */
+  /** False when WebGL can't be created at all, callers must fall back to static. */
   webglAvailable: boolean;
 }
 
@@ -18,7 +18,7 @@ export interface DeviceCapability {
  * laptop, and a high-DPR phone renders far more fragments than its CSS width
  * suggests. This checks the things that actually predict particle throughput:
  *
- *  - WebGL availability (hard requirement — no context, no particles)
+ *  - WebGL availability (hard requirement, no context, no particles)
  *  - CPU parallelism, which gates how fast the buffers can be built
  *  - `deviceMemory` where exposed (Chromium only; ignored elsewhere)
  *  - Effective fragment load: CSS pixels × DPR², since overdraw from additive
@@ -33,7 +33,7 @@ function probe(): DeviceCapability {
 
   const maxTexture = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
 
-  // Release the probe context immediately — browsers cap simultaneous contexts
+  // Release the probe context immediately, browsers cap simultaneous contexts
   // (~16), and this page already holds one for the hero.
   gl.getExtension("WEBGL_lose_context")?.loseContext();
 
@@ -62,7 +62,7 @@ function probe(): DeviceCapability {
  */
 let cached: DeviceCapability | null = null;
 
-/** Must be referentially stable — useSyncExternalStore compares with Object.is. */
+/** Must be referentially stable, useSyncExternalStore compares with Object.is. */
 const SERVER_SNAPSHOT: DeviceCapability = {
   tier: "unknown",
   webglAvailable: false,

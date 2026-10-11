@@ -5,12 +5,12 @@ import { projects } from "@/lib/content/projects";
 import { useSphereHoverStore } from "@/lib/store/sphereHover";
 
 /**
- * ProjectSphereSection — scroll spacer that drives the particle sphere phases.
+ * ProjectSphereSection, scroll spacer that drives the particle sphere phases.
  *
  * The particles themselves are drawn by HeroParticleCanvas (one shared canvas).
  * This section provides the scroll height for those phases, the heading, the
  * project links, and a plain-text list so the content is reachable by keyboard,
- * screen readers and crawlers — not only by hovering a 3D node.
+ * screen readers and crawlers, not only by hovering a 3D node.
  */
 export function ProjectSphereSection() {
   const { scrollProgress } = useSnapScroll();
@@ -41,13 +41,13 @@ export function ProjectSphereSection() {
         {projects.map((p) => (
           <li key={p.slug}>
             <a href={`/projects/${p.slug}`}>
-              {p.name} — {p.plain} ({p.status})
+              {p.name}: {p.plain} ({p.status})
             </a>
           </li>
         ))}
       </ul>
 
-      {/* Tall scroll spacer — drives sphere phases via scrollProgress */}
+      {/* Tall scroll spacer, drives sphere phases via scrollProgress */}
       <div className="relative h-[300vh]">
         <div className="pointer-events-none sticky top-0 h-screen w-full">
           <div

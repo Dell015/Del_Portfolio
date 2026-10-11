@@ -7,7 +7,7 @@ import { bio } from "@/lib/content/site";
 import { useSnapScroll } from "@/components/SmoothScroll";
 
 /**
- * About Hero Text — Text-behind-image knockout with:
+ * About Hero Text, Text-behind-image knockout with:
  * - Dramatic staggered character reveal on mount
  * - Scroll-linked parallax: each element moves up at different speeds
  * - Photo fades out as particles scatter
@@ -65,7 +65,7 @@ function RevealWord({
 }
 
 /**
- * Flash sweep — a bright highlight that races across a single word,
+ * Flash sweep, a bright highlight that races across a single word,
  * triggered right before it disappears. Each word gets its own flash.
  * Direction: 'ltr' (left to right) or 'rtl' (right to left)
  */
@@ -108,7 +108,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
     scrollMV.set(scrollProgress);
   }, [scrollProgress, scrollMV]);
 
-  // Parallax transforms — different speeds for each element
+  // Parallax transforms, different speeds for each element
   // The concept: text is FIXED on screen but drifts up slowly with scroll
   // (like a gentle parallax against the page). Each element exits in sequence.
   //
@@ -118,23 +118,23 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
   const photoOpacity = useTransform(scrollMV, [0.0, 0.05, 0.12], [1, 1, 0]);
   const strokeOpacity = useTransform(scrollMV, [0.0, 0.05, 0.12], [1, 1, 0]);
 
-  // Shared slow upward drift — everything moves up a bit per scroll
+  // Shared slow upward drift, everything moves up a bit per scroll
   const yShared = useTransform(scrollMV, [0, 1], [0, -80]);
 
   // Individual exit animations layered ON TOP of the shared drift
-  // "Turning ideas..." — exits first
+  // "Turning ideas...", exits first
   const yBioTopExit = useTransform(scrollMV, [0.15, 0.25], [0, -30]);
   const opacityBioTop = useTransform(scrollMV, [0.15, 0.25], [1, 0]);
 
-  // "Your next app..." — exits second
+  // "Your next app...", exits second
   const yBioBottomExit = useTransform(scrollMV, [0.30, 0.40], [0, -30]);
   const opacityBioBottom = useTransform(scrollMV, [0.30, 0.40], [1, 0]);
 
-  // FULLSTACK — exits third
+  // FULLSTACK, exits third
   const yFullstackExit = useTransform(scrollMV, [0.50, 0.62], [0, -40]);
   const opacityFullstack = useTransform(scrollMV, [0.50, 0.62], [1, 0]);
 
-  // DEVELOPER — exits with FULLSTACK
+  // DEVELOPER, exits with FULLSTACK
   const yDeveloperExit = useTransform(scrollMV, [0.50, 0.62], [0, -30]);
   const opacityDeveloper = useTransform(scrollMV, [0.50, 0.62], [1, 0]);
 
@@ -150,9 +150,9 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
       {/* === DESKTOP LAYOUT === */}
       <motion.div className="relative hidden md:flex items-center justify-center w-full h-full" style={{ y: yShared }}>
 
-        {/* LAYER 1: Solid filled text — parallax at different speeds */}
+        {/* LAYER 1: Solid filled text, parallax at different speeds */}
         <div className="w-full max-w-[1400px] px-2 lg:px-4 relative">
-          {/* FULLSTACK — exits third */}
+          {/* FULLSTACK, exits third */}
           <motion.div className="select-none -ml-2 lg:-ml-6 relative overflow-hidden" style={{ y: yFullstackExit, opacity: opacityFullstack }}>
             <RevealWord
               text={HEADLINE_TOP}
@@ -164,7 +164,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
             <FlashSweep scrollMV={scrollMV} start={0.54} end={0.62} />
           </motion.div>
 
-          {/* DEVELOPER — exits with FULLSTACK */}
+          {/* DEVELOPER, exits with FULLSTACK */}
           <motion.div className="select-none -mr-2 lg:-mr-6 relative overflow-hidden" style={{ y: yDeveloperExit, opacity: opacityDeveloper }}>
             <RevealWord
               text={HEADLINE_BOTTOM}
@@ -172,12 +172,12 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
               className="block font-[family-name:var(--font-display)] font-black leading-[0.9] tracking-tighter text-accent text-right"
               style={{ fontSize: "clamp(5rem, 13vw, 12rem)" }}
             />
-            {/* Flash on DEVELOPER — sweeps from right (where the text starts) */}
+            {/* Flash on DEVELOPER, sweeps from right (where the text starts) */}
             <FlashSweep scrollMV={scrollMV} start={0.56} end={0.63} direction="rtl" />
           </motion.div>
         </div>
 
-        {/* LAYER 2: Photo — fades out as particles scatter */}
+        {/* LAYER 2: Photo, fades out as particles scatter */}
         <motion.div
           className="absolute inset-0 flex items-center justify-center z-[1] pointer-events-none"
           initial={{ opacity: 0 }}
@@ -199,7 +199,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
           </div>
         </motion.div>
 
-        {/* LAYER 3: Stroke-only text — fades with photo */}
+        {/* LAYER 3: Stroke-only text, fades with photo */}
         <motion.div
           className="absolute inset-0 flex items-center justify-center z-[2] pointer-events-none"
           initial={{ opacity: 0 }}
@@ -253,7 +253,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
           </div>
         </motion.div>
 
-        {/* BIO TEXT — sequential exit */}
+        {/* BIO TEXT, sequential exit */}
         <motion.div
           className="absolute top-[22%] right-6 lg:right-10 max-w-[280px] text-right z-[3]"
           initial={{ opacity: 0, y: 15 }}

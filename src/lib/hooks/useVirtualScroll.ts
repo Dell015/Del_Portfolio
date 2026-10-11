@@ -143,7 +143,7 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
     if (sequenceComplete.current) return;
 
     if (scrollProgress >= LOCK_TRIGGER && !hasEnteredZone.current) {
-      // Entering the zone — lock scroll (and stop any rewind still in flight)
+      // Entering the zone, lock scroll (and stop any rewind still in flight)
       cancelAnimationFrame(rewindRaf.current);
       hasEnteredZone.current = true;
       isLocked.current = true;

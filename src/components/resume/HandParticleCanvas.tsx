@@ -15,7 +15,7 @@ import {
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
 /** Fingertip separation at full progress, in CSS pixels. The fresco's negative
- *  space is the whole point — the hands must never close it. */
+ *  space is the whole point, the hands must never close it. */
 const GAP_PX_DESKTOP = 72;
 /** Portrait gets a slightly wider gap: the button sits inside it. */
 const GAP_PX_PORTRAIT = 88;
@@ -24,7 +24,7 @@ const GAP_PX_PORTRAIT = 88;
 const HAND_SCALE_LANDSCAPE = 0.42;
 const HAND_SCALE_PORTRAIT = 0.5;
 
-/** Same delta clamp the hero uses — a frameloop toggle resets R3F's clock, so
+/** Same delta clamp the hero uses, a frameloop toggle resets R3F's clock, so
  *  every animated value accumulates its own elapsed time from `delta`. */
 function stepTime(current: number, delta: number) {
   return current + Math.min(delta, 0.1);
@@ -55,14 +55,14 @@ const vertexShader = /* glsl */ `
     // Per-particle progress with a careful landing.
     //
     // The multiplier is deliberately >= 1 for every particle. The hero uses
-    // (0.7 + speed*0.6), which bottoms out at 0.88 — meaning its slowest particles
+    // (0.7 + speed*0.6), which bottoms out at 0.88, meaning its slowest particles
     // would need uProgress = 1.14 to converge and therefore NEVER settle. That
     // reads as texture on a face, but here it left ~38px of residual scatter that
     // closed the fingertip gap and fused the two hands into one blob.
     //
     // At (1.0 + speed*0.6) the slowest particle lands at uProgress 0.85 and the
     // fastest at 0.50, so arrival is still staggered but everything is at rest for
-    // the final stretch — which is exactly where the gap has to read.
+    // the final stretch, which is exactly where the gap has to read.
     float rawP = uProgress * (1.0 + speed * 0.6);
     float p = 1.0 - pow(1.0 - clamp(rawP, 0.0, 1.0), 1.5 + speed * 0.8);
 
@@ -108,7 +108,7 @@ const vertexShader = /* glsl */ `
     // during the morph still read as nearer.
     //
     // The earlier formula was uPointSize * (resolution.y/900) * (1/-mvz), copied
-    // from the hero — which sits at z=1.6. At this camera's z=5 that evaluated to
+    // from the hero, which sits at z=1.6. At this camera's z=5 that evaluated to
     // roughly half a pixel, so the hands rendered as near-invisible specks.
     gl_PointSize = uPointPx * (uCamZ / -mvPosition.z);
   }
@@ -195,7 +195,7 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
    * The hand's real extent, which is NOT the extent of its source frame.
    *
    * `sampleImageToPoints` normalises against the image, and these crops carry about
-   * 50% empty margin — the hand occupies roughly 180px of a 360px frame. Scaling by
+   * 50% empty margin, the hand occupies roughly 180px of a 360px frame. Scaling by
    * the frame therefore rendered each hand at about half its intended size. Scaling
    * by the measured bounding box makes the on-screen size mean what it says, and
    * makes it independent of however tightly a future crop happens to be framed.
@@ -295,7 +295,7 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
         depthWrite={false}
         // NormalBlending, not Additive. Additive sums overlapping particles toward
         // white, so a dense cloud loses the fresco's tonal range exactly where it's
-        // densest — the hand turns into a flat glowing silhouette. Normal blending
+        // densest, the hand turns into a flat glowing silhouette. Normal blending
         // keeps each particle's sampled colour. Safe without depth sorting here
         // because the cloud is near-planar at rest (z jitter is only ±0.01).
         blending={THREE.NormalBlending}
@@ -311,7 +311,7 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
  *
  * Deliberately weak with a high luminance threshold: only the brightest lit edges
  * of the hands glow. The previous settings (intensity 1.15, threshold 0.12) bloomed
- * essentially every particle, which is the opposite of detail — it smeared the
+ * essentially every particle, which is the opposite of detail, it smeared the
  * silhouette and buried the modelling. Sharpness now comes from the particles
  * themselves; bloom only keeps the section from looking clinically flat.
  */
@@ -331,9 +331,9 @@ function HandBloom() {
 // ─── Canvas ───────────────────────────────────────────────────────────────────
 
 export interface HandParticleCanvasProps {
-  /** God's hand — tip anchored to origin, points toward -x (or -y in portrait). */
+  /** God's hand, tip anchored to origin, points toward -x (or -y in portrait). */
   godCloud: PointCloud;
-  /** Adam's hand — tip anchored to origin, points toward +x (or +y in portrait). */
+  /** Adam's hand, tip anchored to origin, points toward +x (or +y in portrait). */
   adamCloud: PointCloud;
   portrait: boolean;
   /** Scroll progress through the pinned section, 0→1. Written by the parent's

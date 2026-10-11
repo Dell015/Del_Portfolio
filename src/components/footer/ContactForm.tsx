@@ -17,7 +17,7 @@ const ERROR_COPY: Record<string, string> = {
   message_too_short: `Message needs at least ${CONTACT_LIMITS.messageMin} characters.`,
   message_too_long: `Message is over the ${CONTACT_LIMITS.messageMax} character limit.`,
   email_invalid: "That email doesn't look right.",
-  too_fast: "That was too quick — give it another go.",
+  too_fast: "That was too quick, give it another go.",
   rate_limited: "You've sent a few already. Try again in a bit.",
   not_configured: contactForm.disabledNote,
 };
@@ -34,13 +34,13 @@ export interface ContactFormProps {
 export function ContactForm({ enabled }: ContactFormProps) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  /** Honeypot — humans never see or focus this. */
+  /** Honeypot, humans never see or focus this. */
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorText, setErrorText] = useState("");
 
   /** Form mount time, used for the server-side submit-timing check. Populated in
-   *  an effect rather than a ref initialiser — `Date.now()` during render is
+   *  an effect rather than a ref initialiser, `Date.now()` during render is
    *  impure and produces unstable values across re-renders. */
   const mountedAt = useRef(0);
 
@@ -217,7 +217,7 @@ export function ContactForm({ enabled }: ContactFormProps) {
             />
           </button>
 
-          {/* Single live region for both outcomes — screen readers announce the
+          {/* Single live region for both outcomes, screen readers announce the
               result without the button losing focus. */}
           <p
             id="contact-status"

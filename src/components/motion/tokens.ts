@@ -1,5 +1,5 @@
 /**
- * Motion tokens — one set of curves and durations for the whole site, so
+ * Motion tokens, one set of curves and durations for the whole site, so
  * every transition feels like it belongs to the same hand.
  *
  * - `out`    entrances: quick start, long settle (expo-style ease-out)

@@ -1,7 +1,7 @@
 export const site = {
   name: "Randel Serafica",
   identityStatement:
-    "Full-stack developer and startup founder — I build products, lead the teams behind them, and make sure both scale.",
+    "Full-stack developer and startup founder. I build products, lead the teams behind them, and make sure both scale.",
   heroQuestion:
     "Founder. Developer. Team lead. Which one are you about to meet?",
   heroCta: "Find out →",
@@ -9,10 +9,10 @@ export const site = {
 
 export const bio = {
   short:
-    "I'm Randel — a full-stack developer and startup founder from Cauayan, Isabela. I design products for problems I find genuinely interesting, lead the teams behind them, and build them to scale from day one.",
+    "I'm Randel, a full-stack developer and startup founder from Cauayan, Isabela. I design products for problems I find genuinely interesting, lead the teams behind them, and build them to scale from day one.",
 } as const;
 
-/** Concrete facts shown in About — specifics instead of slogans. */
+/** Concrete facts shown in About, specifics instead of slogans. */
 export const facts = [
   "Based in Cauayan, Isabela, Philippines",
   "BS Computer Science, University of Saint Louis Tuguegarao (2027)",
@@ -64,7 +64,7 @@ export const availability = {
   active: true,
 } as const;
 
-/** "Built with" chips — the stack this site actually runs on. */
+/** "Built with" chips, the stack this site actually runs on. */
 export const builtWith = [
   "Next.js",
   "React",
@@ -81,24 +81,24 @@ export const contactForm = {
     "Got a project, a role, or just want to say hi? Send it straight to my inbox.",
   emailLabel: "Your email",
   emailPlaceholder: "you@example.com",
-  emailHint: "Optional — leave it if you want a reply.",
+  emailHint: "Optional. Leave it if you want a reply.",
   messageLabel: "Message",
   messagePlaceholder: "What's on your mind?",
   submitLabel: "Send message",
   submittingLabel: "Sending…",
   successText: "Message sent. I'll get back to you soon.",
   genericError: "Something went wrong. Try again, or email me directly.",
-  disabledNote: "The form isn't wired up yet — email me directly instead.",
+  disabledNote: "The form isn't wired up yet, so email me directly instead.",
 } as const;
 
-/** Shared field limits — imported by both the client form and the API route. */
+/** Shared field limits, imported by both the client form and the API route. */
 export const CONTACT_LIMITS = {
   messageMin: 10,
   messageMax: 2000,
   emailMax: 254,
 } as const;
 
-/** "Background" section — experience, education, competitions, trainings.
+/** "Background" section, experience, education, competitions, trainings.
  *  Client and code details from the internship are under NDA, so the entry
  *  describes the kind of system only. Do not add specifics. */
 export const credentials = {
@@ -121,7 +121,7 @@ export const credentials = {
         {
           primary: "BS Computer Science",
           secondary: "University of Saint Louis Tuguegarao · 2023–2027",
-          note: "Thesis leader on Karela — a 5-member team project combining adaptive fitness modeling with crowdsourced civic reporting.",
+          note: "Thesis leader on Karela, a 5-member team project combining adaptive fitness modeling with crowdsourced civic reporting.",
         },
       ],
     },
@@ -129,11 +129,11 @@ export const credentials = {
       title: "Competitions",
       items: [
         {
-          primary: "Philippine Startup Challenge 11 — Regional Finalist",
+          primary: "Philippine Startup Challenge 11: Regional Finalist",
           secondary: "DICT Region II · 2025 · Founding CEO & Lead Developer",
         },
         {
-          primary: "IgnITE Start-Up Competition — 1st Runner-Up",
+          primary: "IgnITE Start-Up Competition: 1st Runner-Up",
           secondary: "2025 · Founding CEO & Lead Developer",
         },
         {

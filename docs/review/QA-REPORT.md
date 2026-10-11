@@ -1,4 +1,4 @@
-# QA report — randel portfolio
+# QA report, randel portfolio
 
 Scope: the whole site (home, all sections, `/projects/[slug]`, 404), Clean and Immersive modes, desktop and mobile, keyboard, performance, accessibility, security, SEO.
 Tools: Lighthouse, axe-core, Playwright (Chromium), manual keyboard pass, `npm run lint`, `npm audit`, production build.

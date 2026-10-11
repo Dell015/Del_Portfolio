@@ -40,17 +40,17 @@ export const skills: Skill[] = [
   {
     name: "Next.js",
     category: "frontend",
-    usageNote: "Used in Tag.Ai, HIRED.PH, garahe — PWA-capable, SSR, SEO-friendly",
+    usageNote: "Used in Tag.Ai, HIRED.PH, garahe: PWA-capable, SSR, SEO-friendly",
   },
   {
     name: "Angular",
     category: "frontend",
-    usageNote: "Icarus frontend — Signals UI for complex audit state machine",
+    usageNote: "Icarus frontend: Signals UI for complex audit state machine",
   },
   {
     name: "React Native + Expo",
     category: "frontend",
-    usageNote: "Karela — cross-platform mobile with hot-reloading and sensor testing",
+    usageNote: "Karela: cross-platform mobile with hot-reloading and sensor testing",
   },
   {
     name: "Flutter",
@@ -83,7 +83,7 @@ export const skills: Skill[] = [
     name: "Supabase",
     category: "backend",
     usageNote:
-      "PostgreSQL + PostGIS, Auth, Storage, Realtime, Edge Functions — used across Karela, Tag.Ai, Icarus, garahe",
+      "PostgreSQL + PostGIS, Auth, Storage, Realtime, Edge Functions, used across Karela, Tag.Ai, Icarus, garahe",
   },
   {
     name: "FastAPI",
@@ -182,7 +182,7 @@ export const skills: Skill[] = [
   {
     name: "Expo Notifications",
     category: "tools",
-    usageNote: "Push notifications — streak alerts, squad events in Karela",
+    usageNote: "Push notifications: streak alerts, squad events in Karela",
   },
 ];
 

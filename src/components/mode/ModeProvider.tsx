@@ -44,7 +44,7 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mode, reducedMotion, controls]);
 
-  // Always render children. The server (and anything that doesn't run JS — search
+  // Always render children. The server (and anything that doesn't run JS, search
   // crawlers, link previews, AI readers) gets the full "clean" page; the stored
   // mode is applied right after hydration. Returning null here used to ship an
   // empty <body>, which made the whole site invisible to non-browser readers.

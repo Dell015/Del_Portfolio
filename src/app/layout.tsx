@@ -9,10 +9,10 @@ import "./globals.css";
 /*
  * Fonts are self-hosted (src/app/fonts) so the site never waits on, or breaks
  * because of, a third-party font request. Four families, each with one job:
- *   Space Grotesk   — headings / display
- *   Inter           — body copy
- *   JetBrains Mono  — labels, metadata, code-ish details
- *   Instrument Serif — quiet italic accents (quotes, taglines)
+ *   Space Grotesk  , headings / display
+ *   Inter          , body copy
+ *   JetBrains Mono , labels, metadata, code-ish details
+ *   Instrument Serif, quiet italic accents (quotes, taglines)
  */
 const spaceGrotesk = localFont({
   src: "./fonts/space-grotesk-latin-wght-normal.woff2",
@@ -44,19 +44,19 @@ const instrumentSerif = localFont({
   display: "swap",
 });
 
-/** Absolute site URL — set NEXT_PUBLIC_SITE_URL in production (used for link previews, sitemap, schema). */
+/** Absolute site URL, set NEXT_PUBLIC_SITE_URL in production (used for link previews, sitemap, schema). */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
 
-const TITLE = "Randel Serafica — Full-Stack Developer & Startup Founder";
+const TITLE = "Randel Serafica | Full-Stack Developer & Startup Founder";
 const DESCRIPTION =
-  "Randel Serafica — full-stack developer and startup founder from Cauayan, Isabela. Computer science student, competition-tested team lead, and builder of products for the Philippine market.";
+  "Randel Serafica is a full-stack developer and startup founder from Cauayan, Isabela. Computer science student, competition-tested team lead, and builder of products for the Philippine market.";
 
 export const metadata: Metadata = {
   ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
   alternates: { canonical: "/" },
-  title: { default: TITLE, template: "%s — Randel Serafica" },
+  title: { default: TITLE, template: "%s | Randel Serafica" },
   description: DESCRIPTION,
-  applicationName: "Randel Serafica — Portfolio",
+  applicationName: "Randel Serafica | Portfolio",
   authors: [{ name: site.name, url: contact.github }],
   keywords: [
     "Randel Serafica",

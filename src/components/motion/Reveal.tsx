@@ -15,7 +15,7 @@ interface RevealProps {
 
 /**
  * Fade-and-rise entrance, fired once when the element enters the viewport.
- * Opacity + transform only (compositor-friendly — no blur/filter animation).
+ * Opacity + transform only (compositor-friendly, no blur/filter animation).
  * Renders fully visible, with no animation, for reduced-motion users.
  */
 export function Reveal({ children, className, delay = 0, y = 16, as = "div" }: RevealProps) {

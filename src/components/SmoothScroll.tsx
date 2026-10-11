@@ -46,7 +46,7 @@ const ScrollContext = createContext<ScrollContextValue>({
 });
 
 export function useSnapScroll() {
-  // Subscribe to the external store for scroll values — no setState on every scroll
+  // Subscribe to the external store for scroll values, no setState on every scroll
   const scrollProgress = useSyncExternalStore(subscribeScroll, getScrollProgress, getScrollProgress);
   const currentPage = useSyncExternalStore(subscribeScroll, getCurrentPage, getCurrentPage);
   const ctx = useContext(ScrollContext);
@@ -54,7 +54,7 @@ export function useSnapScroll() {
 }
 
 /**
- * SmoothScroll — scroll container.
+ * SmoothScroll, scroll container.
  * Scroll is LOCKED until the hero reveal button is clicked.
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
@@ -199,7 +199,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Track scroll position — updates external store, NOT React state
+  // Track scroll position, updates external store, NOT React state
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;

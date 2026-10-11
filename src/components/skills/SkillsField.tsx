@@ -34,7 +34,7 @@ import {
 } from "react-icons/si";
 import { TbAtom } from "react-icons/tb";
 
-/** Decorative strip only — the readable skill list above is the real content. */
+/** Decorative strip only, the readable skill list above is the real content. */
 const logos: LogoItem[] = [
   { node: <SiReact />, title: "React" },
   { node: <SiNextdotjs />, title: "Next.js" },

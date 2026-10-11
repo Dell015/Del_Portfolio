@@ -8,7 +8,7 @@ import { useSnapScroll } from "@/components/SmoothScroll";
  *
  * Observes the real section elements inside the site's scroll container, so it
  * stays correct however tall each section is. (The previous approach divided
- * scrollTop by viewport height and indexed into a fixed list — it only worked
+ * scrollTop by viewport height and indexed into a fixed list, it only worked
  * if every section was exactly one screen tall.)
  *
  * `refreshKey` re-attaches the observer when sections are swapped at runtime

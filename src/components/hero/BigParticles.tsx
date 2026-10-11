@@ -11,7 +11,7 @@ const SPHERE_RADIUS = 2.2;
 const COUNT_DESKTOP = 800;
 const COUNT_MOBILE = 400;
 
-// Default palette — each orb gets its own color, mostly white with subtle variations
+// Default palette, each orb gets its own color, mostly white with subtle variations
 const DEFAULT_PALETTE = [
   new THREE.Color("#ffffff"), // pure white
   new THREE.Color("#f0f0f0"), // soft white
@@ -86,7 +86,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
   const isCascading = useRef(false);
   // Rotation speed ref for smooth lerp to 0
   const rotSpeedRef = useRef(-0.0015);
-  /** Own elapsed clock — survives frameloop toggles */
+  /** Own elapsed clock, survives frameloop toggles */
   const timeRef = useRef(0);
 
   // Precompute positions and base colors once
@@ -126,7 +126,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
     const mat = materialRef.current;
     if (!mesh || !mat || !mesh.instanceColor || !currentColors.current || !baseColors.current) return;
 
-    // Own elapsed clock — R3F's clock resets whenever `frameloop` is toggled
+    // Own elapsed clock, R3F's clock resets whenever `frameloop` is toggled
     timeRef.current += Math.min(delta, 0.1);
     const time = timeRef.current;
     const alpha = alphaRef.current;
@@ -135,7 +135,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
     // Smooth ease for sphere formation
     const spEased = sp * sp * (3 - 2 * sp); // smoothstep
 
-    // Rotate the mesh — stops when cursor is near sphere
+    // Rotate the mesh, stops when cursor is near sphere
     const targetRotSpeed = (cursorNearSphereRef?.current) ? 0 : -0.0015;
     rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetRotSpeed, 0.03);
     if (sp > 0.5) {
@@ -145,7 +145,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
     // Material opacity
     mat.opacity = alpha * 0.55;
 
-    // Determine target tint per orb — cascade effect
+    // Determine target tint per orb, cascade effect
     const hasTint = tintColorRef.current !== null;
 
     // Track cascade state
@@ -218,7 +218,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
         const particleElapsed = cascadeElapsed - particleDelay;
 
         if (particleElapsed > 0) {
-          // This particle has started — lerp toward its gradient target
+          // This particle has started, lerp toward its gradient target
           // Distribute particles across the gradient (first half → color1, second half → color2)
           const gradientT = i / count;
           const targetR = gradColor1.r + (gradColor2.r - gradColor1.r) * gradientT;
@@ -231,7 +231,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
         }
         // Particles that haven't started yet stay at their current color
       } else {
-        // No tint — lerp back to base color
+        // No tint, lerp back to base color
         colors[i3] += (base[i3] - colors[i3]) * 0.04;
         colors[i3 + 1] += (base[i3 + 1] - colors[i3 + 1]) * 0.04;
         colors[i3 + 2] += (base[i3 + 2] - colors[i3 + 2]) * 0.04;

@@ -1,17 +1,17 @@
 /**
- * POST /api/contact — delivers a visitor's message to Randel's inbox.
+ * POST /api/contact, delivers a visitor's message to Randel's inbox.
  *
  * This is a PUBLIC, UNAUTHENTICATED endpoint that sends email. That makes it a
  * spam-relay target by default, so it is layered:
- *   1. Per-IP rate limit  — the primary defence.
- *   2. Global rate limit  — caps blast radius of distributed abuse so the
+ *   1. Per-IP rate limit , the primary defence.
+ *   2. Global rate limit , caps blast radius of distributed abuse so the
  *                           provider quota can't be drained in one go.
- *   3. Honeypot field     — silently absorbs naive bots.
- *   4. Submit timing      — rejects impossibly fast fills.
- *   5. Strict validation  — length caps, email format, no user input in headers.
+ *   3. Honeypot field    , silently absorbs naive bots.
+ *   4. Submit timing     , rejects impossibly fast fills.
+ *   5. Strict validation , length caps, email format, no user input in headers.
  *
  * Deliberately NOT here: a captcha. Add Cloudflare Turnstile at the marked spot
- * below if real spam ever materialises — no point making visitors pay that cost
+ * below if real spam ever materialises, no point making visitors pay that cost
  * pre-emptively.
  */
 
@@ -33,7 +33,7 @@ const MIN_ELAPSED_MS = 2000;
 const MAX_BODY_BYTES = 16 * 1024;
 
 /**
- * Pragmatic email check. Not RFC 5322 — that grammar accepts addresses no mail
+ * Pragmatic email check. Not RFC 5322, that grammar accepts addresses no mail
  * provider honours. This rejects anything that couldn't be delivered, which is
  * the only thing we actually need, and guarantees no CR/LF reaches a header.
  */

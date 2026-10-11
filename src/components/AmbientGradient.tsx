@@ -9,8 +9,8 @@ import DarkVeil from "@/components/effects/DarkVeil";
 /**
  * Ambient background behind the About section.
  *
- * Previously this ran a full-screen WebGL shader for the entire visit — even in
- * clean mode and at opacity 0 — and faded by hard-coded scroll-page ranges that
+ * Previously this ran a full-screen WebGL shader for the entire visit, even in
+ * clean mode and at opacity 0, and faded by hard-coded scroll-page ranges that
  * stopped matching the layout. Now the shader mounts only while the About section
  * is actually on screen, fades with that section's own scroll progress, and is
  * skipped entirely on weak GPUs and for reduced-motion users.
