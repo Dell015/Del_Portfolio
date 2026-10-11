@@ -11,8 +11,16 @@ import { useSnapScroll } from "@/components/SmoothScroll";
 import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
 import { BigParticles } from "./BigParticles";
+import { BackdropParticles } from "./BackdropParticles";
 import { ProjectNodeCard } from "@/components/projects/sphere/ProjectNodeCard";
+import { SphereOverlay } from "@/components/projects/sphere/SphereOverlay";
 import { useSphereHoverStore } from "@/lib/store/sphereHover";
+import {
+  DEFAULT_SPHERE_SETTINGS,
+  loadSphereSettings,
+  saveSphereSettings,
+  type SphereSettings,
+} from "@/lib/sphere/settings";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -325,12 +333,13 @@ interface ParticleSystemProps {
   mouseActiveRef: React.MutableRefObject<boolean>;
   preRevealRef: React.MutableRefObject<boolean>;
   cursorNearSphereRef: React.MutableRefObject<boolean>;
+  settingsRef: React.MutableRefObject<SphereSettings>;
 }
 
 function ParticleSystem({
   cloudA, cloudB, progressRef, dissolveRef, ambientRef,
   gatherRef, condenseRef, ringCompressRef, explodeRef, smallFadeRef, scatterRef, sphereRef, scaleRef,
-  mouseRef, mouseActiveRef, preRevealRef, cursorNearSphereRef,
+  mouseRef, mouseActiveRef, preRevealRef, cursorNearSphereRef, settingsRef,
 }: ParticleSystemProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -419,10 +428,21 @@ function ParticleSystem({
     mat.uniforms.uDpr.value = state.viewport.dpr;
 
     // Rotate sphere (small particles), stops when cursor is near
-    if (groupRef.current && sphereRef.current > 0.5) {
-      const targetSpeed = cursorNearSphereRef.current ? 0 : -0.0015;
+    const group = groupRef.current;
+    if (group && sphereRef.current > 0.5) {
+      const targetSpeed = cursorNearSphereRef.current ? 0 : -0.0015 * settingsRef.current.spin;
       rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
-      groupRef.current.rotation.y += rotSpeedRef.current;
+      group.rotation.y += rotSpeedRef.current;
+    } else if (group && group.rotation.y !== 0) {
+      // Back at the top: the portrait must sit exactly where the headline expects it.
+      // Unwind whatever spin the sphere phase accumulated (shortest way round) instead
+      // of leaving the cloud turned.
+      let r = group.rotation.y % (Math.PI * 2);
+      if (r > Math.PI) r -= Math.PI * 2;
+      else if (r < -Math.PI) r += Math.PI * 2;
+      r *= Math.exp(-delta * 9);
+      group.rotation.y = Math.abs(r) < 0.0004 ? 0 : r;
+      rotSpeedRef.current = -0.0015;
     }
   });
 
@@ -457,9 +477,12 @@ interface ProjectNodesProps {
   clearHoverRef: React.MutableRefObject<boolean>;
   /** Whether the cursor is near the sphere, pauses node rotation. */
   cursorNearSphereRef: React.MutableRefObject<boolean>;
+  settingsRef: React.MutableRefObject<SphereSettings>;
+  /** 0 on screen -> 1 gone: nodes swell with the sphere as the section scrolls away. */
+  exitRef: React.MutableRefObject<number>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cursorNearSphereRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cursorNearSphereRef, settingsRef, exitRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -485,7 +508,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     }
 
     // Rotation: opposite direction from sphere, stops on hover, drag, or cursor proximity
-    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003;
+    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003 * settingsRef.current.spin;
     rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
 
     if (sphereProgress.current > 0.5) {
@@ -493,7 +516,7 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     }
 
     // Apply sphere scale from slider
-    const s = scaleRef.current;
+    const s = scaleRef.current * (1 + exitRef.current * exitRef.current * 0.9);
     groupRef.current.scale.setScalar(s);
 
     // Manual hover detection, compare in screen pixels for reliability
@@ -720,33 +743,50 @@ function TweenDriver({
 
 // ─── Camera Adjust ─────────────────────────────────────────────────────────────
 
+/** three.js cameras are mutable by design; these helpers keep that out of render scope. */
+function setCameraZ(camera: THREE.Camera, z: number) {
+  camera.position.z = z;
+}
+
+/** Eases an off-axis camera (left there by dragging) back onto the z axis. */
+function easeCameraToAxis(camera: THREE.Camera, delta: number) {
+  if (camera.position.x === 0 && camera.position.y === 0) return;
+  const k = 1 - Math.exp(-delta * 8);
+  camera.position.x += (0 - camera.position.x) * k;
+  camera.position.y += (0 - camera.position.y) * k;
+  if (Math.abs(camera.position.x) < 0.001) camera.position.x = 0;
+  if (Math.abs(camera.position.y) < 0.001) camera.position.y = 0;
+  camera.lookAt(0, 0, 0);
+}
+
 function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: React.MutableRefObject<number>; sphereInteractive: boolean }) {
   const { camera, size } = useThree();
+  /** Camera depth at the hero (depends on the viewport's aspect ratio). */
+  const baseZRef = useRef(1.6);
 
   useEffect(() => {
-    if (sphereInteractive) return;
     const aspect = size.width / size.height;
     const baseZ = 1.6;
     const adjustedZ = aspect < 1
       ? baseZ + (1 - aspect) * 0.5
       : baseZ - (aspect - 1) * 0.08;
-    // three.js objects are mutable by design; the camera is owned by this canvas.
-    // eslint-disable-next-line react-hooks/immutability
-    (camera as THREE.PerspectiveCamera).position.z = Math.max(1.2, Math.min(2.2, adjustedZ));
+    baseZRef.current = Math.max(1.2, Math.min(2.2, adjustedZ));
+    // A canvas that mounts while the sphere is already formed (Refresh) starts
+    // pulled back; otherwise it would open inside the sphere.
+    setCameraZ(camera, sphereProgress.current > 0.9 || sphereInteractive ? 7 : baseZRef.current);
     camera.updateProjectionMatrix();
-  }, [camera, size, sphereInteractive]);
+  }, [camera, size, sphereInteractive, sphereProgress]);
 
-  // Smoothly zoom out when sphere phase starts, but stop once sphere is interactive
-  // so OrbitControls has full authority over the camera
-  useFrame(() => {
+  // Zoom out as the sphere forms; once it is interactive DragRotate owns the camera.
+  useFrame((_, delta) => {
     if (sphereInteractive) return;
     const sp = sphereProgress.current;
-    if (sp > 0) {
-      const targetZ = 7;
-      const t = sp * sp; // ease-in
-      // eslint-disable-next-line react-hooks/immutability
-      camera.position.z = THREE.MathUtils.lerp(1.6, targetZ, t);
-    }
+    // Always (also at sp = 0), so the camera lands on the hero's exact depth rather
+    // than wherever the last non-zero frame left it.
+    setCameraZ(camera, THREE.MathUtils.lerp(baseZRef.current, 7, sp * sp));
+    // Dragging the sphere moved the camera off-axis; bring it back so the portrait
+    // lines up with the headline again.
+    easeCameraToAxis(camera, delta);
   });
 
   return null;
@@ -923,6 +963,8 @@ export function HeroParticleCanvas({
   maxDpr = 1.75,
   onFatalError,
 }: HeroParticleCanvasProps) {
+  // Hero passes a lower DPR cap on weak devices; reuse that as the "go lighter" signal
+  const lowPower = maxDpr <= 1;
   const progressRef = useRef(0);
   const dissolveRef = useRef(0);
   const ambientRef = useRef(0);
@@ -938,9 +980,37 @@ export function HeroParticleCanvas({
   const isInteractingRef = useRef(false);
   const sphereScaleRef = useRef(1);
   const particleSizeRef = useRef(1);
+  /** Background particles: fade-in level, and how far the scene has scrolled away. */
+  const backdropAlphaRef = useRef(0);
+  const exitRef = useRef(0);
+
+  // ── Visitor customization (saved) + a remount key for the Refresh button ──
+  const [settings, setSettings] = useState<SphereSettings>(() => loadSphereSettings());
+  const settingsRef = useRef(settings);
+  const [canvasKey, setCanvasKey] = useState(0);
+  /** Which canvas generation is live. A discarded canvas reports a lost WebGL context
+   *  while it is torn down; that must not be mistaken for a GPU failure. */
+  const canvasGenRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      canvasGenRef.current = -1;
+    };
+  }, []);
   const mouseRef = useRef(new THREE.Vector3(999, 999, 0));
   const mouseActiveRef = useRef(false);
   const preRevealRef = useRef(true);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+    sphereScaleRef.current = settings.scale;
+    particleSizeRef.current = settings.size;
+    saveSphereSettings(settings);
+  }, [settings]);
+
+  const updateSettings = useCallback((patch: Partial<SphereSettings>) => {
+    setSettings((prev) => ({ ...prev, ...patch }));
+  }, []);
+  const resetSettings = useCallback(() => setSettings(DEFAULT_SPHERE_SETTINGS), []);
 
   // ── Sphere hand-off: fade out + freeze once the Projects section scrolls away ──
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -1040,6 +1110,8 @@ export function HeroParticleCanvas({
 
       // Big particles fade in as small particles fade out (crossfade)
       bigAlphaRef.current = virtualScroll.smallFadeRef.current;
+      // Background particles arrive with the sphere
+      backdropAlphaRef.current = virtualScroll.smallFadeRef.current;
 
       // SPHERE_FORM: after lock releases (smallFade = 1), drive from continued scroll
       // Map scroll past the lock-trigger point → sphere formation
@@ -1085,8 +1157,12 @@ export function HeroParticleCanvas({
         const fadeSpan = vh * 0.6;
         const hidden = Math.max(0, Math.min(1, past / fadeSpan));
 
+        // The scene hands over as motion first (particles streak away, sphere swells,
+        // see `exitRef`), and only fades once that is under way.
+        exitRef.current = hidden;
+        const fade = Math.max(0, Math.min(1, (hidden - 0.35) / 0.65));
         if (wrapperRef.current) {
-          wrapperRef.current.style.opacity = String(1 - hidden);
+          wrapperRef.current.style.opacity = String(1 - fade);
           wrapperRef.current.style.visibility = hidden >= 1 ? "hidden" : "visible";
         }
 
@@ -1165,6 +1241,20 @@ export function HeroParticleCanvas({
     tintColorRef.current = null;
     setHoveredIndex(null);
   }, [cancelDismiss, setHoveredIndex]);
+
+  /**
+   * Rebuilds the WebGL scene from scratch (new renderer, fresh geometry). Scroll
+   * position and sphere phase live outside the canvas, so the visitor lands back on
+   * the same sphere, just without whatever got stuck.
+   */
+  const refreshScene = useCallback(() => {
+    closeCard();
+    clearNodeHoverRef.current = true;
+    isInteractingRef.current = false;
+    document.body.style.cursor = "auto";
+    canvasGenRef.current += 1;
+    setCanvasKey(canvasGenRef.current);
+  }, [closeCard]);
 
   /** Grace period so moving cursor node → card doesn't kill the card. */
   const scheduleDismiss = useCallback(() => {
@@ -1271,6 +1361,7 @@ export function HeroParticleCanvas({
       }}
     >
       <Canvas
+        key={canvasKey}
         camera={{ position: [0, 0, 1.6], fov: 60 }}
         dpr={[1, maxDpr]}
         gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
@@ -1280,10 +1371,15 @@ export function HeroParticleCanvas({
           // allow the browser to restore it; if it never comes back, fall back to the
           // static page instead of leaving a black hole where the hero was.
           const el = gl.domElement;
+          const generation = canvasGenRef.current;
           let timer: ReturnType<typeof setTimeout> | null = null;
           el.addEventListener("webglcontextlost", (e) => {
             e.preventDefault();
-            timer = setTimeout(() => onFatalError?.(), 4000);
+            // Lost because this canvas was replaced (Refresh) or unmounted: expected.
+            if (canvasGenRef.current !== generation) return;
+            timer = setTimeout(() => {
+              if (canvasGenRef.current === generation) onFatalError?.();
+            }, 4000);
           });
           el.addEventListener("webglcontextrestored", () => {
             if (timer) clearTimeout(timer);
@@ -1312,6 +1408,13 @@ export function HeroParticleCanvas({
           mouseActiveRef={mouseActiveRef}
           preRevealRef={preRevealRef}
           cursorNearSphereRef={cursorNearSphereRef}
+          settingsRef={settingsRef}
+        />
+        <BackdropParticles
+          alphaRef={backdropAlphaRef}
+          exitRef={exitRef}
+          settingsRef={settingsRef}
+          lowPower={lowPower}
         />
         <ProjectNodes
           sphereProgress={sphereRef}
@@ -1322,6 +1425,8 @@ export function HeroParticleCanvas({
           mouseRef={mouseRef}
           clearHoverRef={clearNodeHoverRef}
           cursorNearSphereRef={cursorNearSphereRef}
+          settingsRef={settingsRef}
+          exitRef={exitRef}
         />
         <BigParticles
           alphaRef={bigAlphaRef}
@@ -1330,6 +1435,8 @@ export function HeroParticleCanvas({
           sizeRef={particleSizeRef}
           scaleRef={sphereScaleRef}
           cursorNearSphereRef={cursorNearSphereRef}
+          settingsRef={settingsRef}
+          exitRef={exitRef}
         />
         <TweenDriver
           progressRef={progressRef}
@@ -1338,7 +1445,7 @@ export function HeroParticleCanvas({
         />
         <EffectComposer multisampling={0}>
           <Bloom
-            intensity={1.2}
+            intensity={1.2 * settings.glow}
             luminanceThreshold={0.1}
             luminanceSmoothing={0.9}
             mipmapBlur
@@ -1351,6 +1458,15 @@ export function HeroParticleCanvas({
           />
         )}
       </Canvas>
+
+      {/* Words and controls around the sphere */}
+      <SphereOverlay
+        visible={sphereInteractive && !frozen}
+        settings={settings}
+        onChange={updateSettings}
+        onReset={resetSettings}
+        onRefresh={refreshScene}
+      />
 
       {/* HTML overlay for project node card */}
       <AnimatePresence>

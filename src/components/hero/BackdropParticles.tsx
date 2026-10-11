@@ -1,0 +1,171 @@
+"use client";
+
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import { getPalette, type SphereSettings } from "@/lib/sphere/settings";
+
+/**
+ * Ambient particles behind the project sphere. They drift slowly while the
+ * sphere is on screen and, as the Projects section scrolls away (`exitRef`
+ * 0 -> 1), streak upward and toward the camera, so the sphere scene hands over
+ * to the next section as motion instead of a plain fade.
+ */
+
+const COUNT = { high: 2600, low: 1100 } as const;
+
+const vertexShader = /* glsl */ `
+  attribute float aSpeed;
+  attribute float aPhase;
+
+  uniform float uTime;
+  uniform float uAlpha;
+  uniform float uExit;
+  uniform float uSize;
+  uniform float uDpr;
+  uniform vec2 uResolution;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+
+  varying vec3 vColor;
+  varying float vAlpha;
+
+  void main() {
+    vec3 pos = position;
+
+    // Slow upward flow that wraps, so the field never empties
+    float flow = uTime * (0.03 + aSpeed * 0.05);
+    pos.y = mod(pos.y + flow + 6.0, 12.0) - 6.0;
+
+    // Gentle per-particle sway
+    pos.x += sin(uTime * 0.15 * aSpeed + aPhase * 6.2831) * 0.4;
+    pos.z += sin(uTime * 0.10 + aPhase * 3.0) * 0.3;
+    pos.y += cos(uTime * 0.12 * aSpeed + aPhase * 5.1) * 0.25;
+
+    // Exit: rush up and toward the camera, faster for the quicker particles
+    float e = uExit * uExit;
+    pos.y += e * (6.0 + aSpeed * 14.0);
+    pos.z += e * (3.0 + aSpeed * 5.0);
+
+    vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * mv;
+
+    float dist = max(0.4, -mv.z);
+    float size = uSize * (0.55 + aSpeed * 0.9) * uDpr * (uResolution.y / 900.0) / dist;
+    // Streak the point a little as it speeds up
+    gl_PointSize = size * (1.0 + uExit * 1.5);
+
+    vColor = mix(uColorA, uColorB, aPhase);
+    float twinkle = 0.75 + 0.25 * sin(uTime * (0.6 + aSpeed) + aPhase * 40.0);
+    vAlpha = uAlpha * (0.18 + aSpeed * 0.35) * twinkle * (1.0 - uExit * 0.5);
+  }
+`;
+
+const fragmentShader = /* glsl */ `
+  varying vec3 vColor;
+  varying float vAlpha;
+
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    if (d > 0.5) discard;
+    float a = vAlpha * (1.0 - smoothstep(0.1, 0.5, d));
+    gl_FragColor = vec4(vColor, a);
+  }
+`;
+
+interface BackdropParticlesProps {
+  /** 0 hidden -> 1 visible (eased by the parent). */
+  alphaRef: React.MutableRefObject<number>;
+  /** 0 on screen -> 1 fully gone (scroll-driven hand-off). */
+  exitRef: React.MutableRefObject<number>;
+  settingsRef: React.MutableRefObject<SphereSettings>;
+  lowPower?: boolean;
+}
+
+export function BackdropParticles({ alphaRef, exitRef, settingsRef, lowPower = false }: BackdropParticlesProps) {
+  const count = lowPower ? COUNT.low : COUNT.high;
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+  /** Own clock, R3F's resets when frameloop is toggled. */
+  const timeRef = useRef(0);
+  const shownRef = useRef(0);
+  const paletteRef = useRef("");
+
+  const geometry = useMemo(() => {
+    // Seeded so the layout is identical every load.
+    let a = 0x2f6e2b1;
+    const rand = () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const pos = new Float32Array(count * 3);
+    const speed = new Float32Array(count);
+    const phase = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (rand() - 0.5) * 22;
+      pos[i * 3 + 1] = (rand() - 0.5) * 12;
+      pos[i * 3 + 2] = -6 + rand() * 9;
+      speed[i] = 0.3 + rand() * 1.1;
+      phase[i] = rand();
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("aSpeed", new THREE.BufferAttribute(speed, 1));
+    g.setAttribute("aPhase", new THREE.BufferAttribute(phase, 1));
+    return g;
+  }, [count]);
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uAlpha: { value: 0 },
+      uExit: { value: 0 },
+      uSize: { value: 22 },
+      uDpr: { value: 1 },
+      uResolution: { value: new THREE.Vector2(1, 1) },
+      uColorA: { value: new THREE.Color("#ffffff") },
+      uColorB: { value: new THREE.Color("#cfd3dc") },
+    }),
+    [],
+  );
+
+  useFrame((state, delta) => {
+    const mat = matRef.current;
+    if (!mat) return;
+    timeRef.current += Math.min(delta, 0.1);
+
+    // Ease the on/off toggle so flipping it in the panel fades rather than pops
+    const target = settingsRef.current.backdrop ? alphaRef.current : 0;
+    shownRef.current += (target - shownRef.current) * (1 - Math.exp(-delta * 5));
+
+    const palette = settingsRef.current.palette;
+    if (palette !== paletteRef.current) {
+      paletteRef.current = palette;
+      const [c1, c2] = getPalette(palette).backdrop;
+      mat.uniforms.uColorA!.value.set(c1);
+      mat.uniforms.uColorB!.value.set(c2);
+    }
+
+    mat.uniforms.uTime!.value = timeRef.current;
+    mat.uniforms.uAlpha!.value = shownRef.current;
+    mat.uniforms.uExit!.value = exitRef.current;
+    mat.uniforms.uDpr!.value = state.viewport.dpr;
+    mat.uniforms.uResolution!.value.set(state.size.width, state.size.height);
+  });
+
+  return (
+    <points geometry={geometry} frustumCulled={false}>
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={vertexShader}
+        fragmentShader={fragmentShader}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}

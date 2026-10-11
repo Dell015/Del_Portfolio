@@ -4,6 +4,7 @@ import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { projects as projectsData } from "@/lib/content/projects";
+import { getPalette, type PaletteId, type SphereSettings } from "@/lib/sphere/settings";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -65,15 +66,40 @@ export interface BigParticlesProps {
   scaleRef: React.MutableRefObject<number>;
   /** Whether cursor is near the sphere */
   cursorNearSphereRef?: React.MutableRefObject<boolean>;
+  /** Visitor settings (spin speed, palette). */
+  settingsRef: React.MutableRefObject<SphereSettings>;
+  /** 0 on screen -> 1 gone: the sphere swells outward as the section scrolls away. */
+  exitRef: React.MutableRefObject<number>;
   /** Whether on mobile (reduces count) */
   isMobile?: boolean;
+}
+
+/** Base color for every orb under a palette. */
+function paletteColors(id: PaletteId, count: number): Float32Array {
+  const out = new Float32Array(count * 3);
+  const def = getPalette(id);
+  const c = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    if (id === "projects") {
+      c.set(projectsData[i % projectsData.length]!.identityGradient[0]);
+    } else {
+      c.set(def.orbs[i % def.orbs.length]!);
+    }
+    // Additive blending plus bloom washes pale colors out to white; saturated palettes
+    // are pulled down so their hue survives.
+    if (id !== "white" && id !== "ice") c.multiplyScalar(0.55);
+    out[i * 3] = c.r;
+    out[i * 3 + 1] = c.g;
+    out[i * 3 + 2] = c.b;
+  }
+  return out;
 }
 
 const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
 const _color2 = new THREE.Color();
 
-export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, scaleRef, cursorNearSphereRef, isMobile = false }: BigParticlesProps) {
+export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, scaleRef, cursorNearSphereRef, settingsRef, exitRef, isMobile = false }: BigParticlesProps) {
   const count = isMobile ? COUNT_MOBILE : COUNT_DESKTOP;
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -88,6 +114,7 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
   const rotSpeedRef = useRef(-0.0015);
   /** Own elapsed clock, survives frameloop toggles */
   const timeRef = useRef(0);
+  const appliedPalette = useRef<PaletteId | null>(null);
 
   // Precompute positions and base colors once
   const { scatterPositions, spherePositions, defaultColors } = useMemo(() => {
@@ -131,19 +158,32 @@ export function BigParticles({ alphaRef, sphereFormRef, tintColorRef, sizeRef, s
     const time = timeRef.current;
     const alpha = alphaRef.current;
     const sp = sphereFormRef.current;
-    const scale = scaleRef.current;
+    const exit = exitRef.current;
+    // The sphere swells as the section scrolls away (matches the backdrop streaking out)
+    const scale = scaleRef.current * (1 + exit * exit * 0.9);
+
+    // Palette switch: only the base colors change, the per-frame lerp below fades
+    // every orb to its new color.
+    const palette = settingsRef.current.palette;
+    if (palette !== appliedPalette.current) {
+      const next = paletteColors(palette, count);
+      baseColors.current.set(next);
+      // First application (mount or refresh): start on the palette instead of fading from white
+      if (appliedPalette.current === null) currentColors.current.set(next);
+      appliedPalette.current = palette;
+    }
     // Smooth ease for sphere formation
     const spEased = sp * sp * (3 - 2 * sp); // smoothstep
 
     // Rotate the mesh, stops when cursor is near sphere
-    const targetRotSpeed = (cursorNearSphereRef?.current) ? 0 : -0.0015;
+    const targetRotSpeed = (cursorNearSphereRef?.current) ? 0 : -0.0015 * settingsRef.current.spin;
     rotSpeedRef.current = THREE.MathUtils.lerp(rotSpeedRef.current, targetRotSpeed, 0.03);
     if (sp > 0.5) {
       mesh.rotation.y += rotSpeedRef.current;
     }
 
     // Material opacity
-    mat.opacity = alpha * 0.55;
+    mat.opacity = alpha * 0.55 * (1 - exit * 0.4);
 
     // Determine target tint per orb, cascade effect
     const hasTint = tintColorRef.current !== null;
