@@ -1,8 +1,8 @@
 # About section: transition decisions (saved 2026-10-12, not built yet)
 
-Context: About is a terminal window with two tabs (`developer.sh`, `personal.log`) and a
-prompt bar at the bottom. Enter (keyboard) or tap (touch) runs the prompt. The prompt
-should trigger a different *transition* depending on the tab, not just swap tabs.
+Context: About is a single terminal window (`developer.sh`) with a prompt bar at the
+bottom. Enter (keyboard) or tap (touch) runs the prompt, which should trigger the sphere
+transition. (It originally had a second `personal.log` tab; removed 2026-10-13.)
 
 ## Answered
 
@@ -16,25 +16,15 @@ should trigger a different *transition* depending on the tab, not just swap tabs
    deleting the mode toggle, since Clean is also the fallback for low-power/no-WebGL.)
 5. Scrolling past About also triggers the transition, exactly as if Enter had been pressed.
 
-## Still open (Q6 onward, asked 2026-10-12)
+### Personal side: dropped (2026-10-13)
+6. No personal-stories destination and no personal transition. Q6–Q21 from 2026-10-12
+   (gallery format, photos, music, games, return path, captions, etc.) are withdrawn.
 
-Personal tab → personal stories:
-- 6. Destination format (gallery, timeline, map, mix; polaroid wall, film strip, scrapbook?)
-- 7. Where it lives (new home section, separate page like /life, full-screen overlay)
-- 8. Which parts of life go in (gym, games, music, cars/big bikes, photography, travel,
-  family/friends, Cauayan, how he started coding)
-- 9. Photos available? How many, of what? (No unlabeled placeholders on a live page.)
-- 10. Comfortable with face photos, bikes/cars/plates? Anything off limits?
-- 11. Music: Spotify embed/link, handwritten list (~5 songs/artists), or skip
-- 12. Games: show ranks/stats or just names
-- 13. Feel of the personal transition (film-leader countdown, page flip, aperture, warm
-  amber particles into a polaroid stack); keep amber or another color
-- 14. Particles on the personal side or a deliberately different mechanic (default: different)
-- 15. How to return (button, Escape/Enter, scroll up); back to About or on to Projects
-- 16. Mobile gallery: swipe horizontally or scroll vertically (default: swipe)
-- 17. Audience (recruiters, classmates, startup people) and how personal is too personal
-- 18. Keep, move or drop the "history" log; real dates needed (start coding, HIRED.PH
-  placement, internship)
-- 19. Prompt wording ("want to see the source?" / "want to see the history?" or other)
-- 20. Photos/screenshots now, or build structure with clearly labeled empty slots first
-- 21. Who writes captions/stories (default: interview one memory at a time, Claude drafts)
+7. The `personal.log` tab is removed (2026-10-13). The history log moved into
+   `developer.sh` as a `git log --graph --oneline history/` step. The off-the-clock list
+   (gym, games, music, engines, photography) was dropped.
+8. Until the transition is built, running the prompt scrolls to `#projects`.
+
+## Still open
+- Prompt wording now that it is the only prompt (currently "want to see the source?" /
+  `./source --why`).
