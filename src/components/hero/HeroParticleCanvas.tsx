@@ -12,7 +12,7 @@ import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
 import { BigParticles } from "./BigParticles";
 import { BackdropParticles } from "./BackdropParticles";
-import { makeSwirlUniforms, swirlGlsl, syncSwirl } from "@/lib/swirl";
+import { bloomValue, makeSwirlUniforms, swirlGlsl, syncSwirl } from "@/lib/swirl";
 import { ProjectNodeCard } from "@/components/projects/sphere/ProjectNodeCard";
 import { SphereOverlay } from "@/components/projects/sphere/SphereOverlay";
 import { useSphereHoverStore } from "@/lib/store/sphereHover";
@@ -126,6 +126,7 @@ const vertexShader = /* glsl */ `
   uniform float uExplode;
   uniform float uSmallFade;
   uniform float uScatter;
+  uniform float uBloom;
 ${swirlGlsl}
   uniform float uSphere;
   uniform vec3 uMouse;
@@ -274,6 +275,9 @@ ${swirlGlsl}
       pos = mix(pos, sphereTarget * uScale, s);
     }
 
+    // Burst out of a single point (the black hole's centre) instead of out of the portrait
+    pos *= uBloom;
+
     // === COLOR ===
     vec3 baseColor = mix(colorB, colorA, pProgress);
     float spherePhase = max(uGather, max(uCondense, max(uRingCompress, max(uExplode, max(uScatter, uSphere)))));
@@ -393,6 +397,7 @@ function ParticleSystem({
       uExplode: { value: 0 },
       uSmallFade: { value: 0 },
       uScatter: { value: 0 },
+      uBloom: { value: 1 },
       ...makeSwirlUniforms(),
       uSphere: { value: 0 },
       uMouse: { value: new THREE.Vector3(999, 999, 0) },
@@ -424,6 +429,7 @@ function ParticleSystem({
     mat.uniforms.uSmallFade.value = smallFadeRef.current;
     mat.uniforms.uScatter.value = scatterRef.current;
     syncSwirl(mat.uniforms as unknown as Parameters<typeof syncSwirl>[0], size.width, size.height);
+    mat.uniforms.uBloom.value = bloomValue(explodeRef.current);
     mat.uniforms.uSphere.value = sphereRef.current;
     mat.uniforms.uTime.value = timeRef.current = stepTime(timeRef.current, delta);
     mat.uniforms.uMouse.value.copy(mouseRef.current);

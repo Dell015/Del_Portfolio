@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
+import { animate, motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
 import { projects } from "@/lib/content/projects";
 import { stats } from "@/lib/content/site";
 import { EASE } from "@/components/motion/tokens";
@@ -10,7 +10,7 @@ import { useModeStore } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { registerScrollPin, useSnapScroll } from "@/components/SmoothScroll";
 import { swirlState } from "@/lib/swirl";
-import { LOCK_TRIGGER, TOTAL_BUDGET, isSequenceListening } from "@/lib/hooks/useVirtualScroll";
+import { igniteSequence, resetSequence, setSequencePinned } from "@/lib/hooks/useVirtualScroll";
 import { NARROW_LAYOUT, WIDE_LAYOUT } from "@/components/blackhole/layouts";
 import type { BlackHoleTargets } from "@/components/blackhole/BlackHoleScene";
 
@@ -440,6 +440,7 @@ function PinnedAbout() {
   const [caption, setCaption] = useState(0);
   const [typing, setTyping] = useState<string | null>(null);
   const flying = useRef(false);
+  const ignited = useRef(false);
   const raf = useRef(0);
   const cancelFly = useRef<(() => void) | null>(null);
 
@@ -456,7 +457,11 @@ function PinnedAbout() {
   // This section is several screens tall but counts as one page for the rest of the site.
   useEffect(() => {
     registerScrollPin(sectionRef.current);
-    return () => registerScrollPin(null);
+    setSequencePinned(true);
+    return () => {
+      registerScrollPin(null);
+      setSequencePinned(false);
+    };
   }, []);
 
   // Pin progress, measured from the scroll container so it never goes stale.
@@ -477,19 +482,33 @@ function PinnedAbout() {
         const k = clamp01((x - a) / (b - a));
         return k * k * (3 - 2 * k);
       };
-      const exit = ss(0.975, 0.995, v);
       const center = v > 0 ? ss(0.9, 0.95, v) : 0;
-      // The hero's dust spirals into the hole as the section rises; at the end the hole centres,
-      // compresses, and the dust bursts back out (that burst is the hand-off to the sphere).
-      swirlState.amount = v > 0 ? 1 - ss(0.97, 1, v) : ss(0.18, 1, entry);
+      const collapse = ss(0.94, 0.975, v);
+      // The hero's dust spirals into the hole as the section rises. When the hole has compressed to a
+      // point, the sphere sequence's explosion starts from that point (the old burst, now the only one).
+      const fired = v >= 0.975;
+      swirlState.soft = v > 0.9;
+      swirlState.amount = v > 0 ? (fired ? 0 : 1) : ss(0.18, 1, entry);
       swirlState.center = center;
-      bgA.set(v > 0 ? 1 - exit : ss(0.88, 1, entry));
-      layerA.set(v > 0 ? 1 - exit : ss(0.55, 0.95, entry));
+      swirlState.compress = collapse;
+      if (fired && !ignited.current) {
+        ignited.current = true;
+        igniteSequence();
+        animate(bgA, 0, { duration: 0.5, ease: "easeOut" });
+        animate(layerA, 0, { duration: 0.28, ease: "easeOut" });
+      } else if (!fired && v < 0.96 && ignited.current) {
+        ignited.current = false;
+        resetSequence();
+      }
+      if (!fired && !ignited.current) {
+        bgA.set(v > 0 ? 1 : ss(0.88, 1, entry));
+        layerA.set(v > 0 ? 1 : ss(0.55, 0.95, entry));
+      }
       const t = targets.current;
       t.form = Math.max(clamp01(v / 0.08), 0.62 * ss(0.55, 0.95, entry));
       t.pull = clamp01((v - 0.06) / 0.46);
       t.center = center;
-      t.collapse = ss(0.94, 0.975, v);
+      t.collapse = collapse;
       setInteractive(v > 0.86 && v < 0.92);
       setCaption(v < 0.05 ? 0 : v < 0.52 ? 1 : v < 0.9 ? 2 : 3);
     };
@@ -526,7 +545,7 @@ function PinnedAbout() {
 
     const vh = container.clientHeight;
     const extraPx = section.offsetHeight - vh;
-    const target = (LOCK_TRIGGER + 0.01) * vh + extraPx;
+    const target = section.offsetTop + extraPx; // the end of the pin: the hole collapses on the way and sets off the burst
     const from = container.scrollTop;
     const dist = target - from;
     if (dist <= 0) {
@@ -560,36 +579,12 @@ function PinnedAbout() {
         raf.current = requestAnimationFrame(fly);
         return;
       }
-      // Arrived at the lock point: play the sphere sequence by feeding it scroll.
+      // Arrived. The collapse ignited the sphere sequence on the way here.
       window.removeEventListener("wheel", stop);
       window.removeEventListener("touchstart", stop);
-      const push = TOTAL_BUDGET + 40;
-      const playMs = 2600;
-      let t0 = 0;
-      let sent = 0;
-      const armedAt = performance.now();
-      const feed = (n: number) => {
-        if (stopped) return;
-        if (!isSequenceListening() && n - armedAt < 3000) {
-          raf.current = requestAnimationFrame(feed);
-          return;
-        }
-        if (!t0) t0 = n;
-        const q = clamp01((n - t0) / playMs);
-        const want = push * (q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2);
-        const delta = want - sent;
-        if (delta > 0.5) {
-          sent = want;
-          window.dispatchEvent(new WheelEvent("wheel", { deltaY: delta, bubbles: true, cancelable: true }));
-        }
-        if (q < 1) raf.current = requestAnimationFrame(feed);
-        else {
-          flying.current = false;
-          setTyping(null);
-          cancelFly.current = null;
-        }
-      };
-      raf.current = requestAnimationFrame(feed);
+      flying.current = false;
+      setTyping(null);
+      cancelFly.current = null;
     };
     raf.current = requestAnimationFrame(fly);
   }, [containerRef]);

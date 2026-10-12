@@ -98,7 +98,7 @@ const diskVertex = /* glsl */ `
     float doppler = clamp(1.0 + 0.85 * cos(th), 0.25, 1.9);
     float inner = 1.0 + 1.4 * smoothstep(2.2, ${DISK_IN.toFixed(2)}, aR);
     vColor = diskColor(aR) * doppler * inner;
-    vAlpha = uAlpha * (0.55 + aS * 0.45) * (1.0 - smoothstep(0.85, 1.0, c));
+    vAlpha = uAlpha * (0.55 + aS * 0.45) * (1.0 - smoothstep(0.3, 0.9, c));
   }
 `;
 
@@ -185,7 +185,7 @@ const haloVertex = /* glsl */ `
     float arc = smoothstep(0.10, 0.62, abs(sin(th)));
     float doppler = clamp(1.0 + 0.7 * cos(th), 0.3, 1.7);
     vColor = diskColor(aR) * doppler * 1.25;
-    vAlpha = uAlpha * arc * (0.5 + aS * 0.5) * (1.0 - smoothstep(0.85, 1.0, c));
+    vAlpha = uAlpha * arc * (0.5 + aS * 0.5) * (1.0 - smoothstep(0.3, 0.9, c));
   }
 `;
 
