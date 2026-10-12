@@ -27,6 +27,25 @@ function subscribeScroll(cb: () => void) {
   return () => { _listeners.delete(cb); };
 }
 
+/**
+ * A pinned section (the About scene) is several screens tall but should count as ONE
+ * page for everything else that reasons in pages (the sphere sequence, the project
+ * labels). While the pin is held the page number stays at the section's start, and
+ * after it the extra height is subtracted, so those thresholds keep their meaning.
+ */
+let _pinEl: HTMLElement | null = null;
+export function registerScrollPin(el: HTMLElement | null) {
+  _pinEl = el;
+}
+function virtualPage(raw: number, viewportHeight: number) {
+  if (!_pinEl) return raw;
+  const start = _pinEl.offsetTop / viewportHeight;
+  const extra = Math.max(0, (_pinEl.offsetHeight - viewportHeight) / viewportHeight);
+  if (raw <= start) return raw;
+  if (raw <= start + extra) return start;
+  return raw - extra;
+}
+
 function getScrollProgress() { return _scrollProgress; }
 function getCurrentPage() { return _currentPage; }
 
@@ -220,7 +239,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         const viewportHeight = container!.clientHeight;
         if (viewportHeight === 0) { ticking = false; return; }
 
-        const rawPage = scrollTop / viewportHeight;
+        const rawPage = virtualPage(scrollTop / viewportHeight, viewportHeight);
         _scrollProgress = rawPage;
         _currentPage = Math.round(rawPage);
         notifyScrollListeners();

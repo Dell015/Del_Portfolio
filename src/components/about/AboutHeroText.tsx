@@ -5,6 +5,13 @@ import Image from "next/image";
 import { useEffect } from "react";
 import { bio } from "@/lib/content/site";
 import { useSnapScroll } from "@/components/SmoothScroll";
+import {
+  BottomLeftPanel,
+  ContactLinks,
+  PortraitFrame,
+  SkipToContact,
+  TopRightPanel,
+} from "./HeroSidePanels";
 
 /**
  * About Hero Text, Text-behind-image knockout with:
@@ -253,30 +260,11 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
           </div>
         </motion.div>
 
-        {/* BIO TEXT, sequential exit */}
-        <motion.div
-          className="absolute top-[22%] right-6 lg:right-10 max-w-[280px] text-right z-[3]"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: BIO_DELAY, ease: [0.4, 0, 0.2, 1] as const }}
-          style={{ y: yBioTopExit, opacity: opacityBioTop }}
-        >
-          <p className="font-[family-name:var(--font-body)] text-base leading-relaxed text-text-muted">
-            A CS student from Cauayan, Isabela who designs, architects and builds products end to end.
-          </p>
-        </motion.div>
-
-        <motion.div
-          className="absolute bottom-[22%] left-6 lg:left-10 max-w-[280px] z-[3]"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: BIO_DELAY + 0.15, ease: [0.4, 0, 0.2, 1] as const }}
-          style={{ y: yBioBottomExit, opacity: opacityBioBottom }}
-        >
-          <p className="font-[family-name:var(--font-body)] text-base leading-relaxed text-text-muted">
-            Seven products designed, two competition placements, and a habit of understanding every line I write.
-          </p>
-        </motion.div>
+        {/* Framing + side panels. Panels exit in sequence as the page scrolls. */}
+        <PortraitFrame delay={PHOTO_DELAY + 0.2} opacity={photoOpacity} />
+        <TopRightPanel delay={BIO_DELAY} style={{ y: yBioTopExit, opacity: opacityBioTop }} />
+        <BottomLeftPanel delay={BIO_DELAY + 0.15} style={{ y: yBioBottomExit, opacity: opacityBioBottom }} />
+        <SkipToContact delay={BIO_DELAY + 0.6} />
       </motion.div>
 
       {/* === MOBILE LAYOUT === */}
@@ -307,6 +295,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
         >
           {bio.short}
         </motion.p>
+        <ContactLinks className="mt-4 justify-center" />
       </div>
     </motion.div>
   );

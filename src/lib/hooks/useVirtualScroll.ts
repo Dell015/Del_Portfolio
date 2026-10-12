@@ -79,6 +79,15 @@ export interface VirtualScrollState {
   isLocked: React.MutableRefObject<boolean>;
 }
 
+let _listening = false;
+function setSequenceListening(v: boolean) {
+  _listening = v;
+}
+/** True once the sphere sequence is locked and consuming wheel input. */
+export function isSequenceListening() {
+  return _listening;
+}
+
 export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
   const { scrollProgress, lockScroll, unlockScroll } = useSnapScroll();
 
@@ -225,11 +234,13 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
       push(delta);
     }
 
+    setSequenceListening(true);
     window.addEventListener("wheel", onWheel, { passive: false, capture: true });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
 
     return () => {
+      setSequenceListening(false);
       cancelAnimationFrame(raf);
       window.removeEventListener("wheel", onWheel, { capture: true });
       window.removeEventListener("touchstart", onTouchStart);

@@ -2,6 +2,7 @@
 
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { makeSwirlUniforms, swirlGlsl, syncSwirl } from "@/lib/swirl";
 import * as THREE from "three";
 import { getPalette, type SphereSettings } from "@/lib/sphere/settings";
 
@@ -30,7 +31,7 @@ const vertexShader = /* glsl */ `
   uniform vec2 uResolution;
   uniform vec3 uColorA;
   uniform vec3 uColorB;
-
+${swirlGlsl}
   varying vec3 vColor;
   varying float vAlpha;
 
@@ -54,7 +55,7 @@ const vertexShader = /* glsl */ `
     pos.y += e * (4.0 + aSpeed * 10.0);
 
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * mv;
+    gl_Position = swirlClip(projectionMatrix * mv);
 
     float dist = max(0.4, -mv.z);
     float size = uSize * (0.55 + aSpeed * 0.9) * uDpr * (uResolution.y / 900.0) / dist;
@@ -66,7 +67,7 @@ const vertexShader = /* glsl */ `
 
     vColor = mix(uColorA, uColorB, aPhase);
     float twinkle = 0.75 + 0.25 * sin(uTime * (0.6 + aSpeed) + aPhase * 40.0);
-    vAlpha = uAlpha * (0.18 + aSpeed * 0.35) * twinkle * (1.0 - uExit * 0.5) * nearFade;
+    vAlpha = uAlpha * (0.18 + aSpeed * 0.35) * twinkle * (1.0 - uExit * 0.5) * nearFade * swirlFade();
   }
 `;
 
@@ -143,6 +144,7 @@ export function BackdropParticles({ alphaRef, exitRef, settingsRef, lowPower = f
       uResolution: { value: new THREE.Vector2(1, 1) },
       uColorA: { value: new THREE.Color("#ffffff") },
       uColorB: { value: new THREE.Color("#cfd3dc") },
+      ...makeSwirlUniforms(),
     }),
     [],
   );
@@ -169,6 +171,7 @@ export function BackdropParticles({ alphaRef, exitRef, settingsRef, lowPower = f
     mat.uniforms.uExit!.value = exitRef.current;
     mat.uniforms.uDpr!.value = state.viewport.dpr;
     mat.uniforms.uResolution!.value.set(state.size.width, state.size.height);
+    syncSwirl(mat.uniforms as unknown as Parameters<typeof syncSwirl>[0], state.size.width, state.size.height);
   });
 
   return (

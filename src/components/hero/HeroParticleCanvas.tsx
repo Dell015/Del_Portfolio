@@ -12,6 +12,7 @@ import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
 import { BigParticles } from "./BigParticles";
 import { BackdropParticles } from "./BackdropParticles";
+import { makeSwirlUniforms, swirlGlsl, syncSwirl } from "@/lib/swirl";
 import { ProjectNodeCard } from "@/components/projects/sphere/ProjectNodeCard";
 import { SphereOverlay } from "@/components/projects/sphere/SphereOverlay";
 import { useSphereHoverStore } from "@/lib/store/sphereHover";
@@ -125,6 +126,7 @@ const vertexShader = /* glsl */ `
   uniform float uExplode;
   uniform float uSmallFade;
   uniform float uScatter;
+${swirlGlsl}
   uniform float uSphere;
   uniform vec3 uMouse;
   uniform float uMouseActive;
@@ -289,7 +291,8 @@ const vertexShader = /* glsl */ `
     vAlpha = sphereAlpha * (1.0 - uSmallFade);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * mvPosition;
+    gl_Position = swirlClip(projectionMatrix * mvPosition);
+    vAlpha *= swirlFade();
 
     // Point size, adjust for sphere phases
     float baseSize = uPointSize * (uResolution.y / 900.0) * uDpr;
@@ -390,6 +393,7 @@ function ParticleSystem({
       uExplode: { value: 0 },
       uSmallFade: { value: 0 },
       uScatter: { value: 0 },
+      ...makeSwirlUniforms(),
       uSphere: { value: 0 },
       uMouse: { value: new THREE.Vector3(999, 999, 0) },
       uMouseActive: { value: 0 },
@@ -419,6 +423,7 @@ function ParticleSystem({
     mat.uniforms.uExplode.value = explodeRef.current;
     mat.uniforms.uSmallFade.value = smallFadeRef.current;
     mat.uniforms.uScatter.value = scatterRef.current;
+    syncSwirl(mat.uniforms as unknown as Parameters<typeof syncSwirl>[0], size.width, size.height);
     mat.uniforms.uSphere.value = sphereRef.current;
     mat.uniforms.uTime.value = timeRef.current = stepTime(timeRef.current, delta);
     mat.uniforms.uMouse.value.copy(mouseRef.current);

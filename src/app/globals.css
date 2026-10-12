@@ -190,6 +190,17 @@ p {
   .hero-rise { animation: none; }
 }
 
+/* Hero stack ticker: a slow, endless marquee (the list is rendered twice). */
+@keyframes hero-ticker {
+  to { transform: translateX(-50%); }
+}
+.hero-ticker {
+  animation: hero-ticker 28s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-ticker { animation: none; }
+}
+
 /* Project card call-to-action on the sphere: tinted with the project's own colors
    (--c / --c2 are set on the card). */
 .node-card-cta {
