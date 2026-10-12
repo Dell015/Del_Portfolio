@@ -16,7 +16,7 @@ export const bio = {
 export const facts = [
   "Based in Cauayan, Isabela, Philippines",
   "BS Computer Science, University of Saint Louis Tuguegarao (2027)",
-  "Led teams of 3–5 in national and regional startup competitions",
+  "Led teams of up to 5 in national and regional startup competitions",
   "Builds for the Philippine market: local users, local pricing",
   "Enterprise ERP internship experience (under NDA)",
   "Currently open to work",
@@ -24,9 +24,9 @@ export const facts = [
 
 export const stats = [
   { value: "7", label: "Products designed" },
-  { value: "3–5", label: "People per team led" },
-  { value: "5", label: "Tech stacks used" },
+  { value: "5", label: "People on my biggest team" },
   { value: "2", label: "Competition placements" },
+  { value: "3", label: "Layers I own" },
 ] as const;
 
 export const contact = {

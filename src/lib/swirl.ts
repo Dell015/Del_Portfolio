@@ -7,7 +7,7 @@ import { NARROW_LAYOUT, WIDE_LAYOUT } from "@/components/blackhole/layouts";
  * black hole's accretion disk. About drives it from scroll; both hero particle systems
  * read it, so the dust visibly falls into the hole instead of a new screen sliding over.
  */
-export const swirlState = { amount: 0 };
+export const swirlState = { amount: 0, /** 0..1: the hole has been centred on screen */ center: 0 };
 
 const DISK_IN = 1.3;
 const DISK_OUT = 3.4;
@@ -64,7 +64,8 @@ export function syncSwirl(u: SwirlUniforms, width: number, height: number) {
   const z = Math.max(10, L.needW / (2 * TAN_HALF_FOV * aspect));
   const halfH = z * TAN_HALF_FOV;
   const halfW = halfH * aspect;
-  u.uHole.value.set(L.holeX / halfW, L.holeY / halfH);
+  const c = 1 - swirlState.center;
+  u.uHole.value.set((L.holeX * c) / halfW, (L.holeY * c) / halfH);
   u.uDisk.value.set(DISK_IN / halfH, DISK_OUT / halfH);
   u.uAspect.value = aspect;
 }

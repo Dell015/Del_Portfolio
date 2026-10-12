@@ -42,9 +42,12 @@ function setU(mat: THREE.ShaderMaterial, name: string, v: number) {
 function setRes(mat: THREE.ShaderMaterial, w: number, h: number) {
   (mat.uniforms.uRes.value as THREE.Vector2).set(w, h);
 }
-function easeCameraZ(cam: THREE.PerspectiveCamera, z: number) {
+function easeCamera(cam: THREE.PerspectiveCamera, z: number, x: number, y: number) {
   cam.position.z += (z - cam.position.z) * 0.2;
-  cam.lookAt(0, 0, 0);
+  cam.position.x = x;
+  cam.position.y = y;
+  cam.lookAt(x, y, 0);
+  cam.updateMatrixWorld();
 }
 
 const diskColorGlsl = /* glsl */ `
@@ -243,17 +246,19 @@ function Halo({ count, pullRef, collapseRef, formRef, dpr }: { count: number; pu
 function Horizon({ collapseRef, formRef }: { collapseRef: React.RefObject<number>; formRef: React.RefObject<number> }) {
   const L = useContext(LayoutContext);
   const ringRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   useFrame(() => {
     const c = collapseRef.current;
+    // The whole horizon compresses to a point as the disk implodes
+    if (groupRef.current) groupRef.current.scale.setScalar(Math.max(0.02, 1 - c * c * (3 - 2 * c) * 0.98));
     if (ringRef.current) {
       const m = ringRef.current.material as THREE.MeshBasicMaterial;
       // The ring flares as the disk collapses into it
       m.opacity = (0.75 + 0.25 * Math.sin(c * Math.PI)) * THREE.MathUtils.smoothstep(formRef.current, 0.0, 0.6);
-      ringRef.current.scale.setScalar(1 + c * 0.25 * (1 - c));
     }
   });
   return (
-    <group position={[L.holeX, L.holeY, 0]}>
+    <group ref={groupRef} position={[L.holeX, L.holeY, 0]}>
       <mesh>
         <circleGeometry args={[HORIZON, 96]} />
         <meshBasicMaterial color="#000000" />
@@ -480,6 +485,8 @@ export interface BlackHoleTargets {
   collapse: number;
   /** 0 -> 1: dust gathers into the portrait and the hole fades in */
   form: number;
+  /** 0 -> 1: the camera glides so the hole sits in the middle of the screen */
+  center?: number;
 }
 
 /** Keeps the scene framed on any aspect, drives the lens warp and the damping. */
@@ -493,9 +500,11 @@ function Rig({ targets, pullRef, collapseRef, formRef, lens }: {
   const L = useContext(LayoutContext);
   const { camera, size } = useThree();
   const v = useMemo(() => new THREE.Vector3(), []);
+  const centerRef = useRef(0);
   useFrame((_, dt) => {
     const d = Math.min(dt, 0.05);
     const t = targets.current;
+    centerRef.current += ((t.center ?? 0) - centerRef.current) * (1 - Math.exp(-d * 5));
     pullRef.current += (t.pull - pullRef.current) * (1 - Math.exp(-d * 5.5));
     formRef.current += (t.form - formRef.current) * (1 - Math.exp(-d * 4));
     collapseRef.current += (t.collapse - collapseRef.current) * (1 - Math.exp(-d * 4.5));
@@ -503,7 +512,7 @@ function Rig({ targets, pullRef, collapseRef, formRef, lens }: {
     const cam = camera as THREE.PerspectiveCamera;
     const halfFov = THREE.MathUtils.degToRad(cam.fov / 2);
     const z = Math.max(10, L.needW / (2 * Math.tan(halfFov) * aspect));
-    easeCameraZ(cam, z);
+    easeCamera(cam, z, L.holeX * centerRef.current, L.holeY * centerRef.current);
     v.set(L.holeX, L.holeY, 0).project(camera);
     lens.setCenter(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5);
     lens.setAspect(aspect);

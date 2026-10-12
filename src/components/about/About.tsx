@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, useInView, useMotionValue, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
+import { motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
 import { projects } from "@/lib/content/projects";
 import { stats } from "@/lib/content/site";
 import { EASE } from "@/components/motion/tokens";
@@ -54,8 +54,8 @@ const HISTORY = [
   },
   {
     tag: "lead",
-    text: "Led teams of 3–5 through national and regional startup competitions.",
-    short: "Led teams of 3–5 in national and regional competitions.",
+    text: "Led teams of up to 5 through national and regional startup competitions.",
+    short: "Led teams of up to 5 in national and regional competitions.",
   },
   {
     tag: "place",
@@ -70,97 +70,211 @@ const HISTORY = [
   },
 ] as const;
 
-function Prompt({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      <span className="text-[var(--tab-accent)]">$</span> <span className="text-text">{children}</span>
-    </div>
-  );
+type Cell = { t: string; cls?: string };
+type Row = { cells: Cell[]; cls?: string };
+interface Block {
+  key: string;
+  /** Pinned mode: the block starts typing at progress `at` and is done at `end`. */
+  at: number;
+  end: number;
+  cmd: string;
+  layout: "para" | "list" | "grid";
+  rows: (compact: boolean) => Row[];
+  hideOnShort?: boolean;
+  hideOnNarrow?: boolean;
+  /** Skipped in the pinned scene (the Projects section right after shows it anyway). */
+  staticOnly?: boolean;
 }
 
-/** The terminal's output, one block per command. `at` is when it prints (pinned mode, 0..1). */
-const BLOCKS: { key: string; at: number; render: (compact: boolean) => React.ReactNode; hideOnShort?: boolean; hideOnNarrow?: boolean }[] = [
+const cellLen = (rows: Row[]) => rows.reduce((n, r) => n + r.cells.reduce((m, c) => m + c.t.length, 0), 0);
+
+/** The terminal's output, one block per command. */
+const BLOCKS: Block[] = [
   {
     key: "whoami",
-    at: 0.6,
-    render: () => (
-      <>
-        <Prompt>whoami</Prompt>
-        <div>randel serafica / cs student / cauayan, isabela</div>
-      </>
-    ),
+    at: 0.55,
+    end: 0.6,
+    cmd: "whoami",
+    layout: "para",
+    rows: () => [{ cells: [{ t: "randel serafica / cs student / cauayan, isabela" }] }],
   },
   {
     key: "about",
-    at: 0.645,
-    render: () => (
-      <>
-        <Prompt>cat about.md</Prompt>
-        <p className="max-w-[64ch]">
-          I design the product, architect the system, write the code and lead the team around it. I used to ship
-          code I couldn&apos;t explain. Now I understand every layer I build on.
-        </p>
-      </>
-    ),
+    at: 0.6,
+    end: 0.67,
+    cmd: "cat about.md",
+    layout: "para",
+    rows: () => [
+      {
+        cells: [
+          {
+            t: "I design the product, architect the system, write the code and lead the team around it. I used to ship code I couldn't explain. Now I understand every layer I build on.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "how",
+    at: 0.67,
+    end: 0.73,
+    cmd: "cat how-i-work.md",
+    layout: "para",
+    rows: () => [
+      {
+        cells: [
+          {
+            t: "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.",
+          },
+        ],
+      },
+    ],
   },
   {
     key: "projects",
-    at: 0.69,
+    at: 0.73,
+    end: 0.78,
+    staticOnly: true,
+    cmd: "git log --oneline projects/",
+    layout: "list",
     hideOnNarrow: true,
-    render: () => (
-      <>
-        <Prompt>git log --oneline projects/</Prompt>
-        <ul>
-          {projects.map((p, i) => (
-            <li key={p.slug} className="flex gap-3">
-              <span className="w-[3ch] shrink-0 text-text-muted/45">{String(7 - i).padStart(3, "0")}</span>
-              <span className="w-[8ch] shrink-0 text-text sm:w-[9ch]">{p.name.toLowerCase()}</span>
-              <span className="truncate">{p.status.toLowerCase()}</span>
-            </li>
-          ))}
-        </ul>
-      </>
-    ),
+    hideOnShort: true,
+    rows: () =>
+      projects.map((p, i) => ({
+        cells: [
+          { t: String(7 - i).padStart(3, "0"), cls: "w-[3ch] shrink-0 text-text-muted/45" },
+          { t: p.name.toLowerCase(), cls: "w-[8ch] shrink-0 text-text sm:w-[9ch]" },
+          { t: p.status.toLowerCase(), cls: "truncate" },
+        ],
+        cls: "flex gap-3",
+      })),
   },
   {
     key: "history",
-    at: 0.745,
+    at: 0.73,
+    end: 0.8,
+    cmd: "git log --graph --oneline history/",
+    layout: "list",
     hideOnShort: true,
-    render: (compact) => (
-      <>
-        <Prompt>git log --graph --oneline history/</Prompt>
-        <ul>
-          {HISTORY.map((h, i) => (
-            <li key={h.tag} className="flex gap-3">
-              <span aria-hidden="true" className="w-[2ch] shrink-0 text-[var(--tab-accent)]">
-                {i === HISTORY.length - 1 ? "*" : "|"}
-              </span>
-              <span className="w-[6ch] shrink-0 text-text">{h.tag}</span>
-              <span className={compact ? "truncate" : undefined}>{compact ? h.short : h.text}</span>
-            </li>
-          ))}
-        </ul>
-      </>
-    ),
+    hideOnNarrow: true,
+    rows: (compact) =>
+      HISTORY.map((h, i) => ({
+        cells: [
+          { t: i === HISTORY.length - 1 ? "*" : "|", cls: "w-[2ch] shrink-0 text-[var(--tab-accent)]" },
+          { t: h.tag, cls: "w-[6ch] shrink-0 text-text" },
+          { t: compact ? h.short : h.text, cls: compact ? "truncate" : undefined },
+        ],
+        cls: "flex gap-3",
+      })),
   },
   {
     key: "numbers",
     at: 0.8,
-    render: () => (
-      <>
-        <Prompt>./numbers</Prompt>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="flex items-baseline gap-2">
-              <dd className="whitespace-nowrap text-lg font-semibold text-[var(--tab-accent)]">{s.value}</dd>
-              <dt className="text-[11px] leading-tight">{s.label.toLowerCase()}</dt>
-            </div>
-          ))}
-        </dl>
-      </>
-    ),
+    end: 0.845,
+    cmd: "./numbers",
+    layout: "grid",
+    rows: () =>
+      stats.map((s) => ({
+        cells: [
+          { t: s.value, cls: "whitespace-nowrap text-lg font-semibold text-[var(--tab-accent)]" },
+          { t: s.label.charAt(0).toLowerCase() + s.label.slice(1), cls: "text-[11px] leading-tight" },
+        ],
+        cls: "flex items-baseline gap-2",
+      })),
   },
 ];
+
+function Cursor() {
+  return (
+    <span aria-hidden="true" className="relative inline-block w-0 align-baseline">
+      <span className="absolute left-0 top-[-1px] h-[1.05em] w-[0.55ch] animate-pulse bg-text" />
+    </span>
+  );
+}
+
+/** Typed text. Untyped characters stay in the layout (invisible) so lines never reflow while typing. */
+function Typed({ text, n, cls, cursor }: { text: string; n: number; cls?: string; cursor?: boolean }) {
+  const k = Math.max(0, Math.min(text.length, n));
+  return (
+    <span className={cls}>
+      <span aria-hidden="true">
+        {text.slice(0, k)}
+        {cursor && <Cursor />}
+        <span className="invisible">{text.slice(k)}</span>
+      </span>
+      <span className="sr-only">{text}</span>
+    </span>
+  );
+}
+
+/** One command and its output; `count` is how many characters have been typed so far. */
+function BlockView({ block, count, compact }: { block: Block; count: number; compact: boolean }) {
+  const rows = block.rows(compact);
+  const total = block.cmd.length + cellLen(rows);
+  const started = count > 0;
+  const done = count >= total;
+  const cmdActive = started && count < block.cmd.length;
+
+  // Characters each cell starts at, so every cell knows how much of itself is typed.
+  const lens = rows.flatMap((r) => r.cells.map((c) => c.t.length));
+  const cum = lens.reduce<number[]>((acc, l) => [...acc, (acc[acc.length - 1] ?? block.cmd.length) + l], []);
+  const startOf = (flat: number) => (flat === 0 ? block.cmd.length : cum[flat - 1]!);
+  const rowBase = rows.map((_, ri) => rows.slice(0, ri).reduce((n, r) => n + r.cells.length, 0));
+
+  const body = rows.map((r, ri) => (
+    <Row key={ri} cls={r.cls}>
+      {r.cells.map((c, ci) => {
+        const n = count - startOf(rowBase[ri]! + ci);
+        const active = started && !done && n >= 0 && n < c.t.length;
+        return <Typed key={ci} text={c.t} n={n} cls={c.cls} cursor={active} />;
+      })}
+    </Row>
+  ));
+
+  return (
+    <div>
+      <div>
+        <span className="text-[var(--tab-accent)]" style={{ opacity: started ? 1 : 0 }}>
+          $
+        </span>{" "}
+        <Typed text={block.cmd} n={count} cls="text-text" cursor={cmdActive} />
+      </div>
+      {block.layout === "para" && <div className="max-w-[64ch]">{body}</div>}
+      {block.layout === "list" && <ul>{body}</ul>}
+      {block.layout === "grid" && <dl className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">{body}</dl>}
+    </div>
+  );
+}
+
+function Row({ cls, children }: { cls?: string; children: React.ReactNode }) {
+  return <div className={cls}>{children}</div>;
+}
+
+function PinnedPrompt({ p, typing, onRun }: { p: MotionValue<number>; typing: string | null; onRun: () => void }) {
+  const at = (v: number) => Math.round(clamp01((v - 0.85) / 0.035) * PROMPT.question.length);
+  const [count, setCount] = useState(() => at(p.get()));
+  useMotionValueEvent(p, "change", (v) => {
+    const c = at(v);
+    setCount((prev) => (prev === c ? prev : c));
+  });
+  return <PromptBar typing={typing} onRun={onRun} count={count} />;
+}
+
+function countAt(block: Block, v: number, compact: boolean) {
+  const total = block.cmd.length + cellLen(block.rows(compact));
+  const q = Math.max(0, Math.min(1, (v - block.at) / (block.end - block.at)));
+  return Math.round(q * total);
+}
+
+/** Typing driven by scroll: scrub forward and the text types, scrub back and it un-types. */
+function PinnedBlock({ block, p, compact }: { block: Block; p: MotionValue<number>; compact: boolean }) {
+  const [count, setCount] = useState(() => countAt(block, p.get(), compact));
+  useMotionValueEvent(p, "change", (v) => {
+    const c = countAt(block, v, compact);
+    setCount((prev) => (prev === c ? prev : c));
+  });
+  return <BlockView block={block} count={count} compact={compact} />;
+}
 
 function TitleBar() {
   return (
@@ -174,12 +288,12 @@ function TitleBar() {
         developer.sh
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] rounded-t-md bg-[var(--tab-accent)]" />
       </span>
-      <span className="mb-2.5 ml-auto hidden text-[11px] text-text-muted/60 md:block">randel@cauayan ~ /about</span>
-    </div>
+          </div>
   );
 }
 
-function PromptBar({ typing, onRun }: { typing: string | null; onRun: () => void }) {
+function PromptBar({ typing, onRun, count = Infinity }: { typing: string | null; onRun: () => void; count?: number }) {
+  const hint = count >= PROMPT.question.length;
   return (
     <button
       type="button"
@@ -195,11 +309,14 @@ function PromptBar({ typing, onRun }: { typing: string | null; onRun: () => void
         </span>
       ) : (
         <>
-          <span className="text-text">{PROMPT.question}</span>
-          <span className="inline-block h-[1em] w-[0.5ch] translate-y-[2px] animate-pulse bg-text-muted" />
+          <Typed text={PROMPT.question} n={count} cls="text-text" cursor={count < PROMPT.question.length} />
+          {hint && <span className="inline-block h-[1em] w-[0.5ch] translate-y-[2px] animate-pulse bg-text-muted" />}
         </>
       )}
-      <span className="ml-auto shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-text-muted transition-colors group-hover:text-text">
+      <span
+        className="ml-auto shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-text-muted transition-[color,opacity] duration-300 group-hover:text-text"
+        style={{ opacity: hint ? 1 : 0 }}
+      >
         <span className="hidden pointer-fine:inline">press enter ↵</span>
         <span className="pointer-fine:hidden">tap to run ↵</span>
       </span>
@@ -281,7 +398,7 @@ function StaticAbout() {
             <div className="space-y-3">
               {BLOCKS.map((b, i) => (
                 <Out key={b.key} i={i} reduced={reduced}>
-                  {b.render(false)}
+                  <BlockView block={b} count={Infinity} compact={false} />
                 </Out>
               ))}
             </div>
@@ -360,16 +477,20 @@ function PinnedAbout() {
         const k = clamp01((x - a) / (b - a));
         return k * k * (3 - 2 * k);
       };
-      const exit = ss(0.95, 0.995, v);
-      // The hero's dust spirals into the hole as the section rises, and spirals back out when it collapses
-      swirlState.amount = v > 0 ? 1 - ss(0.93, 1, v) : ss(0.18, 1, entry);
+      const exit = ss(0.975, 0.995, v);
+      const center = v > 0 ? ss(0.9, 0.95, v) : 0;
+      // The hero's dust spirals into the hole as the section rises; at the end the hole centres,
+      // compresses, and the dust bursts back out (that burst is the hand-off to the sphere).
+      swirlState.amount = v > 0 ? 1 - ss(0.97, 1, v) : ss(0.18, 1, entry);
+      swirlState.center = center;
       bgA.set(v > 0 ? 1 - exit : ss(0.88, 1, entry));
       layerA.set(v > 0 ? 1 - exit : ss(0.55, 0.95, entry));
       const t = targets.current;
       t.form = Math.max(clamp01(v / 0.08), 0.62 * ss(0.55, 0.95, entry));
       t.pull = clamp01((v - 0.06) / 0.46);
-      t.collapse = clamp01((v - 0.92) / 0.07);
-      setInteractive(v > 0.84 && v < 0.93);
+      t.center = center;
+      t.collapse = ss(0.94, 0.975, v);
+      setInteractive(v > 0.86 && v < 0.92);
       setCaption(v < 0.05 ? 0 : v < 0.52 ? 1 : v < 0.9 ? 2 : 3);
     };
     const schedule = () => {
@@ -385,11 +506,11 @@ function PinnedAbout() {
     };
   }, [containerRef, p]);
 
-  const winOpacity = useTransform(p, [0.52, 0.64, 0.9, 0.97], [0, 1, 1, 0]);
-  const winY = useTransform(p, [0.52, 0.64], [48, 0]);
+  const winOpacity = useTransform(p, [0.5, 0.58, 0.9, 0.95], [0, 1, 1, 0]);
+  const winX = useTransform(p, [0.9, 0.95], ["0vw", "-70vw"]);
+  const winY = useTransform(p, [0.5, 0.58], [48, 0]);
   const sectionBg = useTransform(bgA, (a) => `rgba(0,0,0,${a})`);
   const stickyOpacity = useTransform(bgA, [0, 0.5, 1], [1, 1, 1]);
-  const winScale = useTransform(p, [0.9, 0.97], [1, 0.95]);
   const layerVisible = useTransform(layerA, (a) => (a > 0.001 ? "visible" : "hidden"));
 
   /**
@@ -507,19 +628,17 @@ function PinnedAbout() {
           className={`absolute z-10 flex flex-col overflow-hidden rounded-xl border border-border bg-[#0a0a0a]/85 font-[family-name:var(--font-mono)] text-[12px] leading-[1.65] text-text-muted shadow-[0_40px_120px_-30px_rgba(0,0,0,0.95)] backdrop-blur-md sm:text-[12.5px] ${
             narrow ? "inset-x-3 bottom-3 top-[40%]" : "bottom-[7vh] left-[4vw] top-[7vh] w-[min(55vw,860px)]"
           } ${interactive ? "" : "pointer-events-none"}`}
-          style={{ opacity: winOpacity, y: winY, scale: winScale, ["--tab-accent" as string]: "#d11a2a" }}
+          style={{ opacity: winOpacity, x: winX, y: winY, ["--tab-accent" as string]: "#d11a2a" }}
         >
           <TitleBar />
           <div className="flex min-h-0 flex-1 flex-col justify-between px-4 py-4 sm:px-6">
             <div className="space-y-2">
-              {BLOCKS.filter((b) => !(short && b.hideOnShort) && !(narrow && (b.hideOnShort || b.hideOnNarrow))).map((b) => (
-                <Beat key={b.key} p={p} at={b.at}>
-                  {b.render(true)}
-                </Beat>
+              {BLOCKS.filter((b) => !b.staticOnly).filter((b) => !(short && b.hideOnShort) && !(narrow && (b.hideOnShort || b.hideOnNarrow))).map((b) => (
+                <PinnedBlock key={b.key} p={p} block={b} compact />
               ))}
             </div>
-            <Beat p={p} at={0.85}>
-              <PromptBar typing={typing} onRun={run} />
+            <Beat p={p} at={0.84}>
+              <PinnedPrompt p={p} typing={typing} onRun={run} />
             </Beat>
           </div>
         </motion.div>
