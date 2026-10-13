@@ -1,23 +1,19 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   motion,
   useMotionValueEvent,
   useReducedMotion,
   useScroll,
   useTransform,
+  type MotionValue,
 } from "framer-motion";
 import { useSnapScroll } from "@/components/SmoothScroll";
+import dynamic from "next/dynamic";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { useIsVisible } from "@/lib/hooks/useIsVisible";
-import { resume } from "@/lib/content/site";
+import { availability, resume } from "@/lib/content/site";
 import {
   alignCloudTipToOrigin,
   cloneCloud,
@@ -26,98 +22,46 @@ import {
   subsampleCloud,
   type PointCloud,
 } from "@/lib/particles/sampleImageToPoints";
-import dynamic from "next/dynamic";
 
-// Loaded only when the section is near the viewport (see `visible` below).
 const HandParticleCanvas = dynamic(
   () => import("./HandParticleCanvas").then((m) => m.HandParticleCanvas),
   { ssr: false },
 );
+
+const GOD_SRC = "/hand-god.png";
+const ADAM_SRC = "/hand-adam.png";
+const BUDGET = { high: 60_000, low: 12_000 } as const;
+type Orientation = "landscape" | "portrait";
+
+function subscribeOrientation(cb: () => void) {
+  window.addEventListener("resize", cb);
+  window.addEventListener("orientationchange", cb);
+  return () => {
+    window.removeEventListener("resize", cb);
+    window.removeEventListener("orientationchange", cb);
+  };
+}
+const getOrientation = (): Orientation => (window.innerWidth < window.innerHeight ? "portrait" : "landscape");
+const getOrientationServer = (): Orientation => "landscape";
 import { HandRevealStatic } from "./HandRevealStatic";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { ResumeButton } from "./ResumeButton";
 import { ResumeCard } from "./ResumeCard";
 
-const GOD_SRC = "/hand-god.png";
-const ADAM_SRC = "/hand-adam.png";
-
-/**
- * Particle ceiling per hand.
- *
- * The current crops yield 30,793 and 34,170 points at 1:1 sampling, so `high` sits
- * above both and nothing is dropped, the hands render at full source fidelity.
- * The ceiling only bites if larger crops are supplied later, and `subsampleCloud`
- * then thins them uniformly instead of truncating.
- *
- * It previously capped at 22,000 with `normalizeCloudCount`, which keeps the first
- * N points in top-to-bottom scan order, silently deleting the bottom 84px of a
- * 180px-tall hand. Roughly half of each hand was simply missing.
- */
-const BUDGET = { high: 60_000, low: 12_000 } as const;
-
 /** Scroll distance the section stays pinned. 300vh matches ProjectSphereSection,
  *  the pattern already established for pinning on this page. */
-const PIN_HEIGHT_VH = 300;
+const PIN_HEIGHT_VH = 400;
 
-/** Progress at which the button becomes interactive, the hands are essentially
- *  closed by here, and gating clicks avoids an invisible-but-clickable target. */
-const BUTTON_ACTIVE_AT = 0.88;
+/** Progress at which the button becomes interactive, the page is essentially
+ *  printed by here, and gating clicks avoids an invisible-but-clickable target. */
+const BUTTON_ACTIVE_AT = 0.84;
 
-type Orientation = "landscape" | "portrait";
-
-// ─── Orientation as an external store ─────────────────────────────────────────
-//
-// Viewport orientation is external mutable state, so `useSyncExternalStore` is the
-// right primitive, the same approach SmoothScroll uses for scroll progress. It
-// also removes the need to debounce: the snapshot is a string, so React's Object.is
-// comparison means a re-render happens only when the orientation actually flips,
-// not on every resize event.
-
-function subscribeOrientation(callback: () => void) {
-  window.addEventListener("resize", callback);
-  window.addEventListener("orientationchange", callback);
-  return () => {
-    window.removeEventListener("resize", callback);
-    window.removeEventListener("orientationchange", callback);
-  };
-}
-
-function getOrientationSnapshot(): Orientation {
-  return window.innerWidth < window.innerHeight ? "portrait" : "landscape";
-}
-
-/** Never actually used, this subtree doesn't server-render (see the hydration
- *  gate in HandRevealSection), but useSyncExternalStore requires it. */
-function getOrientationServerSnapshot(): Orientation {
-  return "landscape";
-}
-
-/**
- * Hand-reveal section, two particle hands converging on the resume download,
- * immediately above the footer.
- *
- * Always renders particles. There is no Clean-mode image version: flat PNGs of the
- * fresco read as stock art, and a still can't stand in for the effect. The only
- * fallback left is for devices that cannot create a WebGL context at all, where
- * the choice is the bare CTA or a broken section.
- *
- * Pinning is `position: sticky` over a tall spacer rather than wheel interception.
- * The visual result is identical, but it keeps native touch, keyboard and
- * anchor-jump scrolling intact, and avoids a second scroll-jacker fighting
- * `useVirtualScroll`, which already locks the wheel for the project sphere.
- */
+/** Two particle hands reach in, touch, and the resume appears between them. */
 export function HandRevealSection() {
   const { webglAvailable, tier } = useDeviceCapability();
   const reducedMotion = useReducedMotion();
-
-  // Reduced-motion visitors get the button without a 300vh scrubbed animation.
   if (reducedMotion) return <HandRevealStatic />;
-
-  // `unknown` is the SSR/hydration snapshot. Render nothing structural until the
-  // probe resolves, so we never flash a fallback at capable devices.
-  if (tier === "unknown") return <HandRevealStatic />;
-  if (!webglAvailable || tier === "none") return <HandRevealStatic />;
-
+  if (tier === "unknown" || !webglAvailable || tier === "none") return <HandRevealStatic />;
   return <HandRevealImmersive tier={tier === "low" ? "low" : "high"} />;
 }
 
@@ -125,71 +69,36 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
   const { containerRef } = useSnapScroll();
   const sectionRef = useRef<HTMLDivElement>(null);
   const { ref: visibilityRef, visible } = useIsVisible("400px");
-
-  const orientation = useSyncExternalStore(
-    subscribeOrientation,
-    getOrientationSnapshot,
-    getOrientationServerSnapshot,
-  );
-
-  /**
-   * Pristine samples. Held in state rather than a ref so the positioned clouds
-   * can be derived with `useMemo`, an orientation flip then re-derives without
-   * re-decoding the PNGs and without a setState-in-effect round trip.
-   */
-  const [rawSamples, setRawSamples] = useState<{
-    god: PointCloud;
-    adam: PointCloud;
-  } | null>(null);
+  const orientation = useSyncExternalStore(subscribeOrientation, getOrientation, getOrientationServer);
+  const [rawSamples, setRawSamples] = useState<{ god: PointCloud; adam: PointCloud } | null>(null);
   const [failed, setFailed] = useState(false);
   const [buttonActive, setButtonActive] = useState(false);
-
-  /** Scroll progress, read inside useFrame. A ref rather than state so scrolling
-   *  never triggers a React render. */
   const progressRef = useRef(0);
 
-  /** Positioned, tip-anchored clouds for the current orientation. */
   const clouds = useMemo(
     () => (rawSamples ? deriveClouds(rawSamples, orientation) : null),
     [rawSamples, orientation],
   );
 
-  // ── Sample the crops once, lazily, when the section approaches ──
   useEffect(() => {
     if (!visible || rawSamples || failed) return;
-
     let cancelled = false;
-
-    async function load() {
+    (async () => {
       try {
-        // gridInterval rather than targetCount: the sampler estimates interval
-        // from TOTAL pixels, but ~76% of these images are transparent, so a
-        // targetCount request would under-sample by roughly 4x.
-        //
-        // alphaThreshold is low (10) on purpose, it keeps the soft antialiased
-        // pixels around the silhouette, which is what makes the edge read as a
-        // drawn contour rather than a cut-out.
         const interval = tier === "high" ? 1 : 2;
         const [god, adam] = await Promise.all([
           sampleImageToPoints(GOD_SRC, { gridInterval: interval, alphaThreshold: 10 }),
           sampleImageToPoints(ADAM_SRC, { gridInterval: interval, alphaThreshold: 10 }),
         ]);
         if (cancelled) return;
-
         const budget = BUDGET[tier];
-        setRawSamples({
-          god: subsampleCloud(god, budget),
-          adam: subsampleCloud(adam, budget, 0x5bf03635),
-        });
+        setRawSamples({ god: subsampleCloud(god, budget), adam: subsampleCloud(adam, budget, 0x5bf03635) });
       } catch (err) {
         if (cancelled) return;
-        // A failed sample degrades to the bare CTA rather than an empty canvas.
         console.error("[hand-reveal] Failed to sample hand crops:", err);
         setFailed(true);
       }
-    }
-
-    load();
+    })();
     return () => {
       cancelled = true;
     };
@@ -221,23 +130,11 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
   // unfolds out of the contact point, small, blurred and tipped back, and grows
   // to full size while a scan line writes its text in (that part is `reveal`,
   // read by the card itself) → the actions settle in below it.
-  const handsOpacity = useTransform(scrollYProgress, [0, 0.62, 0.9, 1], [1, 1, 0.2, 0.2]);
-  const handsScale = useTransform(scrollYProgress, [0, 0.62, 1], [1, 1, 1.1]);
-  const flashOpacity = useTransform(scrollYProgress, [0, 0.6, 0.68, 0.84, 1], [0, 0, 0.9, 0, 0]);
-  const flashScale = useTransform(scrollYProgress, [0, 0.6, 0.84, 1], [0.4, 0.4, 2.4, 2.4]);
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.62, 0.7, 1], [0, 0, 1, 1]);
-  // The card's resting centre sits a little above screen centre (the actions
-  // are stacked under it), so it starts that far BELOW, exactly on the contact point.
-  const cardY = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [58, 58, 0, 0]);
-  const cardRotate = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [48, 48, 0, 0]);
-  const cardScale = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [0.14, 0.14, 1, 1]);
-  const cardBlur = useTransform(scrollYProgress, [0, 0.62, 0.76, 1], [14, 14, 0, 0]);
-  const cardFilter = useTransform(cardBlur, (b) => (b < 0.2 ? "none" : `blur(${b}px)`));
-  // The page is written out between the moment it opens and the moment it lands.
-  const reveal = useTransform(scrollYProgress, [0, 0.72, 0.93, 1], [0, 0, 1, 1]);
-  const actionsOpacity = useTransform(scrollYProgress, [0, 0.8, 0.92, 1], [0, 0, 1, 1]);
-  const actionsY = useTransform(scrollYProgress, [0, 0.8, 0.92, 1], [18, 18, 0, 0]);
-  const eyebrowOpacity = useTransform(scrollYProgress, [0, 0.12, 0.5, 0.66, 1], [0, 1, 1, 0, 0]);
+  const handsOpacity = useTransform(scrollYProgress, [0, 1], [1, 1]);
+  const handsScale = useTransform(scrollYProgress, [0, 1], [1, 1]);
+  const flashOpacity = useTransform(scrollYProgress, [0, 0.5, 0.56, 0.7, 1], [0, 0, 0.7, 0, 0]);
+  const flashScale = useTransform(scrollYProgress, [0, 0.5, 0.7, 1], [0.4, 0.4, 2.4, 2.4]);
+  const eyebrowOpacity = useTransform(scrollYProgress, [0, 0.06, 0.45, 0.55, 1], [0, 1, 1, 0, 0]);
 
   if (failed) return <HandRevealStatic />;
 
@@ -249,11 +146,9 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
       className="relative z-[2]"
       style={{ height: `${PIN_HEIGHT_VH}vh` }}
     >
-      <div ref={visibilityRef} className="absolute inset-0 pointer-events-none" />
+      <div ref={visibilityRef} className="pointer-events-none absolute inset-0" />
 
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        {/* Particles mount only once sampled and only while near the viewport;
-            the render loop stops entirely when the section scrolls away. */}
         {clouds && (
           <motion.div className="absolute inset-0 z-[1]" style={{ opacity: handsOpacity, scale: handsScale }}>
             <HandParticleCanvas
@@ -288,34 +183,44 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
             }}
           />
 
-          <div className="flex flex-col items-center gap-7 sm:gap-9">
-            <motion.div
-              className={`w-[min(72vw,46vh,380px)] ${buttonActive ? "pointer-events-auto" : ""}`}
-              style={{
-                opacity: cardOpacity,
-                y: cardY,
-                rotateX: cardRotate,
-                scale: cardScale,
-                filter: cardFilter,
-                transformPerspective: 1100,
-              }}
-            >
-              <ResumeCard reveal={reveal} />
-            </motion.div>
+          {/* Side notes, only where the screen is wide enough that they sit
+              between the hands and the card instead of on top of either. */}
+          <motion.div
+            aria-hidden="true"
+            className="absolute left-1/2 top-1/2 hidden w-[calc(50vw-100px)] -translate-x-1/2 -translate-y-[62%] justify-between min-[1700px]:flex"
+          >
+            <div className="w-[calc((50vw-100px-380px)/2-24px)] space-y-7">
+              <SideNote p={scrollYProgress} at={0.26} right label="Format" value="One page" detail="PDF · ATS-friendly" />
+              <SideNote p={scrollYProgress} at={0.34} right label="Updated" value="October 2026" detail="Always the latest" />
+            </div>
+            <div className="w-[calc((50vw-100px-380px)/2-24px)] space-y-7">
+              <SideNote p={scrollYProgress} at={0.42} label="Based in" value="Cauayan, Isabela" detail="Philippines · Remote-friendly" />
+              <SideNote p={scrollYProgress} at={0.5} label="Status" value={availability.label} detail="Internships and junior roles" live />
+            </div>
+          </motion.div>
 
-            <motion.div
-              className="pointer-events-auto flex flex-col items-center gap-3"
-              style={{ opacity: actionsOpacity, y: actionsY }}
-            >
+          <div className="flex flex-col items-center gap-7 sm:gap-9">
+            <Reveal p={scrollYProgress} at={0.52} len={0.16} y={34} scaleFrom={0.9} blur={10}
+              className={`w-[min(72vw,40vh,380px)] ${buttonActive ? "pointer-events-auto" : ""}`}>
+              <ResumeCard />
+            </Reveal>
+
+            <div className="pointer-events-auto flex flex-col items-center gap-3">
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-                <ResumeButton active={buttonActive} />
-                <CopyEmailButton />
+                <Reveal p={scrollYProgress} at={0.7} len={0.07} y={20}>
+                  <ResumeButton active={buttonActive} />
+                </Reveal>
+                <Reveal p={scrollYProgress} at={0.74} len={0.07} y={20}>
+                  <CopyEmailButton />
+                </Reveal>
               </div>
-              <p className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted">
-                <span aria-hidden="true" className="resume-pulse h-1.5 w-1.5 rounded-full bg-accent" />
-                {resume.meta}
-              </p>
-            </motion.div>
+              <Reveal p={scrollYProgress} at={0.79} len={0.06} y={10}>
+                <p className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                  <span aria-hidden="true" className="resume-pulse h-1.5 w-1.5 rounded-full bg-accent" />
+                  {resume.meta}
+                </p>
+              </Reveal>
+            </div>
           </div>
         </div>
       </div>
@@ -324,37 +229,86 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
 }
 
 /**
- * Turns pristine samples into positioned clouds for the given orientation.
- *
- * Landscape keeps the fresco's geometry: God's hand points left (its tip is the
- * leftmost point), Adam's points right. Portrait rotates both a quarter turn so
- * the fingers face the vertical gap, otherwise the hands would approach from
- * top and bottom while pointing sideways, and would never appear to reach for
- * each other.
- *
- * Every cloud is anchored by its fingertip, so the shader's ±gap/2 placement
- * produces an exact pixel separation regardless of how each crop was framed.
+ * Fades an element in over a slice of the section's scroll progress: from `at` to
+ * `at + len`, rising from `y` px (and sliding from `x`, growing from `scaleFrom`,
+ * clearing from `blur`). Holds its final state afterwards.
  */
+function Reveal({
+  p,
+  at,
+  len,
+  x = 0,
+  y = 0,
+  scaleFrom = 1,
+  blur = 0,
+  className,
+  children,
+}: {
+  p: MotionValue<number>;
+  at: number;
+  len: number;
+  x?: number;
+  y?: number;
+  scaleFrom?: number;
+  blur?: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const range = [0, at, at + len, 1];
+  const opacity = useTransform(p, range, [0, 0, 1, 1]);
+  const tx = useTransform(p, range, [x, x, 0, 0]);
+  const ty = useTransform(p, range, [y, y, 0, 0]);
+  const scale = useTransform(p, range, [scaleFrom, scaleFrom, 1, 1]);
+  const b = useTransform(p, range, [blur, blur, 0, 0]);
+  const filter = useTransform(b, (v) => (v < 0.2 ? "none" : `blur(${v}px)`));
+  return (
+    <motion.div className={className} style={{ opacity, x: tx, y: ty, scale, filter }}>
+      {children}
+    </motion.div>
+  );
+}
+
+/** Fingers face the gap: landscape keeps the fresco geometry; portrait turns both
+ *  a quarter turn so they approach from top and bottom. */
 function deriveClouds(
   raw: { god: PointCloud; adam: PointCloud },
   orientation: Orientation,
 ): { god: PointCloud; adam: PointCloud } {
   const god = cloneCloud(raw.god);
   const adam = cloneCloud(raw.adam);
-
   if (orientation === "portrait") {
-    // God enters from the top and must point down: rotate its leftward tip to -y.
     rotateCloudZ(god, -Math.PI / 2);
-    // Adam enters from the bottom and must point up: rotate its rightward tip to +y.
     rotateCloudZ(adam, -Math.PI / 2);
-    return {
-      god: alignCloudTipToOrigin(god, "y", "min"),
-      adam: alignCloudTipToOrigin(adam, "y", "max"),
-    };
+    return { god: alignCloudTipToOrigin(god, "y", "min"), adam: alignCloudTipToOrigin(adam, "y", "max") };
   }
+  return { god: alignCloudTipToOrigin(god, "x", "min"), adam: alignCloudTipToOrigin(adam, "x", "max") };
+}
 
-  return {
-    god: alignCloudTipToOrigin(god, "x", "min"),
-    adam: alignCloudTipToOrigin(adam, "x", "max"),
-  };
+function SideNote({
+  p,
+  at,
+  label,
+  value,
+  detail,
+  live,
+  right,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  live?: boolean;
+  right?: boolean;
+  p: MotionValue<number>;
+  at: number;
+}) {
+  return (
+    <Reveal p={p} at={at} len={0.09} x={right ? -28 : 28} blur={6} className={right ? "text-right" : ""}>
+      <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.18em] text-accent">{label}</p>
+      <p className={`mt-1.5 flex items-center gap-2 font-[family-name:var(--font-serif)] text-[26px] leading-tight text-text ${right ? "justify-end" : ""}`}>
+        {live && <span className="resume-pulse h-2 w-2 rounded-full bg-accent" />}
+        {value}
+      </p>
+      <p className="mt-1 text-[13px] text-text-muted">{detail}</p>
+    </Reveal>
+  );
 }

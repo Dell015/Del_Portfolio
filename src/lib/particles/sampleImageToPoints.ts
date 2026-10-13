@@ -19,6 +19,12 @@ export interface PointCloud {
    * resolution, grid interval, or subsample ratio.
    */
   gridStep?: number;
+  /**
+   * The size the canvas should scale by, when the cloud has parts that should not
+   * count toward it. Generated hands carry a long forearm that runs off screen;
+   * the hand itself (wrist to fingertip) is the reference.
+   */
+  refSpan?: number;
 }
 
 interface SampleOptions {

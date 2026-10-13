@@ -11,18 +11,12 @@ import {
   getCloudBounds,
   type PointCloud,
 } from "@/lib/particles/sampleImageToPoints";
-
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-/** Fingertip separation at full progress, in CSS pixels. The fresco's negative
- *  space is the whole point, the hands must never close it. */
 const GAP_PX_DESKTOP = 72;
-/** Portrait gets a slightly wider gap: the button sits inside it. */
 const GAP_PX_PORTRAIT = 88;
-
-/** Each hand's long edge as a fraction of the smaller viewport dimension. */
 const HAND_SCALE_LANDSCAPE = 0.42;
 const HAND_SCALE_PORTRAIT = 0.5;
+
+// ─── Layout constants ─────────────────────────────────────────────────────────
 
 /** Same delta clamp the hero uses, a frameloop toggle resets R3F's clock, so
  *  every animated value accumulates its own elapsed time from `delta`. */
@@ -45,6 +39,7 @@ const vertexShader = /* glsl */ `
   uniform vec3 uOrigin;
   uniform vec3 uRest;
   uniform float uScale;
+  uniform float uExtent;
 
   varying vec3 vColor;
   varying float vAlpha;
@@ -63,14 +58,19 @@ const vertexShader = /* glsl */ `
     // At (1.0 + speed*0.6) the slowest particle lands at uProgress 0.85 and the
     // fastest at 0.50, so arrival is still staggered but everything is at rest for
     // the final stretch, which is exactly where the gap has to read.
-    float rawP = uProgress * (1.0 + speed * 0.6);
-    float p = 1.0 - pow(1.0 - clamp(rawP, 0.0, 1.0), 1.5 + speed * 0.8);
+    // Slow build: each particle waits for its turn, fingertips first and the arm
+    // last, so the hand is drawn out of the dust from the reaching end backwards.
+    // Each then settles with a long ease-out, which is what reads as slow motion.
+    float delay = clamp(length(shapePos.xy) / uExtent, 0.0, 1.0);
+    float start = delay * 0.30 + speed * 0.05;
+    float t = clamp((uProgress - start) / 0.40, 0.0, 1.0);
+    float p = 1.0 - pow(1.0 - t, 3.0);
 
     // Dispersed → formed hand, in the cloud's own local space.
     vec3 local = mix(scatterPos, shapePos, p) * uScale;
 
     // Off-screen origin → resting position, completing alongside the morph.
-    float travelT = smoothstep(0.0, 0.85, uProgress);
+    float travelT = smoothstep(0.0, 0.45, uProgress);
     vec3 pos = local + mix(uOrigin, uRest, travelT);
 
     // Curl turbulence, bell-tapered to exactly zero at both rest states so the
@@ -80,7 +80,7 @@ const vertexShader = /* glsl */ `
     pos += curl * 0.16 * bell;
 
     // Once settled, a barely-there breath keeps the held pose from looking frozen.
-    float settled = smoothstep(0.85, 1.0, uProgress);
+    float settled = smoothstep(0.7, 0.8, uProgress);
     pos += vec3(
       sin(uTime * 0.5 + speed * 6.28),
       cos(uTime * 0.4 + speed * 5.0),
@@ -93,11 +93,11 @@ const vertexShader = /* glsl */ `
     // closed. That destroyed the thing it was meant to celebrate: the detail in a
     // Michelangelo hand IS the tonal modelling, and blowing the highlights to
     // white flattens it into a glowing blob. Only a slight warm lift remains.
-    float charge = smoothstep(0.5, 1.0, uProgress);
+    float charge = smoothstep(0.4, 0.75, uProgress);
     vColor = pColor * (1.0 + 0.12 * charge);
 
     // Fade in on entry; hold once present.
-    vAlpha = smoothstep(0.0, 0.10, uProgress);
+    vAlpha = smoothstep(0.0, 0.18, t);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -201,6 +201,8 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
    * makes it independent of however tightly a future crop happens to be framed.
    */
   const handSpan = useMemo(() => {
+    // Generated hands say how big the hand is; their long forearm must not count.
+    if (cloud.refSpan) return cloud.refSpan;
     const b = getCloudBounds(cloud);
     return Math.max(b.maxX - b.minX, b.maxY - b.minY) || 2;
   }, [cloud]);
@@ -216,6 +218,7 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
       uOrigin: { value: new THREE.Vector3() },
       uRest: { value: new THREE.Vector3() },
       uScale: { value: 1 },
+      uExtent: { value: 1 },
     }),
     [],
   );
@@ -232,7 +235,10 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
       size.height,
     );
 
-    const gapPx = portrait ? GAP_PX_PORTRAIT : GAP_PX_DESKTOP;
+    // The hands stop well apart: the resume appears in the space between them.
+    const gapPx = portrait
+      ? Math.max(GAP_PX_PORTRAIT, size.height * 0.72)
+      : Math.max(GAP_PX_DESKTOP, size.width * 0.5);
     const halfGap = (gapPx * worldPerPx) / 2;
 
     // Target on-screen size of the hand's longest edge, as a fraction of the
@@ -244,7 +250,22 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
 
     // Divide by the hand's measured span, not by the frame's 2 units, so the
     // fraction above describes the hand itself.
-    const scale = targetSpan / handSpan;
+    {
+      const eb = getCloudBounds(cloud);
+      mat.uniforms.uExtent.value =
+        Math.hypot(Math.max(Math.abs(eb.minX), eb.maxX), Math.max(Math.abs(eb.minY), eb.maxY)) || 1;
+    }
+    let scale = targetSpan / handSpan;
+
+    // The source crops end in a flat cut where the forearm was trimmed. Make sure
+    // that cut always lands past the screen edge: grow the hand, if need be, until
+    // it reaches from its resting fingertip to beyond the edge on its long axis.
+    if (!cloud.refSpan) {
+      const b = getCloudBounds(cloud);
+      const extent = portrait ? b.maxY - b.minY : b.maxX - b.minX;
+      const room = (portrait ? halfHeight : halfWidth) - halfGap;
+      if (extent > 0) scale = Math.min(Math.max(scale, (room * 1.08) / extent), scale * 2.2);
+    }
     mat.uniforms.uScale.value = scale;
     mat.uniforms.uCamZ.value = cam.position.z;
 

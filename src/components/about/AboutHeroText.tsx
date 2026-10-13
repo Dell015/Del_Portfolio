@@ -9,7 +9,6 @@ import {
   BottomLeftPanel,
   ContactLinks,
   PortraitFrame,
-  SkipToContact,
   TopRightPanel,
 } from "./HeroSidePanels";
 
@@ -264,7 +263,6 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
         <PortraitFrame delay={PHOTO_DELAY + 0.2} opacity={photoOpacity} />
         <TopRightPanel delay={BIO_DELAY} style={{ y: yBioTopExit, opacity: opacityBioTop }} />
         <BottomLeftPanel delay={BIO_DELAY + 0.15} style={{ y: yBioBottomExit, opacity: opacityBioBottom }} />
-        <SkipToContact delay={BIO_DELAY + 0.6} />
       </motion.div>
 
       {/* === MOBILE LAYOUT === */}

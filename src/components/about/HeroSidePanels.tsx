@@ -194,17 +194,3 @@ export function PortraitFrame({ delay, opacity }: { delay: number; opacity: Moti
     </motion.div>
   );
 }
-
-export function SkipToContact({ delay }: { delay: number }) {
-  return (
-    <motion.a
-      href="#footer"
-      className="pointer-events-auto absolute bottom-6 left-1/2 z-[4] -translate-x-1/2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.24em] text-text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6, delay }}
-    >
-      skip to contact ↓
-    </motion.a>
-  );
-}
