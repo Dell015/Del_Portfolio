@@ -16,7 +16,7 @@ export const bio = {
 export const facts = [
   "Based in Cauayan, Isabela, Philippines",
   "BS Computer Science, University of Saint Louis Tuguegarao (2027)",
-  "Led teams of up to 5 in national and regional startup competitions",
+  "Led teams of up to 5 in regional startup competitions",
   "Builds for the Philippine market: local users, local pricing",
   "Enterprise ERP internship experience (under NDA)",
   "Currently open to work",
@@ -41,13 +41,43 @@ export const footer = {
 } as const;
 
 /** Hand-reveal / resume section copy.
- *  Set `href` to the PDF path (e.g. "/Randel_Serafica_Resume.pdf") once it is in /public.
- *  While it is "#", the button turns into "Request my resume" (an email link). */
+ *  `href` points at the PDF in /public. If it is ever set back to "#", the button
+ *  turns into "Request my resume" (an email link) instead of a dead download.
+ *  `preview` is the short, NDA-safe text printed on the paper card; keep it in
+ *  sync with the PDF. */
 export const resume = {
   eyebrow: "Almost there",
   ctaLabel: "Download resume",
   requestLabel: "Request my resume",
-  href: "#",
+  href: "/Randel_Serafica_Resume.pdf",
+  fileName: "Randel_Serafica_Resume.pdf",
+  meta: "PDF · 1 page · Updated October 2026",
+  preview: {
+    role: "Full-stack developer",
+    location: "Cauayan, Isabela · Philippines",
+    blocks: [
+      {
+        label: "Experience",
+        lines: ["Full Stack Developer Intern", "Internal ERP system · 240 hours · 2026"],
+      },
+      {
+        label: "Project",
+        lines: ["Karela · Team Lead, 5 members", "React Native · Supabase · Gemini API"],
+      },
+      {
+        label: "Education",
+        lines: ["BS Computer Science · USLT", "2023 to 2027 · Highest Honors"],
+      },
+      {
+        label: "Achievements",
+        lines: ["PSC 10 · Regional Finalist · 2025", "IgnITE · 1st Runner-Up · 2025"],
+      },
+      {
+        label: "Skills",
+        lines: ["TypeScript · React · Next.js · Flutter", "Python · SQL · Supabase"],
+      },
+    ],
+  },
 } as const;
 
 /** Quick nav links in the footer's secondary row. Mirrors Nav.tsx anchors. */
@@ -109,9 +139,9 @@ export const credentials = {
       title: "Experience",
       items: [
         {
-          primary: "Software Development Intern",
-          secondary: "On-the-job training · Enterprise ERP system",
-          note: "Worked on a large, complex enterprise resource planning system. Client and implementation details are confidential under NDA.",
+          primary: "Full Stack Developer Intern",
+          secondary: "240-hour internship · Internal ERP system · 2026",
+          note: "Worked with a team building an internal enterprise resource planning system for a whole company. Client and implementation details are confidential under NDA.",
         },
       ],
     },
@@ -129,12 +159,12 @@ export const credentials = {
       title: "Competitions",
       items: [
         {
-          primary: "Philippine Startup Challenge 11: Regional Finalist",
-          secondary: "DICT Region II · 2025 · Founding CEO & Lead Developer",
+          primary: "Philippine Startup Challenge 10: Regional Finalist",
+          secondary: "DICT Region II · 2025 · Team Lead & Developer",
         },
         {
           primary: "IgnITE Start-Up Competition: 1st Runner-Up",
-          secondary: "2025 · Founding CEO & Lead Developer",
+          secondary: "2025 · Team Lead & Developer",
         },
         {
           primary: "IGNITE OGIS Start-Up Competition",

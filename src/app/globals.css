@@ -222,3 +222,79 @@ p {
     inset 0 0 0 1px var(--c),
     0 0 24px -4px color-mix(in srgb, var(--c) 60%, transparent);
 }
+
+/* ── Resume screen: idle motion ──────────────────────────────────────────────
+   Transform and opacity only, so these stay on the compositor. The global
+   reduced-motion rule above collapses them to a single still frame. */
+
+/* The paper drifts like it is hanging in the air; the small Y rotation keeps
+   it reading as 3D on touch screens, where there is no cursor tilt. */
+@keyframes resume-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(-3.5deg) rotateZ(-0.4deg); }
+  50%      { transform: translate3d(0, -9px, 0) rotateX(2.5deg) rotateY(3.5deg) rotateZ(0.5deg); }
+}
+.resume-float {
+  animation: resume-float 7.5s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+
+/* A red scanner band sweeps the page, then rests for a few seconds. */
+@keyframes resume-scan {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  6%   { opacity: 1; }
+  44%  { transform: translateY(455%); opacity: 1; }
+  50%  { transform: translateY(455%); opacity: 0; }
+  100% { transform: translateY(455%); opacity: 0; }
+}
+.resume-scan {
+  animation: resume-scan 7s cubic-bezier(0.45, 0, 0.35, 1) 1.4s infinite;
+}
+
+/* Halo behind the paper breathes. */
+@keyframes resume-breathe {
+  0%, 100% { opacity: 0.5; transform: scale(0.95); }
+  50%      { opacity: 0.95; transform: scale(1.05); }
+}
+.resume-breathe {
+  animation: resume-breathe 6s ease-in-out infinite;
+}
+
+/* Specks of dust rise off the page, echoing the particle hands. */
+@keyframes resume-dust {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(0.5); }
+  18%  { opacity: 0.9; }
+  100% { opacity: 0; transform: translate3d(var(--dx), var(--dy), 0) scale(1); }
+}
+.resume-dust {
+  animation: resume-dust var(--t, 7s) ease-out var(--d, 0s) infinite;
+  opacity: 0;
+}
+
+/* Sheen that crosses the download button every few seconds, hover or not. */
+@keyframes resume-sheen {
+  0%, 58%  { transform: translateX(-130%) skewX(-12deg); opacity: 0; }
+  64%      { opacity: 1; }
+  100%     { transform: translateX(560%) skewX(-12deg); opacity: 0; }
+}
+.resume-sheen {
+  animation: resume-sheen 6.5s ease-in-out 1s infinite;
+}
+
+/* Download arrow bobs gently, so the button reads as "pull this down". */
+@keyframes resume-bob {
+  0%, 100% { transform: translateY(-1.5px); }
+  50%      { transform: translateY(2px); }
+}
+.resume-bob {
+  animation: resume-bob 1.8s ease-in-out infinite;
+}
+
+/* Status dot on the stamp and the meta line. */
+@keyframes resume-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(209, 26, 42, 0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(209, 26, 42, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(209, 26, 42, 0); }
+}
+.resume-pulse {
+  animation: resume-pulse 2.2s ease-out infinite;
+}

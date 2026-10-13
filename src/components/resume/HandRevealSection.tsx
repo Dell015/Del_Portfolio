@@ -217,16 +217,24 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
   // to hold it. Relying on out-of-range clamping proved unsafe: an opacity
   // transform declared as [0.15, 0.82] → [0.25, 1] ramped back down past 0.82.
   //
-  // Story over the pinned scroll: the hands reach in → touch (flash) → fade back
-  // as the resume rises out of the contact point → its actions appear below it.
-  const handsOpacity = useTransform(scrollYProgress, [0, 0.62, 0.9, 1], [1, 1, 0.16, 0.16]);
+  // Story over the pinned scroll: the hands reach in → touch (flash) → the page
+  // unfolds out of the contact point, small, blurred and tipped back, and grows
+  // to full size while a scan line writes its text in (that part is `reveal`,
+  // read by the card itself) → the actions settle in below it.
+  const handsOpacity = useTransform(scrollYProgress, [0, 0.62, 0.9, 1], [1, 1, 0.2, 0.2]);
   const handsScale = useTransform(scrollYProgress, [0, 0.62, 1], [1, 1, 1.1]);
   const flashOpacity = useTransform(scrollYProgress, [0, 0.6, 0.68, 0.84, 1], [0, 0, 0.9, 0, 0]);
   const flashScale = useTransform(scrollYProgress, [0, 0.6, 0.84, 1], [0.4, 0.4, 2.4, 2.4]);
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.66, 0.8, 1], [0, 0, 1, 1]);
-  const cardY = useTransform(scrollYProgress, [0, 0.66, 0.88, 1], [90, 90, 0, 0]);
-  const cardRotate = useTransform(scrollYProgress, [0, 0.66, 0.88, 1], [26, 26, 0, 0]);
-  const cardScale = useTransform(scrollYProgress, [0, 0.66, 0.88, 1], [0.8, 0.8, 1, 1]);
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.62, 0.7, 1], [0, 0, 1, 1]);
+  // The card's resting centre sits a little above screen centre (the actions
+  // are stacked under it), so it starts that far BELOW, exactly on the contact point.
+  const cardY = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [58, 58, 0, 0]);
+  const cardRotate = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [48, 48, 0, 0]);
+  const cardScale = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [0.14, 0.14, 1, 1]);
+  const cardBlur = useTransform(scrollYProgress, [0, 0.62, 0.76, 1], [14, 14, 0, 0]);
+  const cardFilter = useTransform(cardBlur, (b) => (b < 0.2 ? "none" : `blur(${b}px)`));
+  // The page is written out between the moment it opens and the moment it lands.
+  const reveal = useTransform(scrollYProgress, [0, 0.72, 0.93, 1], [0, 0, 1, 1]);
   const actionsOpacity = useTransform(scrollYProgress, [0, 0.8, 0.92, 1], [0, 0, 1, 1]);
   const actionsY = useTransform(scrollYProgress, [0, 0.8, 0.92, 1], [18, 18, 0, 0]);
   const eyebrowOpacity = useTransform(scrollYProgress, [0, 0.12, 0.5, 0.66, 1], [0, 1, 1, 0, 0]);
@@ -280,20 +288,33 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
             }}
           />
 
-          <div className="flex flex-col items-center gap-8">
+          <div className="flex flex-col items-center gap-7 sm:gap-9">
             <motion.div
-              className="w-[min(58vw,300px)] sm:w-[min(34vh,300px)]"
-              style={{ opacity: cardOpacity, y: cardY, rotateX: cardRotate, scale: cardScale, transformPerspective: 1100 }}
+              className={`w-[min(72vw,46vh,380px)] ${buttonActive ? "pointer-events-auto" : ""}`}
+              style={{
+                opacity: cardOpacity,
+                y: cardY,
+                rotateX: cardRotate,
+                scale: cardScale,
+                filter: cardFilter,
+                transformPerspective: 1100,
+              }}
             >
-              <ResumeCard />
+              <ResumeCard reveal={reveal} />
             </motion.div>
 
             <motion.div
-              className="pointer-events-auto flex flex-col items-center gap-3 sm:flex-row sm:gap-4"
+              className="pointer-events-auto flex flex-col items-center gap-3"
               style={{ opacity: actionsOpacity, y: actionsY }}
             >
-              <ResumeButton active={buttonActive} />
-              <CopyEmailButton />
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+                <ResumeButton active={buttonActive} />
+                <CopyEmailButton />
+              </div>
+              <p className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                <span aria-hidden="true" className="resume-pulse h-1.5 w-1.5 rounded-full bg-accent" />
+                {resume.meta}
+              </p>
             </motion.div>
           </div>
         </div>

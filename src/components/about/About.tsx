@@ -54,13 +54,13 @@ const HISTORY = [
   },
   {
     tag: "lead",
-    text: "Led teams of up to 5 through national and regional startup competitions.",
-    short: "Led teams of up to 5 in national and regional competitions.",
+    text: "Led teams of up to 5 through regional startup competitions.",
+    short: "Led teams of up to 5 in regional competitions.",
   },
   {
     tag: "place",
-    text: "HIRED.PH: Philippine Startup Challenge 11 regional finalist, and IgnITE Start-Up Competition 1st runner up.",
-    short: "HIRED.PH: PSC 11 regional finalist, IgnITE 1st runner up.",
+    text: "HIRED.PH: Philippine Startup Challenge 10 regional finalist, and IgnITE Start-Up Competition 1st runner up.",
+    short: "HIRED.PH: PSC 10 regional finalist, IgnITE 1st runner up.",
   },
   { tag: "work", text: "Enterprise ERP internship (under NDA).", short: "Enterprise ERP internship (under NDA)." },
   {

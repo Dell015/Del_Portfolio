@@ -75,9 +75,9 @@ export const projects: Project[] = [
       "A skills-first job platform that gets people hired without degrees, resumes, or even internet access.",
     description:
       "Inclusive, skills-first job platform for skilled non-degree-holding Filipinos (blue-collar workers, undergraduates). Eliminates the need for college degrees, polished resumes, and even internet access as hiring barriers. Competed at Philippine Startup Challenge (Regional Finalist) and IgnITE Start-Up Competition (1st Runner Up).",
-    role: "Lead Developer / Founding CEO",
+    role: "Team Lead / Lead Developer",
     teamSize: "3–4 members",
-    status: "Competition build · PSC 11 Regional Finalist",
+    status: "Competition build · PSC 10 Regional Finalist",
     plain: "A job platform for skilled Filipinos who don't have a degree or reliable internet.",
     techStack: ["Next.js", "PostgreSQL", "Offline-first architecture"],
     identityGradient: ["#2B6CB0", "#7FC1F5"],
@@ -88,7 +88,7 @@ export const projects: Project[] = [
       challenge:
         "Building a job platform that works for people who may not have a degree, a resume, consistent internet, or experience with digital hiring platforms. Every design and technical decision must account for these constraints without patronizing the user.",
       nextSteps:
-        "Placed at two competitions (PSC 11 Regional Finalist, IgnITE 1st Runner-Up) with different team configurations. Next: user interviews with workers and employers in Cagayan Valley to validate the matching model before a pilot.",
+        "Placed at two competitions (PSC 10 Regional Finalist, IgnITE 1st Runner-Up) with different team configurations. Next: user interviews with workers and employers in Cagayan Valley to validate the matching model before a pilot.",
     },
   },
   {

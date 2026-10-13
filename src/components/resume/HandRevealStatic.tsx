@@ -36,7 +36,7 @@ export function HandRevealStatic() {
         </motion.p>
 
         <motion.div
-          className="w-[min(72vw,320px)]"
+          className="w-[min(72vw,380px)]"
           initial={{ opacity: 0, y: 40, rotateX: 18 }}
           whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
           viewport={{ once: true, margin: "-60px" }}
@@ -46,14 +46,20 @@ export function HandRevealStatic() {
         </motion.div>
 
         <motion.div
-          className="mt-10 flex flex-col items-center gap-4 sm:flex-row"
+          className="mt-12 flex flex-col items-center gap-3"
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.6, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
         >
-          <ResumeButton active />
-          <CopyEmailButton />
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+            <ResumeButton active />
+            <CopyEmailButton />
+          </div>
+          <p className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted">
+            <span aria-hidden="true" className="resume-pulse h-1.5 w-1.5 rounded-full bg-accent" />
+            {resume.meta}
+          </p>
         </motion.div>
       </div>
     </section>
