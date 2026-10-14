@@ -2,6 +2,7 @@
 
 import { useRef, useMemo, useEffect, useCallback, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { AdaptiveDpr, useAdaptiveDpr } from "@/components/perf/AdaptiveDpr";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { AnimatePresence } from "framer-motion";
 import * as THREE from "three";
@@ -1004,6 +1005,7 @@ export function HeroParticleCanvas({
 }: HeroParticleCanvasProps) {
   // Hero passes a lower DPR cap on weak devices; reuse that as the "go lighter" signal
   const lowPower = maxDpr <= 1;
+  const adaptiveDpr = useAdaptiveDpr(maxDpr);
   const progressRef = useRef(0);
   const dissolveRef = useRef(0);
   const ambientRef = useRef(0);
@@ -1404,7 +1406,7 @@ export function HeroParticleCanvas({
       <Canvas
         key={canvasKey}
         camera={{ position: [0, 0, 1.6], fov: 60 }}
-        dpr={[1, maxDpr]}
+        dpr={adaptiveDpr.dpr}
         gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
         frameloop={frozen ? "never" : "always"}
         onCreated={({ gl }) => {
@@ -1483,6 +1485,7 @@ export function HeroParticleCanvas({
           exitRef={exitRef}
           holdRef={holdRotationRef}
         />
+        <AdaptiveDpr dpr={adaptiveDpr.dpr} onSlow={adaptiveDpr.stepDown} />
         <TweenDriver
           progressRef={progressRef}
           triggered={revealTriggered}

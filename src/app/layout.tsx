@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ModeProvider } from "@/components/mode/ModeProvider";
+import { ModeGate } from "@/components/mode/ModeGate";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
 import { contact, site } from "@/lib/content/site";
@@ -143,6 +144,7 @@ export default function RootLayout({
             <Nav />
             {children}
           </SmoothScroll>
+          <ModeGate />
         </ModeProvider>
       </body>
     </html>

@@ -10,7 +10,7 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { background, moments, type Moment } from "@/lib/content/timeline";
+import { background, momentPhotos, moments, type DiscoveredPhoto, type Moment } from "@/lib/content/timeline";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { SectionHeader } from "@/components/motion/SectionHeader";
 import { Reveal } from "@/components/motion/Reveal";
@@ -29,7 +29,7 @@ const SPRING = { stiffness: 120, damping: 30, mass: 0.4 } as const;
  * at a different speed for depth. Entries without photos get a typographic card,
  * so a new entry looks finished the moment it is added.
  */
-export function Credentials() {
+export function Credentials({ photosBySlug = {} }: { photosBySlug?: Record<string, DiscoveredPhoto[]> }) {
   const { containerRef } = useSnapScroll();
   const reduced = useReducedMotion();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -90,7 +90,7 @@ export function Credentials() {
 
           <div className="space-y-20 md:space-y-28">
             {moments.map((m, i) => (
-              <MomentRow key={`${m.title}-${i}`} moment={m} flip={i % 2 === 1} />
+              <MomentRow key={`${m.title}-${i}`} moment={m} flip={i % 2 === 1} found={photosBySlug[m.slug]} />
             ))}
           </div>
         </div>
@@ -99,7 +99,7 @@ export function Credentials() {
   );
 }
 
-function MomentRow({ moment: m, flip }: { moment: Moment; flip: boolean }) {
+function MomentRow({ moment: m, flip, found }: { moment: Moment; flip: boolean; found?: DiscoveredPhoto[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
   const { containerRef } = useSnapScroll();
@@ -131,7 +131,7 @@ function MomentRow({ moment: m, flip }: { moment: Moment; flip: boolean }) {
         }`}
       >
         <MomentCard m={m} flip={flip} lit={lit} reduced={!!reduced} />
-        <MomentVisual m={m} flip={flip} lit={lit} progress={scrollYProgress} reduced={!!reduced} />
+        <MomentVisual m={m} found={found} flip={flip} lit={lit} progress={scrollYProgress} reduced={!!reduced} />
       </div>
     </div>
   );
@@ -163,28 +163,33 @@ function MomentCard({ m, flip, lit, reduced }: { m: Moment; flip: boolean; lit: 
 
 function MomentVisual({
   m,
+  found,
   flip,
   lit,
   progress,
   reduced,
 }: {
   m: Moment;
+  found?: DiscoveredPhoto[];
   flip: boolean;
   lit: boolean;
   progress: MotionValue<number>;
   reduced: boolean;
 }) {
-  const main = m.photos?.[0];
-  const second = m.photos?.[1];
+  const photos = momentPhotos(m, found);
+  const main = photos[0];
+  const second = photos[1];
+  const third = photos[2];
   const s = flip ? -1 : 1;
 
   // Each layer travels a different distance over the same scroll: that difference is the parallax.
   const frameY = useSpring(useTransform(progress, [0, 1], [70, -70]), SPRING);
   const frameRotate = useTransform(progress, [0, 0.5, 1], [4 * s, -1.5 * s, -4 * s]);
-  const innerY = useTransform(progress, [0, 1], ["-9%", "9%"]);
-  const yearX = useTransform(progress, [0, 1], [90 * s, -90 * s]);
+    const yearX = useTransform(progress, [0, 1], [90 * s, -90 * s]);
   const secondY = useSpring(useTransform(progress, [0, 1], [150, -150]), SPRING);
   const secondRotate = useTransform(progress, [0, 1], [-7 * s, 6 * s]);
+  const thirdY = useSpring(useTransform(progress, [0, 1], [-40, 90]), SPRING);
+  const thirdRotate = useTransform(progress, [0, 1], [8 * s, -5 * s]);
 
   return (
     <div className="relative">
@@ -204,16 +209,22 @@ function MomentVisual({
         style={{ y: reduced ? 0 : frameY, rotate: reduced ? 0 : frameRotate }}
       >
         <motion.div
-          className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+          className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+          style={{ aspectRatio: main?.width && main?.height ? `${main.width} / ${main.height}` : "4 / 5" }}
           initial={reduced ? false : { clipPath: "inset(100% 0% 0% 0%)" }}
           animate={lit ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
           transition={{ duration: 1.1, ease: EASE.out }}
         >
           {main ? (
-            <motion.div className="absolute -inset-[12%]" style={{ y: reduced ? 0 : innerY }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={main.src} alt={main.alt} loading="lazy" className="h-full w-full object-cover" />
-            </motion.div>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={main.src}
+              alt={main.alt}
+              width={main.width}
+              height={main.height}
+              loading="lazy"
+              className="block h-full w-full"
+            />
           ) : (
             <Placeholder m={m} />
           )}
@@ -240,7 +251,22 @@ function MomentVisual({
             transition={{ duration: 0.9, delay: 0.35, ease: EASE.out }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={second.src} alt={second.alt} loading="lazy" className="aspect-[4/5] w-full object-cover" />
+            <img src={second.src} alt={second.alt} width={second.width} height={second.height} loading="lazy" className="block h-auto w-full" />
+          </motion.div>
+        )}
+
+        {third && (
+          <motion.div
+            className={`absolute -top-6 z-[2] hidden w-[34%] overflow-hidden rounded-lg border border-border bg-surface shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] xl:block ${
+              flip ? "-right-[14%]" : "-left-[14%]"
+            }`}
+            style={{ y: reduced ? 0 : thirdY, rotate: reduced ? 0 : thirdRotate }}
+            initial={reduced ? false : { opacity: 0, scale: 0.85 }}
+            animate={lit ? { opacity: 1, scale: 1 } : undefined}
+            transition={{ duration: 0.9, delay: 0.6, ease: EASE.out }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={third.src} alt={third.alt} width={third.width} height={third.height} loading="lazy" className="block h-auto w-full" />
           </motion.div>
         )}
       </motion.div>

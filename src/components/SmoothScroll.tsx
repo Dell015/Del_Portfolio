@@ -112,12 +112,23 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     setTotalPages(sections.length);
   }, []);
 
-  // When navigating back to home page with a hash, unlock scroll and scroll to section
+  // When navigating back to home page with a hash, unlock scroll and scroll to section.
+  // The very first run is a page load or reload, not a navigation: a leftover "#projects"
+  // from an earlier nav click must not skip the intro, so the hash is dropped and the
+  // page starts at the very top.
+  const firstRun = useRef(true);
   useEffect(() => {
+    const initialLoad = firstRun.current;
+    firstRun.current = false;
     if (pathname !== "/") return;
 
     const hash = window.location.hash.slice(1);
     if (!hash) return;
+
+    if (initialLoad) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      return;
+    }
 
     // Wait for DOM to settle, unlock (they've effectively skipped the intro), then scroll
     const timer = setTimeout(() => {

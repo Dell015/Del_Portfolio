@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ModeToggle } from "@/components/mode/ModeToggle";
+import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useActiveSection } from "@/lib/hooks/useActiveSection";
 import { useHideOnScrollDown } from "@/lib/hooks/useScrollDirection";
@@ -18,8 +17,10 @@ const NAV_LINKS = [
   { label: "Projects", href: "/#projects" },
   { label: "Skills", href: "/#skills" },
   { label: "Background", href: "/#background" },
-  { label: "Contact", href: "/#footer" },
+  { label: "Resume", href: "/#resume" },
 ] as const;
+
+const CONTACT_LINK = { label: "Contact", href: "/#footer" } as const;
 
 /* ─── Section IDs in page order ─────────────────────────────── */
 
@@ -75,6 +76,7 @@ const menuItemVariants = {
 
 export function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
   const particlesActive = useModeStore((s) => s.particlesActive);
   const activeSection = useActiveSection(SECTION_IDS, particlesActive);
   const { scrollLocked, containerRef } = useSnapScroll();
@@ -83,6 +85,10 @@ export function Nav() {
 
   // Show nav after scroll is unlocked; hide it while scrolling down, reveal on scroll up
   // (never while the mobile menu is open).
+  // Thin progress line along the pill's lower edge: how far down the page you are.
+  const { scrollYProgress } = useScroll({ container: containerRef });
+  const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.3 });
+
   const navVisible = !scrollLocked && (!hidden || mobileOpen);
   // Close mobile menu on resize past breakpoint
   useEffect(() => {
@@ -129,52 +135,17 @@ export function Nav() {
 
   return (
     <>
-      {/* ─── Invisible Glassmorphism Navbar ─── */}
+      {/* ─── Floating glass pill ─── */}
       <motion.header
-        className="fixed top-0 right-0 left-0 z-50"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center px-4 pt-4"
         initial={{ y: -80, opacity: 0 }}
         animate={navVisible ? { y: 0, opacity: 1 } : { y: -80, opacity: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="mx-auto flex items-center justify-between px-6 lg:px-10 py-4">
-          {/* ─── LEFT: Page links ─── */}
-          <nav className="hidden md:flex items-center gap-7" aria-label="Main navigation">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={`
-                  relative py-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.12em]
-                  transition-colors duration-300
-                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm
-                  ${isActive(link.href) ? "text-text" : "text-text-muted hover:text-text"}
-                `}
-              >
-                {link.label}
-                {/* Active dot indicator */}
-                {isActive(link.href) && (
-                  <motion.span
-                    layoutId="nav-active-dot"
-                    className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-[3px] w-[3px] rounded-full bg-accent"
-                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  />
-                )}
-              </a>
-            ))}
-          </nav>
-
-          {/* Mobile: hamburger on the left */}
-          <button
-            className="relative flex md:hidden items-center justify-center w-9 h-9 rounded-lg transition-colors duration-200 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            onClick={() => setMobileOpen((prev) => !prev)}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-menu"
-          >
-            <HamburgerIcon open={mobileOpen} />
-          </button>
-
-          {/* ─── CENTER: Name (full refresh to landing) ─── */}
+        <div
+          className="pointer-events-auto relative flex w-full max-w-[min(100%,820px)] items-center justify-between gap-2 overflow-hidden rounded-full border border-white/10 bg-[#0f0f0f]/60 py-1.5 pl-2 pr-1.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl backdrop-saturate-150 md:w-auto md:max-w-none md:justify-center md:gap-1"
+        >
+          {/* Brand: back to top */}
           <Link
             href="/"
             onClick={(e) => {
@@ -185,13 +156,81 @@ export function Nav() {
               }
             }}
             aria-label="Randel Serafica, back to top"
-            className="absolute left-1/2 -translate-x-1/2 max-[480px]:left-16 max-[480px]:translate-x-0 font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-text transition-colors duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent focus-visible:rounded-sm"
+            className="group flex items-center gap-2 rounded-full py-1.5 pl-3 pr-3 font-[family-name:var(--font-display)] text-sm font-semibold tracking-tight text-text transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:pr-4"
           >
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_2px_rgba(209,26,42,0.6)] transition-transform duration-300 group-hover:scale-125"
+            />
             Randel
           </Link>
 
-          {/* ─── RIGHT: Mode Toggle (glassmorphism pill) ─── */}
-          <ModeToggle />
+          <span aria-hidden="true" className="mx-1 hidden h-4 w-px bg-white/10 md:block" />
+
+          {/* Page links: a soft highlight slides to the hovered or current one */}
+          <nav
+            className="hidden items-center md:flex"
+            aria-label="Main navigation"
+            onMouseLeave={() => setHovered(null)}
+          >
+            {NAV_LINKS.map((link) => {
+              const lit = (hovered ?? NAV_LINKS.find((l) => isActive(l.href))?.href) === link.href;
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onMouseEnter={() => setHovered(link.href)}
+                  onFocus={() => setHovered(link.href)}
+                  onBlur={() => setHovered(null)}
+                  aria-current={isActive(link.href) ? "location" : undefined}
+                  className={`relative rounded-full px-3.5 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                    lit || isActive(link.href) ? "text-text" : "text-text-muted"
+                  }`}
+                >
+                  {lit && (
+                    <motion.span
+                      layoutId="nav-highlight"
+                      aria-hidden="true"
+                      className="absolute inset-0 -z-10 rounded-full bg-white/[0.09]"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative">{link.label}</span>
+                </a>
+              );
+            })}
+          </nav>
+
+          <span aria-hidden="true" className="mx-1 hidden h-4 w-px bg-white/10 md:block" />
+
+          {/* Contact: the one call to action */}
+          <a
+            href={CONTACT_LINK.href}
+            className="group/cta hidden items-center gap-1.5 rounded-full bg-accent px-4 py-2 font-[family-name:var(--font-mono)] text-[11px] font-medium uppercase tracking-[0.14em] text-white transition-colors duration-300 hover:bg-text hover:text-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:inline-flex"
+          >
+            {CONTACT_LINK.label}
+            <span aria-hidden="true" className="inline-block transition-transform duration-300 group-hover/cta:translate-x-0.5">
+              →
+            </span>
+          </a>
+
+          {/* Mobile: menu button */}
+          <button
+            className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-menu"
+          >
+            <HamburgerIcon open={mobileOpen} />
+          </button>
+
+          {/* Scroll progress */}
+          <motion.span
+            aria-hidden="true"
+            className="absolute inset-x-6 bottom-0 h-px origin-left bg-gradient-to-r from-accent/0 via-accent to-accent/0"
+            style={{ scaleX: progress }}
+          />
         </div>
       </motion.header>
 
@@ -225,7 +264,7 @@ export function Nav() {
               aria-label="Mobile navigation"
             >
               <div className="flex flex-col gap-2">
-                {NAV_LINKS.map((link, i) => (
+                {[...NAV_LINKS, CONTACT_LINK].map((link, i) => (
                   <motion.a
                     key={link.href}
                     href={link.href}

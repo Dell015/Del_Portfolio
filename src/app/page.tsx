@@ -1,7 +1,7 @@
 import { Hero } from "@/components/hero/Hero";
 import { About } from "@/components/about/About";
 import { AmbientGradient } from "@/components/AmbientGradient";
-import { Credentials } from "@/components/background/Credentials";
+import { Background } from "@/components/background/Background";
 import { ProjectsSection } from "@/components/projects/ProjectsSection";
 import { SkillsField } from "@/components/skills/SkillsField";
 import { HandRevealSection } from "@/components/resume/HandRevealSection";
@@ -21,7 +21,7 @@ export default function Home() {
         <About />
         <ProjectsSection />
         <SkillsField />
-        <Credentials />
+        <Background />
         <HandRevealSection />
       </main>
       <Footer contactEnabled={contactEnabled} />

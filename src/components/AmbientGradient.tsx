@@ -51,6 +51,7 @@ export function AmbientGradient() {
         noiseIntensity={0.02}
         scanlineIntensity={0}
         speed={2}
+        resolutionScale={0.5}
         scanlineFrequency={0}
         warpAmount={0.3}
       />

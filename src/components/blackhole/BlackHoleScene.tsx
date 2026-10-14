@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { AdaptiveDpr, useAdaptiveDpr } from "@/components/perf/AdaptiveDpr";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { LensEffect } from "@/lib/lab/LensEffect";
@@ -538,17 +539,18 @@ export function BlackHoleCanvas({
   portrait?: boolean;
   className?: string;
 }) {
+  const adaptiveDpr = useAdaptiveDpr(lowPower ? 1.25 : 1.75);
   const pullRef = useRef(0);
   const collapseRef = useRef(0);
   const formRef = useRef(0);
   const lens = useMemo(() => new LensEffect(), []);
-  const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, lowPower ? 1.25 : 1.75) : 1;
+  const dpr = adaptiveDpr.dpr;
 
   return (
     <Canvas
       className={className}
       frameloop={active ? "always" : "never"}
-      dpr={[1, lowPower ? 1.25 : 1.75]}
+      dpr={adaptiveDpr.dpr}
       camera={{ position: [0, 0, 10], fov: 38, near: 0.1, far: 120 }}
       gl={{ antialias: false, powerPreference: "high-performance" }}
     >
@@ -559,6 +561,7 @@ export function BlackHoleCanvas({
         <Disk count={lowPower ? 9000 : 24000} pullRef={pullRef} collapseRef={collapseRef} formRef={formRef} dpr={dpr} />
         <Halo count={lowPower ? 2500 : 6000} pullRef={pullRef} collapseRef={collapseRef} formRef={formRef} dpr={dpr} />
         {portrait && <Portrait pullRef={pullRef} collapseRef={collapseRef} formRef={formRef} dpr={dpr} maxPoints={lowPower ? 6000 : 15000} />}
+        <AdaptiveDpr dpr={adaptiveDpr.dpr} onSlow={adaptiveDpr.stepDown} />
         <Rig targets={targets} pullRef={pullRef} collapseRef={collapseRef} formRef={formRef} lens={lens} />
         <EffectComposer multisampling={0}>
           <primitive object={lens} dispose={null} />

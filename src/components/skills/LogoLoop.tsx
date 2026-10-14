@@ -131,7 +131,8 @@ const useAnimationLoop = (
   seqHeight: number,
   isHovered: boolean,
   hoverSpeed: number | undefined,
-  isVertical: boolean
+  isVertical: boolean,
+  onScreen: boolean
 ) => {
   const rafRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
@@ -182,7 +183,8 @@ const useAnimationLoop = (
       rafRef.current = requestAnimationFrame(animate);
     };
 
-    rafRef.current = requestAnimationFrame(animate);
+    // Off screen there is nothing to move: no frame loop at all until it scrolls back in.
+    if (onScreen) rafRef.current = requestAnimationFrame(animate);
 
     return () => {
       if (rafRef.current !== null) {
@@ -191,7 +193,7 @@ const useAnimationLoop = (
       }
       lastTimestampRef.current = null;
     };
-  }, [trackRef, targetVelocity, seqWidth, seqHeight, isHovered, hoverSpeed, isVertical]);
+  }, [trackRef, targetVelocity, seqWidth, seqHeight, isHovered, hoverSpeed, isVertical, onScreen]);
 };
 
 export const LogoLoop = React.memo<LogoLoopProps>(
@@ -220,6 +222,15 @@ export const LogoLoop = React.memo<LogoLoopProps>(
     const [seqHeight, setSeqHeight] = useState<number>(0);
     const [copyCount, setCopyCount] = useState<number>(ANIMATION_CONFIG.MIN_COPIES);
     const [isHovered, setIsHovered] = useState<boolean>(false);
+    const [onScreen, setOnScreen] = useState<boolean>(true);
+
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el || typeof IntersectionObserver === "undefined") return;
+      const io = new IntersectionObserver(([e]) => setOnScreen(e.isIntersecting), { rootMargin: "120px" });
+      io.observe(el);
+      return () => io.disconnect();
+    }, []);
 
     const effectiveHoverSpeed = useMemo(() => {
       if (hoverSpeed !== undefined) return hoverSpeed;
@@ -282,7 +293,8 @@ export const LogoLoop = React.memo<LogoLoopProps>(
       seqHeight,
       isHovered,
       effectiveHoverSpeed,
-      isVertical
+      isVertical,
+      onScreen
     );
 
     const cssVariables = useMemo(

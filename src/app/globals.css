@@ -129,7 +129,7 @@ p {
 /* Border light: a 1px ring revealed only under the cursor */
 .spotlight-card::before {
   padding: 1px;
-  background: radial-gradient(260px circle at var(--sx) var(--sy), rgba(209, 26, 42, 0.75), transparent 65%);
+  background: radial-gradient(260px circle at var(--sx) var(--sy), var(--spot, rgba(209, 26, 42, 0.75)), transparent 65%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -297,4 +297,17 @@ p {
 }
 .resume-pulse {
   animation: resume-pulse 2.2s ease-out infinite;
+}
+
+/* First-visit screen: slow drifting dots (compositor-only, no JS animation) */
+@keyframes gate-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.25; }
+  50% { transform: translate3d(18px, -26px, 0); opacity: 0.9; }
+}
+.gate-dot {
+  animation: gate-drift ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gate-dot { animation: none; opacity: 0.4; }
 }

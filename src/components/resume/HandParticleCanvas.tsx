@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { AdaptiveDpr, useAdaptiveDpr } from "@/components/perf/AdaptiveDpr";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { curlNoiseGLSL } from "@/lib/particles/curlNoise";
@@ -371,10 +372,11 @@ export function HandParticleCanvas({
   progressRef,
   active,
 }: HandParticleCanvasProps) {
+  const adaptiveDpr = useAdaptiveDpr(1.5);
   return (
     <Canvas
       camera={{ position: [0, 0, 5], fov: 55 }}
-      dpr={[1, 2]}
+      dpr={adaptiveDpr.dpr}
       gl={{ antialias: false, alpha: true }}
       frameloop={active ? "always" : "never"}
       style={{ background: "transparent", pointerEvents: "none" }}
@@ -391,6 +393,7 @@ export function HandParticleCanvas({
         portrait={portrait}
         progressRef={progressRef}
       />
+      <AdaptiveDpr dpr={adaptiveDpr.dpr} onSlow={adaptiveDpr.stepDown} />
       <HandBloom />
     </Canvas>
   );

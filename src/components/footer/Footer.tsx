@@ -19,6 +19,7 @@ import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { useLocalTime } from "@/lib/hooks/useLocalTime";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useModeStore } from "@/lib/store/mode";
+import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { ContactForm } from "./ContactForm";
 
 const SOCIALS = [
@@ -64,6 +65,9 @@ export interface FooterProps {
 export function Footer({ contactEnabled = false }: FooterProps) {
   const { containerRef } = useSnapScroll();
   const reducedMotion = useModeStore((s) => s.reducedMotion);
+  const reopenChoice = useModeStore((s) => s.reopenChoice);
+  const { webglAvailable } = useDeviceCapability();
+  const canSwitchView = webglAvailable && !reducedMotion;
   const sectionRef = useRef<HTMLElement>(null);
   const localTime = useLocalTime("Asia/Manila");
 
@@ -233,6 +237,17 @@ export function Footer({ contactEnabled = false }: FooterProps) {
                   </a>
                 </motion.li>
               ))}
+              {canSwitchView && (
+              <li>
+                <button
+                  type="button"
+                  onClick={reopenChoice}
+                  className="inline-flex min-h-[44px] items-center font-[family-name:var(--font-mono)] text-sm text-text-muted transition-colors duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  Change view
+                </button>
+              </li>
+              )}
             </ul>
           </nav>
 
