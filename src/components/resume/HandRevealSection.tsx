@@ -201,7 +201,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
 
           <div className="flex flex-col items-center gap-7 sm:gap-9">
             <Reveal p={scrollYProgress} at={0.52} len={0.16} y={34} scaleFrom={0.9} blur={10}
-              className={`w-[min(72vw,40vh,380px)] ${buttonActive ? "pointer-events-auto" : ""}`}>
+              className={`w-[min(72vw,40vh,380px)] portrait:w-[min(56vw,34vh,380px)] ${buttonActive ? "pointer-events-auto" : ""}`}>
               <ResumeCard />
             </Reveal>
 
@@ -277,8 +277,8 @@ function deriveClouds(
   const god = cloneCloud(raw.god);
   const adam = cloneCloud(raw.adam);
   if (orientation === "portrait") {
-    rotateCloudZ(god, -Math.PI / 2);
-    rotateCloudZ(adam, -Math.PI / 2);
+    rotateCloudZ(god, Math.PI / 2);
+    rotateCloudZ(adam, Math.PI / 2);
     return { god: alignCloudTipToOrigin(god, "y", "min"), adam: alignCloudTipToOrigin(adam, "y", "max") };
   }
   return { god: alignCloudTipToOrigin(god, "x", "min"), adam: alignCloudTipToOrigin(adam, "x", "max") };

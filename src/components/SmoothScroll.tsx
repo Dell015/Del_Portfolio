@@ -11,6 +11,8 @@ interface ScrollContextValue {
   scrollProgress: number;
   totalPages: number;
   scrollLocked: boolean;
+  /** True once the visitor came back to a section (e.g. from a case study), skipping the hero intro. */
+  introSkipped: boolean;
   unlockScroll: () => void;
   lockScroll: () => void;
   scrollToSection: (id: string) => void;
@@ -58,6 +60,7 @@ const ScrollContext = createContext<ScrollContextValue>({
   scrollProgress: 0,
   totalPages: 0,
   scrollLocked: true,
+  introSkipped: false,
   unlockScroll: () => {},
   lockScroll: () => {},
   scrollToSection: () => {},
@@ -76,10 +79,25 @@ export function useSnapScroll() {
  * SmoothScroll, scroll container.
  * Scroll is LOCKED until the hero reveal button is clicked.
  */
+// A flag on `window` lives for exactly one page load and survives this component
+// remounting on navigation (module-level state does not, the dev bundler can load a second
+// copy of this file). That is what tells a real load or reload apart from coming back
+// from a case study.
+declare global {
+  interface Window {
+    __introLoadHandled?: boolean;
+    __leftHome?: boolean;
+  }
+}
+
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [totalPages, setTotalPages] = useState(0);
-  const [lockedState, setLockedState] = useState(true);
+  // Coming back to home after visiting another page skips the intro. Read from `window`
+  // because this component remounts on navigation and its own state does not survive.
+  const cameBack = typeof window !== "undefined" && !!window.__leftHome;
+  const [lockedState, setLockedState] = useState(!cameBack);
+  const [introSkipped, setIntroSkipped] = useState(cameBack);
   const pathname = usePathname();
   // Only the home page ever locks scrolling (until the immersive hero is revealed).
   const scrollLocked = lockedState && pathname === "/";
@@ -116,30 +134,49 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   // The very first run is a page load or reload, not a navigation: a leftover "#projects"
   // from an earlier nav click must not skip the intro, so the hash is dropped and the
   // page starts at the very top.
-  const firstRun = useRef(true);
   useEffect(() => {
-    const initialLoad = firstRun.current;
-    firstRun.current = false;
-    if (pathname !== "/") return;
-
-    const hash = window.location.hash.slice(1);
-    if (!hash) return;
-
-    if (initialLoad) {
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    const initialLoad = !window.__introLoadHandled;
+    window.__introLoadHandled = true;
+    if (pathname !== "/") {
+      window.__leftHome = true;
       return;
     }
 
-    // Wait for DOM to settle, unlock (they've effectively skipped the intro), then scroll
-    const timer = setTimeout(() => {
-      setLockedState(false);
-      const el = document.getElementById(hash);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth" });
+    if (initialLoad || !window.__leftHome) {
+      // A real load or reload: drop any stale "#hash" so the page starts at the very top.
+      if (window.location.hash) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
+      return;
+    }
+
+    // Back on home after visiting another page: skip the intro. The URL hash is applied
+    // by the router after this effect runs, so it is read inside the timer.
+    let settle: ReturnType<typeof setInterval> | undefined;
+    const timer = setTimeout(() => {
+      setIntroSkipped(true);
+      setLockedState(false);
+      // The case study's only way home is "Back to projects", so land there. The page
+      // is still changing height right after the intro is skipped, so keep nudging
+      // until the section sits at the top (or give up after ~3s).
+      const hash = window.location.hash.slice(1) || "projects";
+      let tries = 0;
+      settle = setInterval(() => {
+        const el = document.getElementById(hash);
+        tries++;
+        if (el && Math.abs(el.getBoundingClientRect().top) < 2) {
+          clearInterval(settle);
+          return;
+        }
+        el?.scrollIntoView({ behavior: "auto" });
+        if (tries > 20) clearInterval(settle);
+      }, 150);
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(settle);
+    };
   }, [pathname]);
 
   // Mouse-wheel smoothing. A physical wheel reports big discrete steps (~100px),
@@ -310,6 +347,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         scrollProgress: _scrollProgress,
         totalPages,
         scrollLocked,
+        introSkipped,
         unlockScroll,
         lockScroll,
         scrollToSection,

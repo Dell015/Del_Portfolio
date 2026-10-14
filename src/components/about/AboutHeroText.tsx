@@ -144,6 +144,10 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
   const yDeveloperExit = useTransform(scrollMV, [0.50, 0.62], [0, -30]);
   const opacityDeveloper = useTransform(scrollMV, [0.50, 0.62], [1, 0]);
 
+  // Phone layout: one block that drifts up and fades as soon as the page moves on.
+  const opacityMobile = useTransform(scrollMV, [0.04, 0.3], [1, 0]);
+  const yMobile = useTransform(scrollMV, [0, 0.3], [0, -60]);
+
   if (!visible) return null;
 
   return (
@@ -266,8 +270,17 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
       </motion.div>
 
       {/* === MOBILE LAYOUT === */}
-      <div className="flex flex-col items-center justify-center gap-2 px-4 h-full md:hidden">
-        <div className="self-start">
+      <motion.div
+        className="relative flex h-full flex-col items-center justify-end gap-2 px-4 pb-[max(5.5rem,12vh)] md:hidden"
+        style={{ opacity: opacityMobile, y: yMobile }}
+      >
+        {/* Scrim: keeps the portrait clear up top and gives the copy a calm dark ground to sit on */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%]"
+          style={{ background: "linear-gradient(to top, rgba(15,15,15,0.96) 0%, rgba(15,15,15,0.9) 45%, rgba(15,15,15,0) 100%)" }}
+        />
+        <div className="relative self-start">
           <RevealWord
             text={HEADLINE_TOP}
             baseDelay={FIRST_WORD_DELAY}
@@ -276,7 +289,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
           />
         </div>
 
-        <div className="self-end">
+        <div className="relative self-end">
           <RevealWord
             text={HEADLINE_BOTTOM}
             baseDelay={SECOND_WORD_DELAY}
@@ -286,15 +299,15 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
         </div>
 
         <motion.p
-          className="max-w-sm text-center font-[family-name:var(--font-body)] text-base leading-relaxed text-text-muted mt-6"
+          className="relative mt-5 max-w-sm text-center font-[family-name:var(--font-body)] text-base leading-relaxed text-text/85"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: BIO_DELAY, ease: [0.4, 0, 0.2, 1] as const }}
         >
           {bio.short}
         </motion.p>
-        <ContactLinks className="mt-4 justify-center" />
-      </div>
+        <ContactLinks className="relative mt-4 justify-center" />
+      </motion.div>
     </motion.div>
   );
 }

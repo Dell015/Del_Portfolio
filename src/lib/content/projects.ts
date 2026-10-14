@@ -15,6 +15,10 @@ export interface Project {
   identityGradient: [string, string];
   accentColor?: string;
   liveUrl?: string;
+  /** What `liveUrl` is called on the case study. Defaults to "Live Site"; use it when the link is a landing page, not the product. */
+  liveLabel?: string;
+  /** A try-it-in-the-browser link. Say plainly what it is (e.g. demo data only). */
+  demoUrl?: string;
   repoUrl?: string;
   screenshot?: string;
   caseStudy?: {
@@ -41,23 +45,27 @@ export const projects: Project[] = [
     plain: "A running app that adapts to you and turns everyday exercise into reports that help your city.",
     techStack: [
       "React Native",
-      "Expo SDK 51+",
+      "Expo SDK 57",
+      "Expo Router",
+      "TypeScript",
       "expo-sqlite",
       "Supabase",
       "PostgreSQL + PostGIS",
       "Supabase Auth",
       "Supabase Realtime",
-      "Supabase Edge Functions",
       "react-native-maps",
       "OpenWeatherMap API",
-      "Gemini Flash",
-      "Zustand",
-      "React Navigation v6+",
+      "Gemini 2.5 Flash",
+      "Three.js + R3F",
       "Expo Notifications",
     ],
     identityGradient: ["#7CF205", "#209F77"],
+    liveUrl: "https://karela-phi.vercel.app",
+    liveLabel: "Project site (waitlist open, app in development)",
+    demoUrl: "https://karela-phi.vercel.app/demo",
+    repoUrl: "https://github.com/Dell015/karela",
     caseStudy: {
-      timeline: "Active development: Version 3.1, thesis submission 2026",
+      timeline: "Active development, thesis submission 2026",
       architectureNote:
         "Supabase over Firebase for PostGIS spatial queries (DBSCAN-inspired civic clustering via ST_DWithin). Offline-first with expo-sqlite for high-frequency run telemetry on low-end Android devices with prepaid data. Gemini Flash for high-frequency AI coaching (session start, mid-run, post-session). Resonance System fuses physical state with civic contribution load.",
       challenge:

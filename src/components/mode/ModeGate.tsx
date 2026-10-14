@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useModeStore, type Mode } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
@@ -44,7 +45,9 @@ export function ModeGate() {
   const choose = useModeStore((s) => s.choose);
   const { webglAvailable } = useDeviceCapability();
 
-  const open = hydrated && !chosen && webglAvailable && !reducedMotion;
+  // Only the home page has the two experiences; a shared case-study link opens straight to its content.
+  const onHome = usePathname() === "/";
+  const open = onHome && hydrated && !chosen && webglAvailable && !reducedMotion;
 
   return <AnimatePresence>{open && <Gate onChoose={choose} />}</AnimatePresence>;
 }

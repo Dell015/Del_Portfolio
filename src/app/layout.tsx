@@ -4,6 +4,7 @@ import { ModeProvider } from "@/components/mode/ModeProvider";
 import { ModeGate } from "@/components/mode/ModeGate";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
+import { PageTransition } from "@/components/PageTransition";
 import { contact, site } from "@/lib/content/site";
 import "./globals.css";
 
@@ -145,6 +146,7 @@ export default function RootLayout({
             {children}
           </SmoothScroll>
           <ModeGate />
+        <PageTransition />
         </ModeProvider>
       </body>
     </html>

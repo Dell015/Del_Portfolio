@@ -196,13 +196,13 @@ function Cursor() {
 function Typed({ text, n, cls, cursor }: { text: string; n: number; cls?: string; cursor?: boolean }) {
   const k = Math.max(0, Math.min(text.length, n));
   return (
-    <span className={cls}>
+    <span className={`relative ${cls ?? ""}`}>
       <span aria-hidden="true">
         {text.slice(0, k)}
         {cursor && <Cursor />}
         <span className="invisible">{text.slice(k)}</span>
       </span>
-      <span className="sr-only">{text}</span>
+      <span className="sr-only left-0 top-0">{text}</span>
     </span>
   );
 }

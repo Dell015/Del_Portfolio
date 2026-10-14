@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   motion,
   useInView,
@@ -126,7 +126,7 @@ function MomentRow({ moment: m, flip, found }: { moment: Moment; flip: boolean; 
       />
 
       <div
-        className={`grid items-center gap-8 md:gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] ${
+        className={`grid grid-cols-1 items-center gap-8 md:gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] ${
           flip ? "md:[&>*:first-child]:order-2" : ""
         }`}
       >
@@ -178,18 +178,12 @@ function MomentVisual({
 }) {
   const photos = momentPhotos(m, found);
   const main = photos[0];
-  const second = photos[1];
-  const third = photos[2];
   const s = flip ? -1 : 1;
 
   // Each layer travels a different distance over the same scroll: that difference is the parallax.
   const frameY = useSpring(useTransform(progress, [0, 1], [70, -70]), SPRING);
   const frameRotate = useTransform(progress, [0, 0.5, 1], [4 * s, -1.5 * s, -4 * s]);
     const yearX = useTransform(progress, [0, 1], [90 * s, -90 * s]);
-  const secondY = useSpring(useTransform(progress, [0, 1], [150, -150]), SPRING);
-  const secondRotate = useTransform(progress, [0, 1], [-7 * s, 6 * s]);
-  const thirdY = useSpring(useTransform(progress, [0, 1], [-40, 90]), SPRING);
-  const thirdRotate = useTransform(progress, [0, 1], [8 * s, -5 * s]);
 
   return (
     <div className="relative">
@@ -208,68 +202,151 @@ function MomentVisual({
         className="relative z-[1] mx-auto w-full max-w-[300px] md:max-w-[380px]"
         style={{ y: reduced ? 0 : frameY, rotate: reduced ? 0 : frameRotate }}
       >
-        <motion.div
-          className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
-          style={{ aspectRatio: main?.width && main?.height ? `${main.width} / ${main.height}` : "4 / 5" }}
-          initial={reduced ? false : { clipPath: "inset(100% 0% 0% 0%)" }}
-          animate={lit ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
-          transition={{ duration: 1.1, ease: EASE.out }}
-        >
-          {main ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={main.src}
-              alt={main.alt}
-              width={main.width}
-              height={main.height}
-              loading="lazy"
-              className="block h-full w-full"
+        {photos.length > 1 ? (
+          <PhotoStack photos={photos} year={m.year} flip={flip} lit={lit} reduced={reduced} />
+        ) : (
+          <motion.div
+            className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+            style={{ aspectRatio: main?.width && main?.height ? `${main.width} / ${main.height}` : "4 / 5" }}
+            initial={reduced ? false : { clipPath: "inset(100% 0% 0% 0%)" }}
+            animate={lit ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
+            transition={{ duration: 1.1, ease: EASE.out }}
+          >
+            {main ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={main.src}
+                alt={main.alt}
+                width={main.width}
+                height={main.height}
+                loading="lazy"
+                className="block h-full w-full"
+              />
+            ) : (
+              <Placeholder m={m} />
+            )}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent"
             />
-          ) : (
-            <Placeholder m={m} />
-          )}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent"
-          />
-          {(main?.caption || m.year) && (
-            <p className="absolute bottom-3 left-3 right-3 flex items-center justify-between font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.2em] text-white/80">
-              <span>{main?.caption ?? ""}</span>
-              {m.year && <span className="rounded-sm bg-accent px-1.5 py-0.5 text-white">{m.year.split(" ")[0]}</span>}
-            </p>
-          )}
-        </motion.div>
-
-        {second && (
-          <motion.div
-            className={`absolute -bottom-10 z-[2] hidden w-[46%] overflow-hidden rounded-lg border border-border bg-surface shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] md:block ${
-              flip ? "-left-[16%]" : "-right-[16%]"
-            }`}
-            style={{ y: reduced ? 0 : secondY, rotate: reduced ? 0 : secondRotate }}
-            initial={reduced ? false : { opacity: 0, scale: 0.85 }}
-            animate={lit ? { opacity: 1, scale: 1 } : undefined}
-            transition={{ duration: 0.9, delay: 0.35, ease: EASE.out }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={second.src} alt={second.alt} width={second.width} height={second.height} loading="lazy" className="block h-auto w-full" />
-          </motion.div>
-        )}
-
-        {third && (
-          <motion.div
-            className={`absolute -top-6 z-[2] hidden w-[34%] overflow-hidden rounded-lg border border-border bg-surface shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] xl:block ${
-              flip ? "-right-[14%]" : "-left-[14%]"
-            }`}
-            style={{ y: reduced ? 0 : thirdY, rotate: reduced ? 0 : thirdRotate }}
-            initial={reduced ? false : { opacity: 0, scale: 0.85 }}
-            animate={lit ? { opacity: 1, scale: 1 } : undefined}
-            transition={{ duration: 0.9, delay: 0.6, ease: EASE.out }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={third.src} alt={third.alt} width={third.width} height={third.height} loading="lazy" className="block h-auto w-full" />
+            {(main?.caption || m.year) && (
+              <p className="absolute bottom-3 left-3 right-3 flex items-center justify-between font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.2em] text-white/80">
+                <span>{main?.caption ?? ""}</span>
+                {m.year && <span className="rounded-sm bg-accent px-1.5 py-0.5 text-white">{m.year.split(" ")[0]}</span>}
+              </p>
+            )}
           </motion.div>
         )}
       </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Every photo of a moment, kept at its own proportions, in one stack. Swipe, drag or tap the
+ * top photo (or use the arrows) to send it to the back and bring up the next one.
+ */
+function PhotoStack({
+  photos,
+  year,
+  flip,
+  lit,
+  reduced,
+}: {
+  photos: ReturnType<typeof momentPhotos>;
+  year?: string;
+  flip: boolean;
+  lit: boolean;
+  reduced: boolean;
+}) {
+  const [order, setOrder] = useState(() => photos.map((_, i) => i));
+  const s = flip ? -1 : 1;
+  const n = photos.length;
+  const next = () => setOrder((o) => [...o.slice(1), o[0]!]);
+  const prev = () => setOrder((o) => [o[o.length - 1]!, ...o.slice(0, -1)]);
+  const topNumber = order[0]! + 1;
+
+  return (
+    <div className="select-none">
+      <motion.div
+        className="grid"
+        initial={reduced ? false : { opacity: 0, y: 30 }}
+        animate={lit ? { opacity: 1, y: 0 } : undefined}
+        transition={{ duration: 0.9, ease: EASE.out }}
+      >
+        {/* Back-to-front so the top photo paints last */}
+        {[...order].reverse().map((photoIdx) => {
+          const depth = order.indexOf(photoIdx);
+          const p = photos[photoIdx]!;
+          const top = depth === 0;
+          const visible = depth < 3;
+          return (
+            <motion.div
+              key={p.src}
+              className="relative z-0 [grid-area:1/1] self-center justify-self-center overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
+              style={{
+                width: "100%",
+                aspectRatio: p.width && p.height ? `${p.width} / ${p.height}` : "4 / 5",
+                zIndex: n - depth,
+                touchAction: "pan-y",
+                cursor: top ? "grab" : "default",
+              }}
+              animate={{
+                rotate: depth === 0 ? 0 : (depth % 2 ? 1 : -1) * (2.5 + depth * 1.5) * s,
+                x: depth * 10 * s,
+                y: depth * -4,
+                scale: 1 - depth * 0.035,
+                opacity: visible ? 1 : 0,
+              }}
+              transition={{ type: "spring", stiffness: 260, damping: 28 }}
+              drag={top ? "x" : false}
+              dragSnapToOrigin
+              dragElastic={0.5}
+              onDragEnd={(_, info) => {
+                if (Math.abs(info.offset.x) > 70 || Math.abs(info.velocity.x) > 500) next();
+              }}
+              onTap={() => {
+                if (top) next();
+              }}
+              aria-hidden={!top}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.src} alt={p.alt} width={p.width} height={p.height} loading="lazy" draggable={false} className="pointer-events-none block h-full w-full" />
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+              {year && top && (
+                <p className="pointer-events-none absolute bottom-3 right-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.2em]">
+                  <span className="rounded-sm bg-accent px-1.5 py-0.5 text-white">{year.split(" ")[0]}</span>
+                </p>
+              )}
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      {/* Counter + controls */}
+      <div className="mt-5 flex items-center justify-between font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.18em] text-text-muted">
+        <span aria-live="polite">
+          <span className="text-text">{String(topNumber).padStart(2, "0")}</span> / {String(n).padStart(2, "0")}
+        </span>
+        <span className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={prev}
+            aria-label="Previous photo"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={next}
+            aria-label="Next photo"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            →
+          </button>
+        </span>
+      </div>
     </div>
   );
 }

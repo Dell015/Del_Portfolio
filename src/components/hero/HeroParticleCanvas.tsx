@@ -494,6 +494,8 @@ interface ProjectNodesProps {
   mouseRef: React.MutableRefObject<THREE.Vector3>;
   /** Set to true by the parent to force-dismiss hover (background click / Escape). */
   clearHoverRef: React.MutableRefObject<boolean>;
+  /** Project whose card is on screen (until its exit animation ends). Other nodes can't be picked meanwhile. */
+  cardIndexRef: React.MutableRefObject<number | null>;
   /** Whether the cursor is near the sphere, pauses node rotation. */
   cursorNearSphereRef: React.MutableRefObject<boolean>;
   settingsRef: React.MutableRefObject<SphereSettings>;
@@ -502,7 +504,7 @@ interface ProjectNodesProps {
   holdRef: React.MutableRefObject<boolean>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cursorNearSphereRef, settingsRef, exitRef, holdRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cardIndexRef, cursorNearSphereRef, settingsRef, exitRef, holdRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -576,6 +578,12 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
             closestIdx = i;
           }
         });
+
+        // While a card is up, a node that happens to sit behind it can't take over: the
+        // cursor has to leave, and the card has to be gone, before another node is picked.
+        if (closestIdx !== null && cardIndexRef.current !== null && closestIdx !== cardIndexRef.current) {
+          closestIdx = null;
+        }
 
         // A dismissed node stays dismissed until the cursor moves off it
         if (suppressedIndex.current !== null) {
@@ -733,10 +741,12 @@ function morphEasing(t: number): number {
 function TweenDriver({
   progressRef,
   triggered,
+  instant = false,
   onComplete,
 }: {
   progressRef: React.MutableRefObject<number>;
   triggered: boolean;
+  instant?: boolean;
   onComplete: () => void;
 }) {
   const completedRef = useRef(false);
@@ -744,6 +754,12 @@ function TweenDriver({
 
   useFrame((state, delta) => {
     if (!triggered || completedRef.current) return;
+    if (instant) {
+      progressRef.current = 1;
+      completedRef.current = true;
+      onComplete();
+      return;
+    }
     // Delta-accumulated, NOT state.clock.elapsedTime: a frameloop toggle resets that
     // clock to 0, which would stall the reveal, and the reveal is what unlocks scroll.
     elapsedRef.current = stepTime(elapsedRef.current, delta);
@@ -988,6 +1004,8 @@ interface HeroParticleCanvasProps {
   cloudA: PointCloud;
   cloudB: PointCloud;
   revealTriggered: boolean;
+  /** Skip the 4.5 s build-up and show the finished scene (used when the intro is skipped). */
+  instantReveal?: boolean;
   onRevealComplete?: () => void;
   /** Max device-pixel-ratio the canvas may render at (lower = cheaper). */
   maxDpr?: number;
@@ -999,6 +1017,7 @@ export function HeroParticleCanvas({
   cloudA,
   cloudB,
   revealTriggered,
+  instantReveal = false,
   onRevealComplete,
   maxDpr = 1.75,
   onFatalError,
@@ -1263,6 +1282,8 @@ export function HeroParticleCanvas({
   const cardHoveredRef = useRef(false);
   /** Node currently under the cursor (null = none). */
   const nodeHoveredRef = useRef<number | null>(null);
+  /** Project whose card is showing; cleared once the card's exit animation has finished. */
+  const cardIndexRef = useRef<number | null>(null);
   /** Flag read by ProjectNodes to force-drop its hover state. */
   const clearNodeHoverRef = useRef(false);
   /** Where the last pointerdown landed, used to tell a click apart from a drag. */
@@ -1283,6 +1304,8 @@ export function HeroParticleCanvas({
     setCardState(null);
     tintColorRef.current = null;
     setHoveredIndex(null);
+    // Safety net in case the exit animation never reports back.
+    setTimeout(() => { if (nodeHoveredRef.current === null) cardIndexRef.current = null; }, 700);
   }, [cancelDismiss, setHoveredIndex]);
 
   /**
@@ -1309,6 +1332,7 @@ export function HeroParticleCanvas({
       setCardState(null);
       tintColorRef.current = null;
       setHoveredIndex(null);
+      setTimeout(() => { if (nodeHoveredRef.current === null) cardIndexRef.current = null; }, 700);
     }, 300);
   }, [setHoveredIndex]);
 
@@ -1320,6 +1344,7 @@ export function HeroParticleCanvas({
     }
 
     nodeHoveredRef.current = index;
+    cardIndexRef.current = index;
     cancelDismiss();
     // Only re-render when the target or its screen position actually changed
     setCardState((prev) => {
@@ -1469,6 +1494,7 @@ export function HeroParticleCanvas({
           scaleRef={sphereScaleRef}
           mouseRef={mouseRef}
           clearHoverRef={clearNodeHoverRef}
+          cardIndexRef={cardIndexRef}
           cursorNearSphereRef={cursorNearSphereRef}
           settingsRef={settingsRef}
           exitRef={exitRef}
@@ -1489,6 +1515,7 @@ export function HeroParticleCanvas({
         <TweenDriver
           progressRef={progressRef}
           triggered={revealTriggered}
+          instant={instantReveal}
           onComplete={handleComplete}
         />
         <EffectComposer multisampling={0}>
@@ -1517,7 +1544,7 @@ export function HeroParticleCanvas({
       />
 
       {/* HTML overlay for project node card */}
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={() => { cardIndexRef.current = null; }}>
         {cardState && (
           <ProjectNodeCard
             key="project-node-card"

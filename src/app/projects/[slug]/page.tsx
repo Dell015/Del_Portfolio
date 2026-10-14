@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { projects } from "@/lib/content/projects";
+import { KarelaCaseStudy } from "@/components/projects/karela/KarelaCaseStudy";
 
 export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
@@ -28,6 +29,10 @@ export default async function ProjectCaseStudy({
   const { slug } = await params;
   const project = projects.find((p) => p.slug === slug);
   if (!project) notFound();
+
+  if (project.slug === "karela") {
+    return <KarelaCaseStudy project={project} others={projects.filter((p) => p.slug !== project.slug)} />;
+  }
 
   return (
     <main id="main" tabIndex={-1} className="min-h-screen bg-bg text-text outline-none">
@@ -231,7 +236,7 @@ export default async function ProjectCaseStudy({
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
-                    Live Site
+                    {project.liveLabel ?? "Live Site"}
                   </a>
                 ) : (
                   <span className="flex items-center gap-2 text-sm text-text-muted">
@@ -240,6 +245,20 @@ export default async function ProjectCaseStudy({
                     </svg>
                     Live: coming soon
                   </span>
+                )}
+                {project.demoUrl && (
+                  <a
+                    href={project.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-accent transition-colors hover:text-accent/80"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Try the browser demo (demo data only)
+                  </a>
                 )}
                 {project.repoUrl ? (
                   <a

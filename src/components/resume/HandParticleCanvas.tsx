@@ -15,7 +15,9 @@ import {
 const GAP_PX_DESKTOP = 72;
 const GAP_PX_PORTRAIT = 88;
 const HAND_SCALE_LANDSCAPE = 0.42;
-const HAND_SCALE_PORTRAIT = 0.5;
+const HAND_SCALE_PORTRAIT = 0.55;
+/** Portrait: the hands stop this far apart (fraction of screen height) once the resume has appeared. */
+const PORTRAIT_OPEN_GAP = 0.6;
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
@@ -210,6 +212,9 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
 
   useEffect(() => () => geometry.dispose(), [geometry]);
 
+  /** Portrait only: the hands first nearly touch, then draw apart to leave room for the resume. */
+  const gapRef = useRef<{ sign: number; close: number; open: number } | null>(null);
+
   const uniforms = useMemo(
     () => ({
       uProgress: { value: 0 },
@@ -238,7 +243,7 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
 
     // The hands stop well apart: the resume appears in the space between them.
     const gapPx = portrait
-      ? Math.max(GAP_PX_PORTRAIT, size.height * 0.72)
+      ? Math.max(GAP_PX_PORTRAIT, size.height * PORTRAIT_OPEN_GAP)
       : Math.max(GAP_PX_DESKTOP, size.width * 0.5);
     const halfGap = (gapPx * worldPerPx) / 2;
 
@@ -287,7 +292,9 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
       const sign = side === "right" ? 1 : -1;
       mat.uniforms.uRest.value.set(0, sign * halfGap, 0);
       mat.uniforms.uOrigin.value.set(0, sign * halfHeight * 2.1, 0);
+      gapRef.current = { sign, close: (GAP_PX_PORTRAIT * worldPerPx) / 2, open: halfGap };
     } else {
+      gapRef.current = null;
       // Fresco geometry: God upper-right, Adam lower-left.
       const sign = side === "right" ? 1 : -1;
       mat.uniforms.uRest.value.set(sign * halfGap, 0, 0);
@@ -303,6 +310,12 @@ function HandCloud({ cloud, side, portrait, progressRef }: HandCloudProps) {
     const mat = materialRef.current;
     if (!mat) return;
     mat.uniforms.uProgress.value = progressRef.current;
+    const g = gapRef.current;
+    if (g) {
+      // Touch first (the Creation of Adam moment), then pull apart as the resume appears.
+      const k = THREE.MathUtils.smoothstep(progressRef.current, 0.46, 0.68);
+      mat.uniforms.uRest.value.set(0, g.sign * THREE.MathUtils.lerp(g.close, g.open, k), 0);
+    }
     mat.uniforms.uTime.value = timeRef.current = stepTime(timeRef.current, delta);
   });
 

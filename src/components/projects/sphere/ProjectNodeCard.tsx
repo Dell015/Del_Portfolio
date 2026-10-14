@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import type { Project } from "@/lib/content/projects";
+import { projects, type Project } from "@/lib/content/projects";
 
 interface ProjectNodeCardProps {
   project: Project;
@@ -27,7 +27,7 @@ const EDGE = 16;
 /** Gap between the node and the card's edge. */
 const GAP = 22;
 /** Room the card needs above the node before it flips below it. */
-const CARD_H_ESTIMATE = 330;
+const CARD_H_ESTIMATE = 400;
 
 export function ProjectNodeCard({
   project,
@@ -37,6 +37,7 @@ export function ProjectNodeCard({
   onPointerLeave,
 }: ProjectNodeCardProps) {
   const [c0, c1] = project.identityGradient;
+  const index = Math.max(0, projects.findIndex((p) => p.slug === project.slug));
   const stack = project.techStack.slice(0, 4);
   const more = project.techStack.length - stack.length;
 
@@ -89,92 +90,66 @@ export function ProjectNodeCard({
               }}
             />
 
-            {/* Gradient hairline border */}
+            {/* Spec-sheet card: flat, ruled rows and corner ticks, like the portrait frame in the hero */}
             <div
-              className="rounded-[20px] p-px"
+              className="relative bg-[#0A0C0F]/95 backdrop-blur-xl"
               style={{
-                background: `linear-gradient(145deg, ${c0} 0%, color-mix(in srgb, ${c1} 35%, rgba(255,255,255,0.08)) 38%, rgba(255,255,255,0.06) 100%)`,
-                boxShadow: `0 28px 70px -18px color-mix(in srgb, ${c0} 55%, transparent), 0 10px 30px -10px rgba(0,0,0,0.7)`,
+                borderRadius: 4,
+                boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.1), 0 30px 60px -24px rgba(0,0,0,0.85), 0 0 50px -28px ${c0}`,
               }}
             >
-              <div className="relative overflow-hidden rounded-[19px] bg-[#0B0D10]/95 p-5 backdrop-blur-xl">
-                {/* Soft glow from the project's color */}
-                <div
+              {/* Corner ticks */}
+              {(["left-0 top-0 border-l border-t", "right-0 top-0 border-r border-t", "left-0 bottom-0 border-b border-l", "right-0 bottom-0 border-b border-r"] as const).map((cls) => (
+                <span
+                  key={cls}
                   aria-hidden="true"
-                  className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full opacity-25 blur-3xl"
-                  style={{ background: c0 }}
+                  className={`pointer-events-none absolute h-3 w-3 ${cls}`}
+                  style={{ borderColor: c0 }}
                 />
+              ))}
 
-                <div className="relative">
-                  {/* Platform + build status */}
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="rounded-full border border-white/12 px-2.5 py-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.14em] text-white/60">
-                      {PLATFORM_LABEL[project.platform]}
-                    </span>
-                    <span className="flex min-w-0 items-center gap-1.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.1em] text-white/55">
-                      <span
-                        aria-hidden="true"
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: c0, boxShadow: `0 0 8px ${c0}` }}
-                      />
-                      <span className="truncate">{project.status}</span>
-                    </span>
-                  </div>
-
-                  {/* Name + pitch */}
-                  <p className="mt-4 font-[family-name:var(--font-display)] text-[26px] font-bold leading-none tracking-tight text-white">
-                    {project.name}
-                  </p>
-                  <p className="mt-2.5 text-[13px] leading-relaxed text-white/70">{project.pitch}</p>
-
-                  {/* Role + team */}
-                  <dl className="mt-4 grid grid-cols-2 gap-x-4 border-t border-white/8 pt-4">
-                    <div className="min-w-0">
-                      <dt className="font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.14em] text-white/40">
-                        Role
-                      </dt>
-                      <dd className="mt-1 text-xs leading-snug text-white/85">{project.role}</dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className="font-[family-name:var(--font-mono)] text-[9.5px] uppercase tracking-[0.14em] text-white/40">
-                        Team
-                      </dt>
-                      <dd className="mt-1 text-xs leading-snug text-white/85">{project.teamSize}</dd>
-                    </div>
-                  </dl>
-
-                  {/* Stack */}
-                  <ul className="mt-4 flex flex-wrap gap-1.5">
-                    {stack.map((t) => (
-                      <li
-                        key={t}
-                        className="rounded-md bg-white/6 px-2 py-1 font-[family-name:var(--font-mono)] text-[10px] text-white/70"
-                      >
-                        {t}
-                      </li>
-                    ))}
-                    {more > 0 && (
-                      <li className="rounded-md px-1.5 py-1 font-[family-name:var(--font-mono)] text-[10px] text-white/40">
-                        +{more}
-                      </li>
-                    )}
-                  </ul>
-
-                  {/* Case study link */}
-                  <Link
-                    href={`/projects/${project.slug}`}
-                    className="node-card-cta group mt-5 flex items-center justify-between rounded-xl px-4 py-3 font-[family-name:var(--font-display)] text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  >
-                    View case study
-                    <span
-                      aria-hidden="true"
-                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs transition-transform duration-300 group-hover:translate-x-0.5"
-                    >
-                      →
-                    </span>
-                  </Link>
+              <div className="px-5 pb-0 pt-4">
+                {/* Index + platform / status */}
+                <div className="flex items-center justify-between gap-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em]">
+                  <span style={{ color: c0 }}>
+                    [ {String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")} ]
+                  </span>
+                  <span className="text-white/45">{PLATFORM_LABEL[project.platform]}</span>
                 </div>
+
+                {/* Name + pitch */}
+                <p className="mt-5 font-[family-name:var(--font-display)] text-[34px] font-bold leading-[0.95] tracking-[-0.03em] text-white">
+                  {project.name}
+                </p>
+                <p className="mt-3 text-[13px] leading-relaxed text-white/60">{project.pitch}</p>
+
+                {/* Ruled spec rows */}
+                <dl className="mt-5 font-[family-name:var(--font-mono)] text-[11px]">
+                  {[
+                    ["Status", project.status],
+                    ["Role", project.role],
+                    ["Team", project.teamSize],
+                    ["Stack", stack.join(" / ") + (more > 0 ? `  +${more}` : "")],
+                  ].map(([k, v]) => (
+                    <div key={k} className="grid grid-cols-[48px_1fr] gap-3 border-t border-dashed border-white/12 py-2.5">
+                      <dt className="uppercase tracking-[0.14em] text-white/35">{k}</dt>
+                      <dd className="leading-snug text-white/80">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
+
+              {/* Case study link */}
+              <Link
+                href={`/projects/${project.slug}`}
+                className="group flex items-center justify-between border-t px-5 py-3.5 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+                style={{ borderColor: `color-mix(in srgb, ${c0} 45%, transparent)`, background: `color-mix(in srgb, ${c0} 10%, transparent)` }}
+              >
+                <span>Open case study</span>
+                <span aria-hidden="true" className="text-base transition-transform duration-300 group-hover:translate-x-1" style={{ color: c0 }}>
+                  →
+                </span>
+              </Link>
             </div>
           </motion.div>
         </div>

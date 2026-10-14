@@ -76,7 +76,7 @@ export function Hero() {
   const isImmersive = mode === "immersive" && !reducedMotion && webglAvailable;
   const particleCount = tier === "low" ? PARTICLE_COUNT.low : PARTICLE_COUNT.high;
   const setParticlesActive = useModeStore((st) => st.setParticlesActive);
-  const { unlockScroll, lockScroll, containerRef } = useSnapScroll();
+  const { unlockScroll, lockScroll, containerRef, introSkipped } = useSnapScroll();
 
   const [clouds, setClouds] = useState<{
     cloudA: PointCloud;
@@ -96,11 +96,11 @@ export function Hero() {
       unlockScroll();
       return;
     }
-    if (!introDoneRef.current) {
+    if (!introDoneRef.current && !introSkipped) {
       containerRef.current?.scrollTo({ top: 0 });
       lockScroll();
     }
-  }, [isImmersive, error, unlockScroll, lockScroll, containerRef]);
+  }, [isImmersive, error, introSkipped, unlockScroll, lockScroll, containerRef]);
 
   useEffect(() => {
     if (!isImmersive) return;
@@ -173,7 +173,9 @@ export function Hero() {
       <HeroParticleCanvas
         cloudA={clouds.cloudA}
         cloudB={clouds.cloudB}
-        revealTriggered={revealTriggered}
+        // Coming back to a section (e.g. from a case study) skips the intro: show the finished scene at once.
+        revealTriggered={revealTriggered || introSkipped}
+        instantReveal={introSkipped}
         onRevealComplete={handleRevealComplete}
         maxDpr={tier === "low" ? 1 : 1.75}
         onFatalError={() => setError(true)}
@@ -182,7 +184,7 @@ export function Hero() {
       {/* Text overlay, z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}
       <div className={`pointer-events-none ${revealed ? "absolute inset-0 z-0" : "relative z-10 flex flex-col items-center text-center px-6"}`}>
         <AnimatePresence mode="wait">
-          {!revealed ? (
+          {!(revealed || introSkipped) ? (
             <motion.div
               key="question"
               className="flex flex-col items-center gap-2"
