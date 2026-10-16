@@ -504,9 +504,11 @@ interface ProjectNodesProps {
   holdRef: React.MutableRefObject<boolean>;
   /** Touch: a tap landed outside the card and any node. */
   onDismissTap: () => void;
+  /** The cursor is on the project card. */
+  cardHoveredRef: React.MutableRefObject<boolean>;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cardIndexRef, cursorNearSphereRef, settingsRef, exitRef, holdRef, onDismissTap }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cardIndexRef, cursorNearSphereRef, settingsRef, exitRef, holdRef, onDismissTap, cardHoveredRef }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -580,6 +582,14 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
           onHover(null, 0, 0);
         }
       }
+    } else if (cardHoveredRef.current && cardIndexRef.current !== null && interactive) {
+      // The cursor is on the card: the node it belongs to stays hovered (lit, enlarged, card
+      // pinned to it) until the cursor leaves the card.
+      if (detectedIndex.current !== cardIndexRef.current) {
+        detectedIndex.current = cardIndexRef.current;
+        setHoveredIndex(cardIndexRef.current);
+      }
+      document.body.style.cursor = "auto";
     } else
     // Manual hover detection, compare in screen pixels for reliability
     if (interactive && sphereProgress.current > 0.7) {
@@ -1577,6 +1587,7 @@ export function HeroParticleCanvas({
           settingsRef={settingsRef}
           exitRef={exitRef}
           holdRef={holdRotationRef}
+          cardHoveredRef={cardHoveredRef}
           onDismissTap={() => {
             clearNodeHoverRef.current = true;
             closeCard();

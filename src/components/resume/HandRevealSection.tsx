@@ -80,10 +80,13 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
     [rawSamples, orientation],
   );
 
+  // Sample the hand images as soon as the page has settled, NOT when the section nears the
+  // screen: the sampling takes seconds, and starting it late made the hands arrive after the
+  // resume. It also must not be tied to visibility, or scrolling past mid-sampling cancelled it.
   useEffect(() => {
-    if (!visible || rawSamples || failed) return;
+    if (rawSamples || failed) return;
     let cancelled = false;
-    (async () => {
+    const start = async () => {
       try {
         const interval = tier === "high" ? 1 : 2;
         const [god, adam] = await Promise.all([
@@ -98,11 +101,17 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
         console.error("[hand-reveal] Failed to sample hand crops:", err);
         setFailed(true);
       }
-    })();
+    };
+    const idle = typeof window.requestIdleCallback === "function";
+    const handle = idle
+      ? window.requestIdleCallback(() => void start(), { timeout: 2500 })
+      : window.setTimeout(() => void start(), 1200);
     return () => {
       cancelled = true;
+      if (idle) window.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
     };
-  }, [visible, tier, failed, rawSamples]);
+  }, [tier, failed, rawSamples]);
 
   // ── Scroll progress over the pinned range ──
   // "start start" → sticky begins pinning; "end end" → sticky releases. So 0→1
