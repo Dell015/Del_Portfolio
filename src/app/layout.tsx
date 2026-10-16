@@ -96,7 +96,7 @@ const personJsonLd = {
   description: DESCRIPTION,
   email: `mailto:${contact.email}`,
   ...(SITE_URL ? { url: SITE_URL } : {}),
-  sameAs: [contact.github, contact.linkedin],
+  sameAs: [contact.github, contact.linkedin, contact.facebook],
   address: {
     "@type": "PostalAddress",
     addressLocality: "Cauayan",

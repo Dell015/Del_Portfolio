@@ -33,6 +33,7 @@ export const contact = {
   email: "randelserafica1505@gmail.com",
   github: "https://github.com/Dell015",
   linkedin: "https://www.linkedin.com/in/randel-serafica/",
+  facebook: "https://www.facebook.com/randel.serafica.2024",
   phone: "+63 956 762 0063",
 } as const;
 

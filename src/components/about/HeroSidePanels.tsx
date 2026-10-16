@@ -75,6 +75,9 @@ export function ContactLinks({ className = "" }: { className?: string }) {
       <a href={contact.linkedin} target="_blank" rel="noopener noreferrer" className={linkClass}>
         LinkedIn <span aria-hidden="true">↗</span>
       </a>
+      <a href={contact.facebook} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        Facebook <span aria-hidden="true">↗</span>
+      </a>
     </div>
   );
 }
