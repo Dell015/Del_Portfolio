@@ -29,6 +29,54 @@ const SLIDERS = [
 const PANEL_ID = "sphere-customize-panel";
 
 /**
+ * Trackball for touch screens. Its pointer events reach the sphere's window-level
+ * drag handler, and `touch-action: none` keeps the page from scrolling under the finger.
+ */
+function TouchBall() {
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const origin = useRef<{ x: number; y: number } | null>(null);
+  const R = 22;
+  return (
+    <div
+      data-sphere-ui=""
+      className="pointer-events-auto absolute bottom-3 left-3 hidden h-24 w-24 select-none items-center justify-center rounded-full border border-white/15 bg-[#0E1013]/70 backdrop-blur-md pointer-coarse:flex"
+      style={{ touchAction: "none" }}
+      role="presentation"
+      aria-label="Drag to rotate the sphere"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        origin.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerMove={(e) => {
+        if (!origin.current) return;
+        const dx = e.clientX - origin.current.x;
+        const dy = e.clientY - origin.current.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const k = Math.min(1, R / d);
+        setKnob({ x: dx * k, y: dy * k });
+      }}
+      onPointerUp={() => {
+        origin.current = null;
+        setKnob({ x: 0, y: 0 });
+      }}
+      onPointerCancel={() => {
+        origin.current = null;
+        setKnob({ x: 0, y: 0 });
+      }}
+    >
+      <span aria-hidden="true" className="absolute font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.2em] text-text-muted/70" style={{ bottom: 8 }}>
+        rotate
+      </span>
+      <span
+        aria-hidden="true"
+        className="h-9 w-9 rounded-full border border-white/40 bg-white/10 shadow-[0_0_18px_rgba(255,255,255,0.15)]"
+        style={{ transform: `translate(${knob.x}px, ${knob.y - 6}px)`, transition: (knob.x || knob.y) ? "none" : "transform 220ms ease-out" }}
+      />
+    </div>
+  );
+}
+
+/**
  * The words, the explanation and the controls around the sphere. It sits in the
  * canvas wrapper, which is pointer-transparent, so only the interactive pieces
  * opt back in (and forward the wheel, otherwise scrolling would stall over them).
@@ -106,7 +154,7 @@ export function SphereOverlay({ visible, settings, onChange, onReset, onRefresh 
     >
       {/* Mobile / tablet: one line under the nav */}
       <p className="absolute inset-x-6 top-24 text-center font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted lg:hidden">
-        Seven projects · tap a point
+        Seven projects · tap a point · tap away to close
       </p>
 
       {/* Left: what you are looking at */}
@@ -146,6 +194,9 @@ export function SphereOverlay({ visible, settings, onChange, onReset, onRefresh 
           Nothing here is shipped yet. Each project page shows what is built and what is next.
         </p>
       </div>
+
+      {/* Touch only: a trackball for turning the sphere (a drag on the page itself scrolls it) */}
+      <TouchBall />
 
       {/* Controls */}
       <div className="absolute bottom-3 right-3 flex items-center gap-2 sm:bottom-6 sm:right-6">

@@ -64,7 +64,7 @@ export function ProjectSphereSection() {
           </div>
 
           <div
-            className="absolute inset-x-0 bottom-16 z-10 flex flex-col items-center gap-5 px-6 sm:bottom-14"
+            className="absolute inset-x-0 bottom-28 z-10 flex flex-col items-center gap-5 px-6 sm:bottom-14"
             style={{ opacity: labelsOpacity }}
           >
             <div className="flex flex-wrap justify-center gap-2.5">

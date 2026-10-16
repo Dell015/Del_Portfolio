@@ -483,7 +483,7 @@ function ParticleSystem({
 
 /** Pointer position in canvas pixels. Hover is tested in pixels, so a camera that is
  *  still easing or orbiting can't slide a node out from under a resting cursor. */
-const _pointerPx = { x: 0, y: 0, valid: false };
+const _pointerPx = { x: 0, y: 0, valid: false, touch: false, tap: false };
 
 interface ProjectNodesProps {
   sphereProgress: React.MutableRefObject<number>;
@@ -502,9 +502,11 @@ interface ProjectNodesProps {
   /** 0 on screen -> 1 gone: nodes swell with the sphere as the section scrolls away. */
   exitRef: React.MutableRefObject<number>;
   holdRef: React.MutableRefObject<boolean>;
+  /** Touch: a tap landed outside the card and any node. */
+  onDismissTap: () => void;
 }
 
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cardIndexRef, cursorNearSphereRef, settingsRef, exitRef, holdRef }: ProjectNodesProps) {
+function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cardIndexRef, cursorNearSphereRef, settingsRef, exitRef, holdRef, onDismissTap }: ProjectNodesProps) {
   const groupRef = useRef<THREE.Group>(null);
   const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -543,6 +545,42 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     const s = scaleRef.current * (1 + exitRef.current * exitRef.current * 0.9);
     groupRef.current.scale.setScalar(s);
 
+    // Touch: a tap picks a node (the card then stays until a tap lands outside it), so
+    // finger drags and scrolls never open cards by accident.
+    if (_pointerPx.touch) {
+      if (interactive && sphereProgress.current > 0.7) {
+        if (_pointerPx.tap) {
+          _pointerPx.tap = false;
+          let tapIdx: number | null = null;
+          let best = 48;
+          groupRef.current.children.forEach((child, i) => {
+            if (!(child instanceof THREE.Group)) return;
+            child.getWorldPosition(_v2);
+            const pr = _v3.copy(_v2).project(camera);
+            const d = Math.hypot(((pr.x + 1) / 2) * size.width - _pointerPx.x, ((1 - pr.y) / 2) * size.height - _pointerPx.y);
+            if (d < best) {
+              best = d;
+              tapIdx = i;
+            }
+          });
+          if (tapIdx !== null) {
+            detectedIndex.current = tapIdx;
+            setHoveredIndex(tapIdx);
+          } else if (detectedIndex.current !== null || cardIndexRef.current !== null) {
+            detectedIndex.current = null;
+            setHoveredIndex(null);
+            onDismissTap();
+          }
+        }
+      } else {
+        _pointerPx.tap = false;
+        if (detectedIndex.current !== null) {
+          detectedIndex.current = null;
+          setHoveredIndex(null);
+          onHover(null, 0, 0);
+        }
+      }
+    } else
     // Manual hover detection, compare in screen pixels for reliability
     if (interactive && sphereProgress.current > 0.7) {
       const mouseX = mouseRef.current.x;
@@ -629,8 +667,10 @@ function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, 
     groupRef.current.children.forEach((child, i) => {
       if (!(child instanceof THREE.Group)) return;
       const targetOpacity = show ? 0.9 : 0;
-      const isHovered = hoveredIndex === i;
-      const dimmed = hoveredIndex !== null && !isHovered;
+      // A node stays lit for as long as its card is up, also once the cursor has moved onto the card.
+      const litIndex = hoveredIndex ?? cardIndexRef.current;
+      const isHovered = litIndex === i;
+      const dimmed = litIndex !== null && !isHovered;
 
       // Get project color for this node
       const projectColor = projects[i]?.identityGradient[0] || "#ffffff";
@@ -779,6 +819,11 @@ function TweenDriver({
 // ─── Camera Adjust ─────────────────────────────────────────────────────────────
 
 /** three.js cameras are mutable by design; these helpers keep that out of render scope. */
+/** Camera depth once the sphere is formed. Portrait screens pull back so the sphere fits with room to scroll past it. */
+function sphereZ(aspect: number): number {
+  return aspect >= 1 ? 7 : Math.min(12, 7 + (1 - aspect) * 9.5);
+}
+
 function setCameraZ(camera: THREE.Camera, z: number) {
   camera.position.z = z;
 }
@@ -808,7 +853,7 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
     baseZRef.current = Math.max(1.2, Math.min(2.2, adjustedZ));
     // A canvas that mounts while the sphere is already formed (Refresh) starts
     // pulled back; otherwise it would open inside the sphere.
-    setCameraZ(camera, sphereProgress.current > 0.9 || sphereInteractive ? 7 : baseZRef.current);
+    setCameraZ(camera, sphereProgress.current > 0.9 || sphereInteractive ? sphereZ(aspect) : baseZRef.current);
     camera.updateProjectionMatrix();
   }, [camera, size, sphereInteractive, sphereProgress]);
 
@@ -818,7 +863,7 @@ function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: R
     const sp = sphereProgress.current;
     // Always (also at sp = 0), so the camera lands on the hero's exact depth rather
     // than wherever the last non-zero frame left it.
-    setCameraZ(camera, THREE.MathUtils.lerp(baseZRef.current, 7, sp * sp));
+    setCameraZ(camera, THREE.MathUtils.lerp(baseZRef.current, sphereZ(size.width / size.height), sp * sp));
     // Dragging the sphere moved the camera off-axis; bring it back so the portrait
     // lines up with the headline again.
     easeCameraToAxis(camera, delta);
@@ -895,7 +940,17 @@ function MouseTracker({
 
     // Pointer events cover mouse, pen AND touch, so project nodes can be tapped
     // on phones (the old mouse-only listeners made the sphere unusable there).
+    let tapDown: { x: number; y: number } | null = null;
+    const isUi = (t: EventTarget | null) =>
+      t instanceof Element && !!t.closest("a, button, input, textarea, [data-project-node-card], [data-sphere-ui], [role=dialog]");
+
     function onPointerMove(e: PointerEvent) {
+      if (e.pointerType === "touch") {
+        // Touch never "hovers"; only a tap (see onPointerUp) can pick a node.
+        _pointerPx.touch = true;
+        return;
+      }
+      _pointerPx.touch = false;
       screenToWorld(e.clientX, e.clientY, _v2);
       mouseRef.current.set(_v2.x, _v2.y, 0);
       mouseActiveRef.current = true;
@@ -905,6 +960,26 @@ function MouseTracker({
       _pointerPx.valid = true;
     }
 
+    function onPointerDown(e: PointerEvent) {
+      if (e.pointerType === "touch") {
+        _pointerPx.touch = true;
+        tapDown = { x: e.clientX, y: e.clientY };
+      } else {
+        onPointerMove(e);
+      }
+    }
+
+    function onPointerUp(e: PointerEvent) {
+      if (e.pointerType !== "touch" || !tapDown) return;
+      const moved = Math.hypot(e.clientX - tapDown.x, e.clientY - tapDown.y);
+      tapDown = null;
+      if (moved > 8 || isUi(e.target)) return;
+      const r = canvas.getBoundingClientRect();
+      _pointerPx.x = e.clientX - r.left;
+      _pointerPx.y = e.clientY - r.top;
+      _pointerPx.tap = true;
+    }
+
     function onPointerLeave() {
       mouseActiveRef.current = false;
       mouseRef.current.set(999, 999, 0);
@@ -912,11 +987,13 @@ function MouseTracker({
     }
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
-    window.addEventListener("pointerdown", onPointerMove, { passive: true });
+    window.addEventListener("pointerdown", onPointerDown, { passive: true });
+    window.addEventListener("pointerup", onPointerUp, { passive: true });
     document.documentElement.addEventListener("pointerleave", onPointerLeave);
     return () => {
       window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerdown", onPointerMove);
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
       document.documentElement.removeEventListener("pointerleave", onPointerLeave);
     };
   }, [camera, mouseRef, mouseActiveRef]);
@@ -1342,6 +1419,7 @@ export function HeroParticleCanvas({
       if (!cardHoveredRef.current) scheduleDismiss();
       return;
     }
+    // A mouse hover lands here every frame; only a real change needs the rest.
 
     nodeHoveredRef.current = index;
     cardIndexRef.current = index;
@@ -1381,8 +1459,8 @@ export function HeroParticleCanvas({
         e.clientY - pointerDownRef.current.y,
       );
       if (moved > 6) return;
-      // A tap on a project node (touch) is the "open" gesture, don't dismiss it.
-      if (e.pointerType === "touch" && nodeHoveredRef.current !== null) return;
+      // Touch taps are handled by the nodes themselves (tap a node = open, tap away = close).
+      if (e.pointerType === "touch") return;
       // Clicks inside the card belong to the card
       const target = e.target;
       if (target instanceof Element && target.closest("[data-project-node-card]")) return;
@@ -1499,6 +1577,10 @@ export function HeroParticleCanvas({
           settingsRef={settingsRef}
           exitRef={exitRef}
           holdRef={holdRotationRef}
+          onDismissTap={() => {
+            clearNodeHoverRef.current = true;
+            closeCard();
+          }}
         />
         <BigParticles
           alphaRef={bigAlphaRef}

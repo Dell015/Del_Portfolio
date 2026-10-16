@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import {
+  AnimatePresence,
   motion,
   useInView,
   useReducedMotion,
@@ -17,6 +18,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { Parallax } from "@/components/motion/Parallax";
 import { SpotlightCard } from "@/components/motion/SpotlightCard";
 import { EASE } from "@/components/motion/tokens";
+import { DriftParticles } from "./DriftParticles";
 
 const SPRING = { stiffness: 120, damping: 30, mass: 0.4 } as const;
 
@@ -50,6 +52,7 @@ export function Credentials({ photosBySlug = {} }: { photosBySlug?: Record<strin
       aria-labelledby="background-heading"
       className="relative overflow-clip px-6 py-28 md:px-16 md:py-40 lg:px-24"
     >
+      <DriftParticles className="pointer-events-none absolute inset-0 z-0 h-full w-full" />
       <Parallax
         distance={90}
         aria-hidden
@@ -203,7 +206,14 @@ function MomentVisual({
         style={{ y: reduced ? 0 : frameY, rotate: reduced ? 0 : frameRotate }}
       >
         {photos.length > 1 ? (
-          <PhotoStack photos={photos} year={m.year} flip={flip} lit={lit} reduced={reduced} />
+          <>
+            <div className="md:hidden">
+              <PhotoStack photos={photos} year={m.year} flip={flip} lit={lit} reduced={reduced} />
+            </div>
+            <div className="hidden md:block">
+              <PhotoSpread photos={photos} year={m.year} flip={flip} lit={lit} reduced={reduced} progress={progress} />
+            </div>
+          </>
         ) : (
           <motion.div
             className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]"
@@ -237,6 +247,133 @@ function MomentVisual({
             )}
           </motion.div>
         )}
+      </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Desktop: the moment's photos float around the main one, each layer travelling a different
+ * distance as you scroll. Click the main photo to bring the next one up (no arrows needed).
+ */
+function PhotoSpread({
+  photos,
+  year,
+  flip,
+  lit,
+  reduced,
+  progress,
+}: {
+  photos: ReturnType<typeof momentPhotos>;
+  year?: string;
+  flip: boolean;
+  lit: boolean;
+  reduced: boolean;
+  progress: MotionValue<number>;
+}) {
+  const [order, setOrder] = useState(() => photos.map((_, i) => i));
+  const s = flip ? -1 : 1;
+  const n = photos.length;
+  const next = () => setOrder((o) => [...o.slice(1), o[0]!]);
+
+  // Per-layer travel: this difference between layers is the parallax.
+  const y1 = useSpring(useTransform(progress, [0, 1], [150, -170]), SPRING);
+  const y2 = useSpring(useTransform(progress, [0, 1], [-70, 90]), SPRING);
+  const r1 = useTransform(progress, [0, 1], [7 * s, -3 * s]);
+  const r2 = useTransform(progress, [0, 1], [-8 * s, 4 * s]);
+
+  const slot = (k: number) => photos[order[k]!];
+  const a = slot(0)!;
+  const b = n > 1 ? slot(1) : undefined;
+  const c = n > 2 ? slot(2) : undefined;
+
+  const frame =
+    "overflow-hidden rounded-xl border border-border bg-surface shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]";
+  const img = (p: NonNullable<typeof a>) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={p.src} alt={p.alt} width={p.width} height={p.height} loading="lazy" draggable={false} className="pointer-events-none block h-full w-full" />
+  );
+
+  return (
+    <div className="relative select-none">
+      <motion.div
+        initial={reduced ? false : { opacity: 0, y: 30 }}
+        animate={lit ? { opacity: 1, y: 0 } : undefined}
+        transition={{ duration: 0.9, ease: EASE.out }}
+        className="relative"
+      >
+        {b && (
+          <motion.div
+            aria-hidden="true"
+            className="absolute z-0 w-[54%]"
+            style={{ [flip ? "left" : "right"]: "-34%", bottom: "-16%", y: reduced ? 0 : y1, rotate: reduced ? 0 : r1 }}
+          >
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={b.src}
+                className={frame}
+                style={{ aspectRatio: b.width && b.height ? `${b.width} / ${b.height}` : "4 / 5" }}
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 0.95, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: 0.45, ease: EASE.out }}
+              >
+                {img(b)}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+        )}
+        {c && (
+          <motion.div
+            aria-hidden="true"
+            className="absolute z-0 w-[44%]"
+            style={{ [flip ? "right" : "left"]: "-30%", top: "-14%", y: reduced ? 0 : y2, rotate: reduced ? 0 : r2 }}
+          >
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={c.src}
+                className={frame}
+                style={{ aspectRatio: c.width && c.height ? `${c.width} / ${c.height}` : "4 / 5" }}
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 0.9, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: 0.45, ease: EASE.out }}
+              >
+                {img(c)}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        <button
+          type="button"
+          onClick={next}
+          aria-label={`Photo ${order[0]! + 1} of ${n}. Show the next photo`}
+          className="relative z-[2] block w-full cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={a.src}
+              className={`relative ${frame}`}
+              style={{ aspectRatio: a.width && a.height ? `${a.width} / ${a.height}` : "4 / 5" }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.03 }}
+              transition={{ duration: 0.45, ease: EASE.out }}
+            >
+              {img(a)}
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+              {year && (
+                <p className="pointer-events-none absolute bottom-3 right-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.2em]">
+                  <span className="rounded-sm bg-accent px-1.5 py-0.5 text-white">{year.split(" ")[0]}</span>
+                </p>
+              )}
+              <p className="pointer-events-none absolute bottom-3 left-3 font-[family-name:var(--font-mono)] text-[10px] tracking-[0.18em] text-white/75">
+                {String(order[0]! + 1).padStart(2, "0")} / {String(n).padStart(2, "0")}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+        </button>
       </motion.div>
     </div>
   );

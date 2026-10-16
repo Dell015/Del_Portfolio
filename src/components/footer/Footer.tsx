@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { FiArrowUpRight, FiGithub, FiLinkedin, FiMail, FiPhone } from "react-icons/fi";
+import { FiArrowUpRight, FiFacebook, FiGithub, FiLinkedin, FiMail, FiPhone } from "react-icons/fi";
 import {
   availability,
   builtWith,
@@ -21,6 +21,7 @@ import { useSnapScroll } from "@/components/SmoothScroll";
 import { useModeStore } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { ContactForm } from "./ContactForm";
+import { DriftParticles } from "@/components/background/DriftParticles";
 
 const SOCIALS = [
   {
@@ -42,6 +43,13 @@ const SOCIALS = [
     value: "randel-serafica",
     href: contact.linkedin,
     Icon: FiLinkedin,
+    external: true,
+  },
+  {
+    label: "Facebook",
+    value: "randel.serafica.2024",
+    href: contact.facebook,
+    Icon: FiFacebook,
     external: true,
   },
   {
@@ -97,6 +105,27 @@ export function Footer({ contactEnabled = false }: FooterProps) {
         }}
       />
 
+      {/* Idle life: rising embers, two slow drifting glows */}
+      <DriftParticles className="pointer-events-none absolute inset-0 z-0 h-full w-full" />
+      {!reducedMotion && (
+        <>
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-[10%] top-[18%] h-[26rem] w-[26rem] rounded-full blur-3xl"
+            style={{ background: "radial-gradient(circle, rgba(209,26,42,0.16), transparent 68%)" }}
+            animate={{ x: [0, 90, 20, 0], y: [0, 50, 110, 0], scale: [1, 1.15, 0.95, 1] }}
+            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-[8%] top-[42%] h-[22rem] w-[22rem] rounded-full blur-3xl"
+            style={{ background: "radial-gradient(circle, rgba(255,122,69,0.11), transparent 68%)" }}
+            animate={{ x: [0, -80, -20, 0], y: [0, -70, 30, 0], scale: [1, 0.9, 1.12, 1] }}
+            transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </>
+      )}
+
       {/* Decorative parallax bloom, full bleed */}
       <motion.div
         aria-hidden="true"
@@ -125,7 +154,7 @@ export function Footer({ contactEnabled = false }: FooterProps) {
           <div aria-hidden="true" className="font-[family-name:var(--font-display)] text-[clamp(2.6rem,8.4vw,7.5rem)] font-bold leading-[0.98] tracking-tighter text-text">
             <MaskedHeading as="h3">Let&apos;s build</MaskedHeading>
             <MaskedHeading as="h3" delay={0.08}>
-              something <span className="font-[family-name:var(--font-serif)] font-normal italic text-accent">worth</span>
+              something <Shimmer idle={!reducedMotion}>worth</Shimmer>
             </MaskedHeading>
             <MaskedHeading as="h3" delay={0.16}>shipping.</MaskedHeading>
           </div>
@@ -343,12 +372,37 @@ export function Footer({ contactEnabled = false }: FooterProps) {
       </Parallax>
 
       {/* Warm light from below */}
-      <div
+      <motion.div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%]"
         style={{ background: "radial-gradient(70% 90% at 50% 100%, rgba(209,26,42,0.16), transparent 70%)" }}
+        animate={reducedMotion ? undefined : { opacity: [0.65, 1, 0.65] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
       />
     </footer>
+  );
+}
+
+/** The accent word: a bright band sweeps across it every few seconds. */
+function Shimmer({ children, idle }: { children: React.ReactNode; idle: boolean }) {
+  if (!idle) {
+    return <span className="font-[family-name:var(--font-serif)] font-normal italic text-accent">{children}</span>;
+  }
+  return (
+    <motion.span
+      className="font-[family-name:var(--font-serif)] font-normal italic"
+      style={{
+        backgroundImage: "linear-gradient(100deg, #D11A2A 35%, #ff9aa2 50%, #D11A2A 65%)",
+        backgroundSize: "260% 100%",
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        color: "transparent",
+      }}
+      animate={{ backgroundPosition: ["130% 0%", "-30% 0%"] }}
+      transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 3.2, ease: "easeInOut" }}
+    >
+      {children}
+    </motion.span>
   );
 }
 

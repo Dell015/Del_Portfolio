@@ -260,10 +260,43 @@ function PinnedPrompt({ p, typing, onRun }: { p: MotionValue<number>; typing: st
   return <PromptBar typing={typing} onRun={onRun} count={count} />;
 }
 
+/**
+ * Where typing may pause: the end of the command, then the end of each line of output
+ * (paragraphs break at word boundaries about every 60 characters, lists per row).
+ */
+function lineStops(block: Block, compact: boolean): number[] {
+  const rows = block.rows(compact);
+  const stops = [block.cmd.length];
+  let at = block.cmd.length;
+  for (const r of rows) {
+    const text = r.cells.map((c) => c.t).join("");
+    if (block.layout === "para") {
+      let line = 0;
+      for (const word of text.split(/(?<=\s)/)) {
+        if (line > 0 && line + word.length > 60) {
+          stops.push(at);
+          line = 0;
+        }
+        line += word.length;
+        at += word.length;
+      }
+      stops.push(at);
+    } else {
+      at += text.length;
+      stops.push(at);
+    }
+  }
+  return stops;
+}
+
 function countAt(block: Block, v: number, compact: boolean) {
   const total = block.cmd.length + cellLen(block.rows(compact));
   const q = Math.max(0, Math.min(1, (v - block.at) / (block.end - block.at)));
-  return Math.round(q * total);
+  const raw = Math.round(q * total);
+  if (raw <= 0) return 0;
+  if (raw >= total) return total;
+  // One scroll reveals one line, never a stray letter.
+  return lineStops(block, compact).find((s) => s >= raw) ?? total;
 }
 
 /** Typing driven by scroll: scrub forward and the text types, scrub back and it un-types. */
