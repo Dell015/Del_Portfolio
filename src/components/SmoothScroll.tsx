@@ -198,6 +198,12 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
     const maxScroll = () => container.scrollHeight - container.clientHeight;
 
+    const MAX_SCREENS_PER_SEC = 1.3;
+    /** One wheel event can never ask for more than this many px (one notch is ~100). */
+    const MAX_EVENT_DELTA = 110;
+    /** The target may run ahead of the page by at most this many screens. */
+    const MAX_LEAD_SCREENS = 0.5;
+
     function step(now: number) {
       const dt = Math.min(48, now - last || 16);
       last = now;
@@ -207,8 +213,12 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         return;
       }
       // Frame-rate independent exponential ease (~150ms to settle most of the way)
-      const k = 1 - Math.exp(-dt / 110);
-      current += (target - current) * k;
+      const k = 1 - Math.exp(-dt / 130);
+      // Speed limit: however hard the wheel is spun, the page never travels faster
+      // than ~1.3 screens per second, so scroll-driven animations always get seen.
+      const maxStep = (container!.clientHeight * MAX_SCREENS_PER_SEC * dt) / 1000;
+      const move = Math.max(-maxStep, Math.min(maxStep, (target - current) * k));
+      current += move;
       if (Math.abs(target - current) < 0.4) {
         current = target;
         animating = false;
@@ -241,7 +251,12 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       }
       const delta =
         e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * container!.clientHeight : e.deltaY;
-      target = Math.max(0, Math.min(maxScroll(), target + delta));
+      const capped = Math.max(-MAX_EVENT_DELTA, Math.min(MAX_EVENT_DELTA, delta));
+      const lead = container!.clientHeight * MAX_LEAD_SCREENS;
+      target = Math.max(
+        Math.max(0, current - lead),
+        Math.min(Math.min(maxScroll(), current + lead), target + capped),
+      );
       if (!animating) {
         animating = true;
         last = performance.now();
