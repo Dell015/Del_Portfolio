@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { projects } from "@/lib/content/projects";
 import { KarelaCaseStudy } from "@/components/projects/karela/KarelaCaseStudy";
+import { TagAiCaseStudy } from "@/components/projects/tagai/TagAiCaseStudy";
 
 export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
@@ -32,6 +33,10 @@ export default async function ProjectCaseStudy({
 
   if (project.slug === "karela") {
     return <KarelaCaseStudy project={project} others={projects.filter((p) => p.slug !== project.slug)} />;
+  }
+
+  if (project.slug === "tag-ai") {
+    return <TagAiCaseStudy project={project} others={projects.filter((p) => p.slug !== project.slug)} />;
   }
 
   return (
