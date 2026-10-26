@@ -154,7 +154,7 @@ export function SphereOverlay({ visible, settings, onChange, onReset, onRefresh 
     >
       {/* Mobile / tablet: one line under the nav */}
       <p className="absolute inset-x-6 top-24 text-center font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted lg:hidden">
-        Seven projects · tap a point · tap away to close
+        Four projects · tap a point · tap away to close
       </p>
 
       {/* Left: what you are looking at */}
@@ -163,7 +163,7 @@ export function SphereOverlay({ visible, settings, onChange, onReset, onRefresh 
           Index · 07
         </p>
         <h3 className="mt-4 font-[family-name:var(--font-display)] text-3xl font-bold leading-[1.1] tracking-tight text-text">
-          Seven products, <span className="text-text-muted">one sphere.</span>
+          Four products, <span className="text-text-muted">one sphere.</span>
         </h3>
         <p className="mt-4 text-sm leading-relaxed text-text-muted">
           Every point is something I designed and am still building. Karela, my thesis, is the

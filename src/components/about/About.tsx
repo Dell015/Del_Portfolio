@@ -59,8 +59,8 @@ const HISTORY = [
   },
   {
     tag: "place",
-    text: "HIRED.PH: Philippine Startup Challenge 10 regional finalist, and IgnITE Start-Up Competition 1st runner up.",
-    short: "HIRED.PH: PSC 10 regional finalist, IgnITE 1st runner up.",
+    text: "Philippine Startup Challenge 10 regional finalist, and IgnITE Start-Up Competition 1st runner up.",
+    short: "PSC 10 regional finalist, IgnITE 1st runner up.",
   },
   { tag: "work", text: "Enterprise ERP internship (under NDA).", short: "Enterprise ERP internship (under NDA)." },
   {

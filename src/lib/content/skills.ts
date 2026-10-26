@@ -40,7 +40,7 @@ export const skills: Skill[] = [
   {
     name: "Next.js",
     category: "frontend",
-    usageNote: "Used in Tag.Ai, HIRED.PH, garahe: PWA-capable, SSR, SEO-friendly",
+    usageNote: "Used in Tag.Ai, garahe: PWA-capable, SSR, SEO-friendly",
   },
   {
     name: "Angular",
