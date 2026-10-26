@@ -265,7 +265,7 @@ function Playground() {
 function HeatDemo() {
   const [heat, setHeat] = useState(1.6);
   const [skips, setSkips] = useState(0);
-  const [log, setLog] = useState("Press a button. These are the engine's real step sizes.");
+  const [log, setLog] = useState("Higher heat means bolder cards next. Press a button to see it move.");
 
   const fire = (k: keyof typeof EVENTS) => {
     let d: number = EVENTS[k].d;
@@ -351,8 +351,8 @@ function Steps() {
             <div className="tg-seats" aria-label="Three players seated around a table">
               <i className="tg-seats__ring" />
               <span className="tg-seat" style={{ left: "50%", top: "6%" }} data-deck="barkada"><b>R</b><em>1</em><small>Randel</small></span>
-              <span className="tg-seat" style={{ left: "86%", top: "62%" }} data-deck="family"><b>M</b><em>2</em><small>Mika</small></span>
-              <span className="tg-seat" style={{ left: "14%", top: "62%" }} data-deck="lovers"><b>J</b><em>3</em><small>Jun</small></span>
+              <span className="tg-seat" style={{ left: "86%", top: "62%" }} data-deck="family"><b>M</b><em>2</em><small>Mark</small></span>
+              <span className="tg-seat" style={{ left: "14%", top: "62%" }} data-deck="lovers"><b>K</b><em>3</em><small>Kenneth</small></span>
               <span className="tg-seats__mid">Ready</span>
             </div>
           )}
@@ -363,7 +363,7 @@ function Steps() {
               ))}
               <p className="tg-note">Crossed out topics never make it into the game.</p>
               <div className="tg-agree" aria-hidden>
-                {[["R", "barkada"], ["M", "family"], ["J", "lovers"]].map(([l, d]) => (
+                {[["R", "barkada"], ["M", "family"], ["K", "lovers"]].map(([l, d]) => (
                   <span data-deck={d} key={l}>{l}<i>✓</i></span>
                 ))}
                 <small>Everyone taps to agree</small>
@@ -378,9 +378,9 @@ function Steps() {
 
 function RoomDemo() {
   const FRIENDS = [
-    { n: "Mika", d: "family" },
-    { n: "Jun", d: "lovers" },
-    { n: "Ana", d: "life" },
+    { n: "Rap", d: "family" },
+    { n: "Yhen", d: "lovers" },
+    { n: "Rhian", d: "life" },
   ];
   const TARGET = 10;
   const [paid, setPaid] = useState<Record<string, boolean>>({});
@@ -414,13 +414,30 @@ function RoomDemo() {
   );
 }
 
+const WHEEL = ["Funny face", "Tell a joke", "Animal sound", "Spin again", "High five", "Free pass"];
+const PLAYERS = [
+  { n: "Randel", l: "R", d: "barkada" },
+  { n: "Mark", l: "M", d: "family" },
+  { n: "Kenneth", l: "K", d: "lovers" },
+];
+
 function Tools() {
   const [die, setDie] = useState<number | null>(null);
   const [rolling, setRolling] = useState(false);
   const [coin, setCoin] = useState<number | null>(null);
   const [flipping, setFlipping] = useState(false);
+  const [bottle, setBottle] = useState({ deg: 0, hit: -1, spinning: false });
+  const [wheel, setWheel] = useState({ deg: 0, hit: -1, spinning: false });
+  const [left, setLeft] = useState<number | null>(null);
+  const [voteN, setVoteN] = useState<number | null>(null);
   const timers = useRef<number[]>([]);
-  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+  const ticker = useRef<number | null>(null);
+  const voter = useRef<number | null>(null);
+  useEffect(() => () => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    if (ticker.current) window.clearInterval(ticker.current);
+    if (voter.current) window.clearInterval(voter.current);
+  }, []);
 
   const roll = () => {
     if (rolling) return;
@@ -434,6 +451,49 @@ function Tools() {
     const result = Math.floor(Math.random() * 2);
     timers.current.push(window.setTimeout(() => { setCoin(result); setFlipping(false); }, reduced() ? 0 : 1000));
   };
+  const spinBottle = () => {
+    if (bottle.spinning) return;
+    const hit = Math.floor(Math.random() * PLAYERS.length);
+    // the bottle points up at 0deg; players sit at 0, 120 and 240 degrees
+    const deg = bottle.deg + 360 * 3 + (hit * 120 - (bottle.deg % 360) + 360) % 360;
+    setBottle({ deg, hit: -1, spinning: true });
+    timers.current.push(window.setTimeout(() => setBottle({ deg, hit, spinning: false }), reduced() ? 0 : 2400));
+  };
+  const spinWheel = () => {
+    if (wheel.spinning) return;
+    const hit = Math.floor(Math.random() * WHEEL.length);
+    // segment i is centred at i*60 degrees; the pointer sits at the top
+    const target = (360 - hit * 60) % 360;
+    const deg = wheel.deg + 360 * 4 + ((target - (wheel.deg % 360) + 360) % 360);
+    setWheel({ deg, hit: -1, spinning: true });
+    timers.current.push(window.setTimeout(() => setWheel({ deg, hit, spinning: false }), reduced() ? 0 : 3200));
+  };
+  const startTimer = () => {
+    if (ticker.current) window.clearInterval(ticker.current);
+    setLeft(30);
+    ticker.current = window.setInterval(() => {
+      setLeft((v) => {
+        if (v === null || v <= 1) {
+          if (ticker.current) window.clearInterval(ticker.current);
+          return 0;
+        }
+        return v - 1;
+      });
+    }, 1000);
+  };
+  const startVote = () => {
+    if (voter.current) window.clearInterval(voter.current);
+    setVoteN(3);
+    voter.current = window.setInterval(() => {
+      setVoteN((v) => {
+        if (v === null || v <= 0) {
+          if (voter.current) window.clearInterval(voter.current);
+          return 0;
+        }
+        return v - 1;
+      });
+    }, 900);
+  };
 
   return (
     <div className="tg-tools">
@@ -446,6 +506,7 @@ function Tools() {
         <p className="tg-tool__out" aria-live="polite">{die && !rolling ? DICE_ROLL.out[die - 1] : "Roll to find out."}</p>
         <button type="button" className="tg-key" onClick={roll}>{rolling ? "Rolling…" : "Roll"}</button>
       </div>
+
       <div className="tg-tool" data-deck="life">
         <span className="tg-sign">Coin</span>
         <p className="tg-tool__q">{COIN_FLIP.q}</p>
@@ -454,6 +515,80 @@ function Tools() {
         </div>
         <p className="tg-tool__out" aria-live="polite">{coin !== null && !flipping ? `${coin === 0 ? "Heads" : "Tails"}: ${COIN_FLIP.out[coin]}` : "Flip to find out."}</p>
         <button type="button" className="tg-key" onClick={flip}>{flipping ? "Flipping…" : "Flip"}</button>
+      </div>
+
+      <div className="tg-tool" data-deck="barkada">
+        <span className="tg-sign">Bottle</span>
+        <p className="tg-tool__q">Spin the bottle. Say one thing you like about the player it lands on.</p>
+        <div className="tg-tool__stage tg-tool__stage--tall">
+          <div className="tg-bottle">
+            {PLAYERS.map((p, i) => (
+              <span key={p.n} className="tg-bottle__p" data-hit={bottle.hit === i} style={{ ["--a" as string]: `${i * 120}deg` }}>
+                <b data-deck={p.d}>{p.l}</b>
+              </span>
+            ))}
+            <svg className="tg-bottle__b" viewBox="0 0 40 120" width="40" height="120" style={{ transform: `rotate(${bottle.deg}deg)`, transition: bottle.spinning && !reduced() ? "transform 2.4s cubic-bezier(0.15, 0.7, 0.15, 1)" : "none" }} aria-hidden>
+              <path d="M16 4h8v6c0 6 8 10 8 22v76a8 8 0 01-8 8H16a8 8 0 01-8-8V32c0-12 8-16 8-22V4z" fill="currentColor" />
+              <path d="M16 4h8v14h-8z" fill="rgb(24 19 16)" opacity="0.35" />
+            </svg>
+          </div>
+        </div>
+        <p className="tg-tool__out" aria-live="polite">{bottle.hit >= 0 && !bottle.spinning ? `It landed on ${PLAYERS[bottle.hit].n}. Say one thing you like about them.` : "Spin to find out."}</p>
+        <button type="button" className="tg-key" onClick={spinBottle}>{bottle.spinning ? "Spinning…" : "Spin"}</button>
+      </div>
+
+      <div className="tg-tool" data-deck="lovers">
+        <span className="tg-sign">Wheel</span>
+        <p className="tg-tool__q">Spin the wheel and do what it says.</p>
+        <div className="tg-tool__stage tg-tool__stage--tall">
+          <div className="tg-wheelwrap">
+            <i className="tg-wheelwrap__pin" aria-hidden />
+            <div
+              className="tg-wheel"
+              style={{
+                background: `conic-gradient(from -30deg, ${WHEEL.map((_, i) => `var(--w${i}) ${i * 60}deg ${(i + 1) * 60}deg`).join(", ")})`,
+                transform: `rotate(${wheel.deg}deg)`,
+                transition: wheel.spinning && !reduced() ? "transform 3.2s cubic-bezier(0.15, 0.7, 0.15, 1)" : "none",
+              }}
+              aria-hidden
+            />
+          </div>
+        </div>
+        <p className="tg-tool__out" aria-live="polite">{wheel.hit >= 0 && !wheel.spinning ? `${WHEEL[wheel.hit]}.` : "Spin to find out."}</p>
+        <button type="button" className="tg-key" onClick={spinWheel}>{wheel.spinning ? "Spinning…" : "Spin"}</button>
+      </div>
+
+      <div className="tg-tool" data-deck="icebreaker">
+        <span className="tg-sign">Timer</span>
+        <p className="tg-tool__q">You have 30 seconds. Name as many Filipino foods as you can.</p>
+        <div className="tg-tool__stage">
+          <div className="tg-clock" data-low={left !== null && left > 0 && left <= 5} data-done={left === 0}>
+            <b aria-live="off">{left === null ? 30 : left}</b>
+            <small>{left === 0 ? "Time's up" : "seconds"}</small>
+          </div>
+        </div>
+        <p className="tg-tool__out" aria-live="polite">{left === 0 ? "Time's up. The group counts the foods." : left === null ? "Start the clock when you're ready." : "Go go go."}</p>
+        <button type="button" className="tg-key" onClick={startTimer}>{left === null ? "Start" : "Start again"}</button>
+      </div>
+
+      <div className="tg-tool" data-deck="family">
+        <span className="tg-sign">Vote</span>
+        <p className="tg-tool__q">Who here has the best laugh? Count down and point.</p>
+        <div className="tg-tool__stage">
+          <div className="tg-vote">
+            {voteN === null ? (
+              <div className="tg-vote__row">
+                {PLAYERS.map((p) => <b key={p.n} data-deck={p.d}>{p.l}</b>)}
+              </div>
+            ) : voteN > 0 ? (
+              <span className="tg-vote__n" key={voteN}>{voteN}</span>
+            ) : (
+              <span className="tg-vote__go">Point!</span>
+            )}
+          </div>
+        </div>
+        <p className="tg-tool__out" aria-live="polite">{voteN === 0 ? "Most fingers wins and picks someone to take a drink." : voteN === null ? "Everybody points at the same time." : "Get ready…"}</p>
+        <button type="button" className="tg-key" onClick={startVote}>{voteN === null ? "Count down" : "Again"}</button>
       </div>
     </div>
   );
@@ -488,7 +623,6 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
           </Link>
           <div className="tg-hero__grid">
             <div>
-              <div className="tg-status"><i />{project.status}</div>
               <h1 className="tg-sign tg-title">
                 Tag<span>.Ai</span>
               </h1>
@@ -609,7 +743,7 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
             <Reveal>
               <span className="tg-eyebrow">The heat</span>
               <h2 className="tg-h2">The game reads the table and <em>turns it up.</em></h2>
-              <p className="tg-lead">Sessions start light and ramp up. Finishing a card or saving one raises the heat, skipping cools it, and three skips in a row drops a whole level. Short games move faster, and Family stays gentle.</p>
+              <p className="tg-lead">The heat decides how bold the next card is. Low heat draws light, easy questions. High heat draws the spicy ones. It moves with how the table plays: finishing or saving cards raises it, skipping cools it, and three skips in a row drops a whole level. So a shy group gets eased in and a loud one gets pushed. Short games move faster, and Family stays gentle.</p>
             </Reveal>
             <Reveal delay={0.1}>
               <HeatDemo />
@@ -624,7 +758,7 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
           <Reveal>
             <span className="tg-eyebrow">Cards that bring their own tool</span>
             <h2 className="tg-h2">Nobody has to <em>find a dice.</em></h2>
-            <p className="tg-lead">Dice, coin, bottle, wheel, timer and vote cards open on their own full-screen stage, so the table just follows the result. All the tools are free.</p>
+            <p className="tg-lead">Dice, coin, bottle, wheel, timer and vote cards open on their own full-screen stage, so the table just follows the result. All six tools are free, and all of them work below.</p>
           </Reveal>
           <Reveal>
             <Tools />

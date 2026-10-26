@@ -344,7 +344,7 @@
 .tg-seat { position: absolute; transform: translate(-50%, 0); display: grid; justify-items: center; gap: 4px; }
 .tg-seat b { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: var(--deck); color: var(--ink); font-family: var(--sign); font-weight: 400; font-size: 1.5rem; box-shadow: 0 4px 0 rgb(0 0 0 / 0.4); }
 .tg-seat em { position: absolute; right: -6px; top: -6px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--ink); font: normal 400 0.78rem/1 var(--sign); border: 2px solid var(--panel); }
-.tg-seat small { font-weight: 800; color: var(--text); font-size: 0.95rem; }
+.tg-seat small { white-space: nowrap; font-weight: 800; color: var(--text); font-size: 0.95rem; }
 .tg-agree { display: flex; align-items: center; gap: 0.6rem; margin-top: 1.2rem; }
 .tg-agree span { position: relative; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--deck); color: var(--ink); font-family: var(--sign); box-shadow: 0 3px 0 rgb(0 0 0 / 0.4); }
 .tg-agree i { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: rgb(48 190 112); color: var(--ink); font-style: normal; font-size: 0.7rem; font-weight: 900; border: 2px solid var(--panel); }
@@ -387,3 +387,29 @@
 .tg-links__h { margin-top: 0.9rem; font-size: clamp(1.9rem, 1rem + 4vw, 3.4rem); color: var(--ink); max-width: 14ch; line-height: 1.02; }
 .tg-col h3 .tg-sign { font-size: 1.05rem; }
 @media (prefers-reduced-motion: reduce) { .tg-belt__track { animation: none !important; } }
+
+/* all six tools */
+.tg-tools { display: grid; gap: 1.2rem; margin-top: 2.4rem; }
+@media (min-width: 700px) { .tg-tools { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1040px) { .tg-tools { grid-template-columns: repeat(3, 1fr); } }
+.tg-tool { --w0: rgb(66 116 255); --w1: rgb(48 190 112); --w2: rgb(36 190 205); --w3: rgb(255 199 44); --w4: rgb(255 130 178); --w5: rgb(232 60 46); }
+.tg-tool__stage--tall { min-height: 200px; }
+.tg-bottle { position: relative; width: 170px; height: 170px; display: grid; place-items: center; color: var(--ink); }
+.tg-bottle__b { display: block; transform-origin: 50% 50%; filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.25)); }
+.tg-bottle__p { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform: rotate(var(--a)); }
+.tg-bottle__p b { position: absolute; left: -22px; top: -82px; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--deck); color: var(--ink); font-family: var(--sign); font-weight: 400; font-size: 1.1rem; transform: rotate(calc(var(--a) * -1)); border: 3px solid var(--ink); transition: transform 0.3s var(--ease), box-shadow 0.3s; }
+.tg-bottle__p[data-hit="true"] b { box-shadow: 0 0 0 5px var(--ink); transform: rotate(calc(var(--a) * -1)) scale(1.18); }
+.tg-wheelwrap { position: relative; width: 168px; height: 168px; }
+.tg-wheel { width: 100%; height: 100%; border-radius: 50%; border: 5px solid var(--ink); box-shadow: 0 5px 0 rgb(0 0 0 / 0.3); }
+.tg-wheelwrap__pin { position: absolute; left: 50%; top: -12px; z-index: 2; width: 0; height: 0; transform: translateX(-50%); border-left: 11px solid transparent; border-right: 11px solid transparent; border-top: 22px solid var(--ink); }
+.tg-clock { display: grid; place-items: center; width: 132px; height: 132px; border-radius: 50%; background: var(--ink); color: var(--accent); box-shadow: inset 0 0 0 6px rgb(255 199 44 / 0.35), 0 6px 0 rgb(0 0 0 / 0.3); align-content: center; }
+.tg-clock b { font-family: var(--sign); font-weight: 400; font-size: 3.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.tg-clock small { margin-top: -0.2rem; font-weight: 800; font-size: 0.85rem; color: var(--muted); }
+.tg-clock[data-low="true"] { color: var(--red); animation: tg-blink 0.6s steps(2) infinite; }
+.tg-clock[data-done="true"] { color: var(--red); }
+.tg-vote { display: grid; place-items: center; min-height: 110px; }
+.tg-vote__row { display: flex; gap: 0.7rem; }
+.tg-vote__row b { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--deck); color: var(--ink); font-family: var(--sign); font-weight: 400; font-size: 1.3rem; border: 3px solid var(--ink); }
+.tg-vote__n { font-family: var(--sign); font-size: 5rem; line-height: 1; color: var(--ink); animation: tg-pop 0.9s var(--ease) both; }
+.tg-vote__go { font-family: var(--sign); font-size: 2.6rem; color: var(--ink); text-transform: uppercase; animation: tg-pop 0.5s var(--ease) both; }
+@keyframes tg-pop { from { transform: scale(1.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
