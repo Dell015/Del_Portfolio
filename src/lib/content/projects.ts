@@ -107,29 +107,32 @@ export const projects: Project[] = [
     pitch:
       "A social drinking game that gets people off their phones and into real conversation.",
     description:
-      "Social drinking game webapp built around the philosophy: one phone, passed around the table, eye contact enforced. Curated card library, wildcard system, coin economy, escalation engine, customizable decks, so every session is unique. Designed for Filipino barkadas ages 18–30.",
+      "Social drinking game web app built around one idea: one phone, passed around the table, eye contact enforced. Themed decks, wild cards, a shared coin pot and a heat meter that ramps the night up. Friends can also join from their own phones in an online room. Designed for Filipino barkadas ages 18 to 30.",
     role: "Solo Developer",
     teamSize: "Solo project",
-    status: "In development",
+    status: "Early beta · in development",
     plain: "A party game that keeps friends talking instead of scrolling.",
     techStack: [
       "Next.js",
+      "React",
+      "TypeScript",
       "Tailwind CSS",
       "Framer Motion",
+      "Zustand",
       "Supabase",
-      "Supabase Realtime",
-      "PayMongo",
-      "Vercel",
+      "Vitest",
     ],
     identityGradient: ["#C93B96", "#FF8FCF"],
+    liveUrl: "https://tag-ai-omega.vercel.app",
+    liveLabel: "Early beta",
     caseStudy: {
-      timeline: "In development",
+      timeline: "In development, early beta",
       architectureNote:
-        "Supabase Realtime channels for live session sync (card draws, heat changes, coin spending, player joins/leaves). PayMongo for Philippine payments (GCash, Maya, credit/debit). Escalation engine drives intensity curve: sessions start light and ramp up via heat levels (1–5). Coin economy creates engagement loop with micro-transactions culturally appropriate for Filipino market.",
+        "Playable on one phone with no account, or online: accounts, coins and rooms run on Supabase, and every coin change goes through server functions so a phone cannot edit its own balance. The heat engine steers card order so sessions start light and ramp up.",
       challenge:
-        "Designing a card library that works across wildly different group dynamics (barkadas, couples, coworkers, strangers) while respecting comfort boundaries. Privacy-first filter system where players can privately flag topics (visible to host only). Balancing fun with respect at scale is harder than the technical work.",
+        "Designing cards and rules that work across very different groups while keeping everyone comfortable. Topics can be left out before the game, anyone can skip, and the 18+ deck sits behind an age check. Balancing fun with respect is harder than the technical work.",
       nextSteps:
-        "MVP build order: auth → card library → session flow → coin economy → deck builder → social features. Then: community deck marketplace and AI-generated cards (deferred).",
+        "More friends playing real games and fixing what they find, sign-in emails from its own address, automatic payments (today coins are added by hand after a QR payment), offline play and Filipino-language text.",
     },
   },
   {

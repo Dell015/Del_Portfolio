@@ -113,38 +113,38 @@ const KINDS: [string, string][] = [
 ];
 
 const STEPS = [
-  { n: "1", title: "Buy your cards", text: "Every deck is a kind of conversation with a price per card. The group has one pot of coins and spends it on how many cards it wants from each deck. Wild cards are always free." },
-  { n: "2", title: "Skip what hurts", text: "A list of topics the table can switch off before the first card is drawn, so nobody has to say it out loud in the middle of a game." },
-  { n: "3", title: "Pick the drink rule", text: "Shots, sips or forfeits. For tables that don't drink, every drink line turns into a forfeit, same game." },
-  { n: "4", title: "Agree on house rules", text: "The group sets its own rules and each player taps to agree, in order. The order matters: a tap is a promise made in front of everyone." },
+  { n: "1", tab: "Pick decks", title: "Pick your decks", text: "Tick as many decks as the night needs. Cards that show up in more than one deck are only used once, and you can add your own decks and liked cards to the mix." },
+  { n: "2", tab: "Set the pot", title: "Set the pot", text: "One coin is one card, and the pot decides how long the game runs. Wild cards are free. When the cards run out, the table can add more." },
+  { n: "3", tab: "Take your seats", title: "Who sits where", text: "Tap names in the order people sit around the table. Seat 1 plays first, and the turns go clockwise, so nobody argues about who is next." },
+  { n: "4", tab: "Agree on rules", title: "Agree on the house rules", text: "Pick the topics to leave out for everyone, then each player taps their own name to agree. Nobody has to explain why a topic is off the table." },
 ];
 
 const DECISIONS = [
-  { deck: "barkada", t: "Signboard, not app", p: "Bungee headlines like a jeepney sign, a condensed heavy body, chevron trim bands. It looks like something from a Manila street, not a startup template." },
-  { deck: "icebreaker", t: "One flat colour per deck", p: "Ten decks, ten colours, no gradients. You know which kind of question is coming from across the table before you read a word." },
-  { deck: "spicy", t: "Drunk-proof on purpose", p: "Buttons are at least 56px, card text is huge, there's an undo, and reduced motion is respected. It has to work at midnight with one hand." },
-  { deck: "lovers", t: "Hand-drawn icons, no emojis", p: "A small custom SVG set instead of emoji, so the game looks the same on every phone and never reads as AI-generated." },
-  { deck: "deep", t: "Comfort first", p: "Topics can be skipped before the game starts, the Adult deck sits behind an 18+ confirmation, and nobody is forced to answer. Dealing with it quietly is part of the design." },
-  { deck: "life", t: "Motion with meaning", p: "The card is dealt, then it flips with a spring. The numbers roll. Topic slides go the direction you're moving. Nothing moves just to move." },
+  { deck: "barkada", t: "Signboard, not app", p: "Bungee headlines like a jeepney sign, a condensed heavy body, hazard stripes and chunky keys. It looks like something off a Manila street, not a startup template." },
+  { deck: "icebreaker", t: "One colour per deck", p: "Every deck has its own flat colour, so you know what kind of question is coming before you read a word. Colour always means something." },
+  { deck: "spicy", t: "Big where it counts", p: "Menus stay compact. The game screen goes huge: big card text, big buttons, an undo. It has to work at midnight with one hand." },
+  { deck: "lovers", t: "Nobody is cornered", p: "Topics can be left out before the game starts, anyone can skip, and the 18+ deck sits behind an age check. Your birth date is used once and never stored." },
+  { deck: "deep", t: "Smooth on cheap phones", p: "Motion runs on the compositor only: dealt cards, flips and slides. It stays smooth on mid-range phones and respects reduced motion." },
+  { deck: "life", t: "One phone or many", p: "It started as one phone passed around a table. Friends can now join from their own phones while one phone runs the game." },
 ];
 
 const BUILT = [
-  "Welcome, 18+ check and nickname flow",
-  "Four-step setup with the coin pot, topics, drink rules and house rules",
-  "Ten deck colours and the card library, with Truth and Dare cards",
-  "The heat engine that ramps the game up and down",
-  "Tool cards: dice, coin, bottle, wheel, timer and vote on their own screens",
-  "A Topic deck of 109 conversation topics",
-  "Shop, wallet, saved cards, suggest-a-card, and a recap share image",
-  "242 automated tests on the game logic",
+  "The full game: setup, seating, house rules, play, recap",
+  "Decks with their own colours, plus wild cards and rule cards",
+  "Dice, coin, bottle, wheel, timer and vote cards, free to use",
+  "Accounts, coins and a shop on a live database",
+  "Online rooms: join by code or QR, one shared pot, one phone runs the game",
+  "Friends, an inbox, invite links and a community cards feed",
+  "Your own decks, liked cards and a Topic deck for talking",
+  "An admin screen for cards, suggestions and coins",
 ];
 const TODO = [
-  "A real database and accounts (Supabase). Today everything is on mock data in the browser",
-  "Live rooms across phones",
-  "Payments through PayMongo. No real money moves today",
-  "A service worker for true offline play",
-  "Filipino-language strings",
-  "Real-phone testing across iPhone and Android, then a small friends alpha",
+  "More friends playing real games, then fixing what breaks",
+  "Paying by QR works, but coins are added by hand. Automatic payments come later",
+  "Sign-in emails sent from our own address",
+  "True offline play",
+  "Filipino-language text",
+  "More cards, more decks, more of the Philippines in them",
 ];
 
 /* ---------- pieces ---------- */
@@ -215,7 +215,7 @@ function Playground() {
           ))}
         </div>
         <p className="tg-deckblurb">
-          <b>{deck.name}.</b> {deck.blurb} <b>{deck.price} coin</b> a card from the pot.
+          <b>{deck.name}.</b> {deck.blurb} <b>1 coin</b> a card from the pot.
         </p>
         <p className="tg-note">Tap the card to reveal it, then Next. These are real cards from the app&apos;s library.</p>
       </div>
@@ -312,7 +312,7 @@ function Steps() {
         {STEPS.map((st, i) => (
           <button key={st.n} type="button" role="tab" id={`tg-tab-${i}`} aria-controls="tg-panel" aria-selected={n === i} className="tg-tab" onClick={() => setN(i)}>
             <b>{st.n}</b>
-            {st.title}
+            {st.tab}
           </button>
         ))}
       </div>
@@ -326,51 +326,91 @@ function Steps() {
           {n === 0 && (
             <div className="tg-mini">
               {(
-                [["icebreaker", "Icebreaker", 0], ["barkada", "Barkada", 6], ["lovers", "Lovers", 2], ["spicy", "Spicy", 3]] as [string, string, number][]
-              ).map(([id, name, c]) => (
-                <div className="tg-mini__row" data-deck={id} key={id}>
+                [["icebreaker", "Icebreaker", false], ["barkada", "Barkada", true], ["lovers", "Lovers", false], ["spicy", "Spicy", true]] as [string, string, boolean][]
+              ).map(([id, name, on]) => (
+                <div className="tg-mini__row" data-deck={id} data-on={on} key={id}>
                   <i />
                   <span>{name}</span>
-                  <u>−</u>
-                  <em>{c}</em>
-                  <u>+</u>
+                  <u aria-hidden>{on ? "✓" : ""}</u>
                 </div>
               ))}
-              <div className="tg-pot"><span>Pot used</span><b>2.4 / 6</b></div>
-              <p className="tg-note">Example numbers. The pot and prices come from the app.</p>
+              <p className="tg-note">Example picks. Your own decks and liked cards sit above the built-in ones.</p>
             </div>
           )}
           {n === 1 && (
+            <div className="tg-potbox">
+              <div className="tg-potbox__num"><u aria-hidden>−</u><b>10</b><u aria-hidden>+</u></div>
+              <p className="tg-potbox__sub">coins, 10 cards</p>
+              <div className="tg-potbox__pre" aria-hidden>
+                {[10, 20, 30, 50, 100].map((v, i) => <span key={v} data-on={i === 0}>{v}</span>)}
+              </div>
+              <p className="tg-note">Wild cards are free on top.</p>
+            </div>
+          )}
+          {n === 2 && (
+            <div className="tg-seats" aria-label="Three players seated around a table">
+              <i className="tg-seats__ring" />
+              <span className="tg-seat" style={{ left: "50%", top: "6%" }} data-deck="barkada"><b>R</b><em>1</em><small>Randel</small></span>
+              <span className="tg-seat" style={{ left: "86%", top: "62%" }} data-deck="family"><b>M</b><em>2</em><small>Mika</small></span>
+              <span className="tg-seat" style={{ left: "14%", top: "62%" }} data-deck="lovers"><b>J</b><em>3</em><small>Jun</small></span>
+              <span className="tg-seats__mid">Ready</span>
+            </div>
+          )}
+          {n === 3 && (
             <div>
               {[["Politics", true], ["Exes", true], ["Money", false], ["Family", false], ["Work", false], ["Religion", true]].map(([t, skip]) => (
                 <span className="tg-tag" data-skip={skip as boolean} key={t as string}>{t as string}</span>
               ))}
               <p className="tg-note">Crossed out topics never make it into the game.</p>
-            </div>
-          )}
-          {n === 2 && (
-            <div>
-              <span className="tg-tag" style={{ background: "var(--accent)", color: "var(--ink)" }}>Take a shot</span>
-              <span className="tg-tag">Take a sip</span>
-              <span className="tg-tag">Do a forfeit</span>
-              <p className="tg-note">&ldquo;Fail or refuse: take a shot&rdquo; becomes &ldquo;do a forfeit&rdquo; at a table that doesn&apos;t drink.</p>
-            </div>
-          )}
-          {n === 3 && (
-            <div className="tg-mini">
-              {["Randel", "Mika", "Jun"].map((p, i) => (
-                <div className="tg-mini__row" key={p} data-deck={i === 0 ? "barkada" : "family"}>
-                  <i />
-                  <span>{p}</span>
-                  <em style={{ minWidth: "5rem" }}>{i === 0 ? "Agreed" : "Tap to agree"}</em>
-                </div>
-              ))}
-              <p className="tg-note">Players tap their own name, in order.</p>
+              <div className="tg-agree" aria-hidden>
+                {[["R", "barkada"], ["M", "family"], ["J", "lovers"]].map(([l, d]) => (
+                  <span data-deck={d} key={l}>{l}<i>✓</i></span>
+                ))}
+                <small>Everyone taps to agree</small>
+              </div>
             </div>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+function RoomDemo() {
+  const FRIENDS = [
+    { n: "Mika", d: "family" },
+    { n: "Jun", d: "lovers" },
+    { n: "Ana", d: "life" },
+  ];
+  const TARGET = 10;
+  const [paid, setPaid] = useState<Record<string, boolean>>({});
+  const total = Object.values(paid).filter(Boolean).length * 5;
+  const full = total >= TARGET;
+  return (
+    <div className="tg-room">
+      <div className="tg-room__code" aria-label="Example room code">
+        <span>Room code</span>
+        <b>K7M2QX</b>
+        <small>example</small>
+      </div>
+      <p className="tg-room__q">Tap a friend to chip in 5 coins. Tap again to take them back.</p>
+      <div className="tg-room__row">
+        {FRIENDS.map((f) => (
+          <button key={f.n} type="button" className="tg-room__f" data-deck={f.d} aria-pressed={!!paid[f.n]} onClick={() => setPaid((p) => ({ ...p, [f.n]: !p[f.n] }))}>
+            <i>{f.n[0]}</i>
+            <span>{f.n}</span>
+            <small>{paid[f.n] ? "+5" : "5"}</small>
+          </button>
+        ))}
+      </div>
+      <div className="tg-room__bar" role="progressbar" aria-valuemin={0} aria-valuemax={TARGET} aria-valuenow={Math.min(total, TARGET)} aria-label="Pot filled">
+        <i style={{ width: `${Math.min(100, (total / TARGET) * 100)}%` }} data-full={full} />
+      </div>
+      <p className="tg-room__num"><b>{Math.min(total, TARGET)}</b> / {TARGET} coins in the pot</p>
+      <button type="button" className={`tg-key ${full ? "tg-key--accent" : ""}`} disabled={!full} style={{ width: "100%", opacity: full ? 1 : 0.45 }}>
+        {full ? "Host can start the game" : "Waiting for the pot"}
+      </button>
+    </div>
   );
 }
 
@@ -420,13 +460,19 @@ function Tools() {
 }
 
 const SHOTS = [
-  { src: "/tagai/welcome.webp", t: "Welcome", d: "The deck of colours, dealt in." },
-  { src: "/tagai/buy.webp", t: "Buy your cards", d: "Spend the pot deck by deck." },
-  { src: "/tagai/deal.webp", t: "Your turn", d: "Face down until you tap." },
-  { src: "/tagai/reveal.webp", t: "The card", d: "Big text, clear drink line." },
+  { src: "/tagai/s-home.webp", t: "Home", d: "Deal in, or join a room." },
+  { src: "/tagai/s-decks.webp", t: "Pick decks", d: "Tick as many as you like." },
+  { src: "/tagai/s-pot.webp", t: "The pot", d: "One coin, one card." },
+  { src: "/tagai/s-seats.webp", t: "Seats", d: "Tap names clockwise." },
+  { src: "/tagai/s-deal.webp", t: "Your turn", d: "Face down until you tap." },
+  { src: "/tagai/s-play.webp", t: "The card", d: "Big text, clear drink line." },
 ];
 
 /* ---------- page ---------- */
+
+
+const MARQUEE = ["Icebreaker", "Family", "Life", "Deep", "Barkada", "Lovers", "Spicy", "Chaos"];
+const MARQUEE_DECK = ["icebreaker", "family", "life", "deep", "barkada", "lovers", "spicy", "chaos"];
 
 export function TagAiCaseStudy({ project, others }: { project: Project; others: Project[] }) {
   return (
@@ -442,7 +488,7 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
           </Link>
           <div className="tg-hero__grid">
             <div>
-              <div className="tg-status"><i />{project.status} · MVP stage</div>
+              <div className="tg-status"><i />{project.status}</div>
               <h1 className="tg-sign tg-title">
                 Tag<span>.Ai</span>
               </h1>
@@ -450,20 +496,21 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
               <p className="tg-lead tg-sub">{project.pitch}</p>
               <div className="tg-cta">
                 <a className="tg-key tg-key--accent" href="#play">Deal me a card</a>
+                {project.liveUrl && (
+                  <a className="tg-key tg-key--ghost" href={project.liveUrl} target="_blank" rel="noopener noreferrer">Try the early beta <Arrow /></a>
+                )}
                 {project.repoUrl && (
                   <a className="tg-key tg-key--ghost" href={project.repoUrl} target="_blank" rel="noopener noreferrer">Source code <Arrow /></a>
-                )}
-                {project.liveUrl && (
-                  <a className="tg-key tg-key--ghost" href={project.liveUrl} target="_blank" rel="noopener noreferrer">Open it <Arrow /></a>
                 )}
               </div>
             </div>
             <div className="tg-fan" aria-hidden>
               {(
-                [["icebreaker", -26, "-40%"], ["family", -13, "-20%"], ["barkada", 0, "0%"], ["lovers", 13, "20%"], ["spicy", 26, "40%"]] as [string, number, string][]
+                [["icebreaker", -28, "-44%"], ["family", -14, "-22%"], ["barkada", 0, "0%"], ["lovers", 14, "22%"], ["spicy", 28, "44%"]] as [string, number, string][]
               ).map(([d, r, x], i) => (
                 <div className="tg-fan__card" data-deck={d} key={d} style={{ ["--r" as string]: `${r}deg`, ["--x" as string]: x, ["--i" as string]: i }}>
                   <b>Tag.ai</b>
+                  <em>?</em>
                 </div>
               ))}
               <span className="tg-fan__tag">one phone, one table</span>
@@ -472,7 +519,17 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
         </div>
       </section>
 
-      <div className="tg-trim" aria-hidden />
+      <div className="tg-belt" aria-hidden>
+        <div className="tg-belt__track">
+          {[0, 1].map((k) => (
+            <div className="tg-belt__set" key={k}>
+              {MARQUEE.map((m, i) => (
+                <span data-deck={MARQUEE_DECK[i]} key={m + k}>{m}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* FACTS */}
       <div className="tg-wrap" style={{ paddingTop: "clamp(2rem,5vw,3rem)" }}>
@@ -482,7 +539,7 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
               ["Role", project.role],
               ["Team", project.teamSize],
               ["Platform", "Web app, phone first"],
-              ["Status", "Frontend done, backend next"],
+              ["Status", "Early beta, being tested"],
             ].map(([k, v]) => (
               <div className="tg-fact" key={k}>
                 <dt>{k}</dt>
@@ -493,8 +550,8 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
         </Reveal>
       </div>
 
-      {/* IDEA */}
-      <section className="tg-section">
+      {/* IDEA: yellow band */}
+      <section className="tg-section tg-band tg-band--yellow">
         <div className="tg-wrap">
           <Reveal>
             <span className="tg-eyebrow">The idea</span>
@@ -503,34 +560,17 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
           </Reveal>
         </div>
       </section>
+      <div className="tg-trim" aria-hidden />
 
       {/* PLAYGROUND */}
-      <section className="tg-section" id="play" style={{ paddingTop: 0 }}>
+      <section className="tg-section" id="play">
         <div className="tg-wrap">
           <Reveal>
             <span className="tg-eyebrow">Try it</span>
             <h2 className="tg-h2">Pick a deck. <em>Deal a card.</em></h2>
-            <p className="tg-lead">Each deck has its own colour and its own kind of question. This is the real card face from the app, running here.</p>
+            <p className="tg-lead">Every deck has its own colour and its own kind of question. This is the real card face from the game, running right here.</p>
           </Reveal>
           <Playground />
-        </div>
-      </section>
-
-      <div className="tg-trim tg-trim--red" aria-hidden />
-
-      {/* HEAT */}
-      <section className="tg-section">
-        <div className="tg-wrap">
-          <div className="tg-engine">
-            <Reveal>
-              <span className="tg-eyebrow">The heat engine</span>
-              <h2 className="tg-h2">The game reads the table and <em>turns it up.</em></h2>
-              <p className="tg-lead">Sessions start light and ramp up. Finishing a card, saving one or hitting a wild card raises the heat. Skipping cools it down, and three skips in a row drops a full level. Family mode caps the heat so it never gets out of hand.</p>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <HeatDemo />
-            </Reveal>
-          </div>
         </div>
       </section>
 
@@ -545,13 +585,46 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
         </div>
       </section>
 
+      {/* ONLINE: pink band */}
+      <section className="tg-section tg-band tg-band--pink">
+        <div className="tg-wrap">
+          <div className="tg-twocol">
+            <Reveal>
+              <span className="tg-eyebrow">Own phones, same table</span>
+              <h2 className="tg-h2">Friends can <em>join from their own phones.</em></h2>
+              <p className="tg-lead">Share a room code, a QR or an invite link. Everyone chips coins into one pot from their own wallet, one phone runs the game, and the rest watch it live. If that phone drops, another one takes over.</p>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <RoomDemo />
+            </Reveal>
+          </div>
+        </div>
+      </section>
+      <div className="tg-trim tg-trim--red" aria-hidden />
+
+      {/* HEAT */}
+      <section className="tg-section">
+        <div className="tg-wrap">
+          <div className="tg-engine">
+            <Reveal>
+              <span className="tg-eyebrow">The heat</span>
+              <h2 className="tg-h2">The game reads the table and <em>turns it up.</em></h2>
+              <p className="tg-lead">Sessions start light and ramp up. Finishing a card or saving one raises the heat, skipping cools it, and three skips in a row drops a whole level. Short games move faster, and Family stays gentle.</p>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <HeatDemo />
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* TOOLS */}
       <section className="tg-section" style={{ paddingTop: 0 }}>
         <div className="tg-wrap">
           <Reveal>
             <span className="tg-eyebrow">Cards that bring their own tool</span>
             <h2 className="tg-h2">Nobody has to <em>find a dice.</em></h2>
-            <p className="tg-lead">Dice, coin, bottle, wheel, timer and vote cards open on their own full-screen stage, so the table just follows the result.</p>
+            <p className="tg-lead">Dice, coin, bottle, wheel, timer and vote cards open on their own full-screen stage, so the table just follows the result. All the tools are free.</p>
           </Reveal>
           <Reveal>
             <Tools />
@@ -564,21 +637,44 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
         </div>
       </section>
 
+      {/* COMMUNITY */}
+      <section className="tg-section tg-band tg-band--blue">
+        <div className="tg-wrap">
+          <Reveal>
+            <span className="tg-eyebrow">Made by the barkada</span>
+            <h2 className="tg-h2">Write cards. <em>Cheer the good ones.</em></h2>
+            <p className="tg-lead">Players post their own cards to a shared feed, cheer the ones they love, and save favourites into decks of their own. Those decks can go straight into your next game.</p>
+          </Reveal>
+          <div className="tg-trio">
+            {[
+              ["Post", "Write a card in a few taps: pick its type, its deck, then type your words onto it."],
+              ["Cheer", "One cheer per card. The best ones rise to the top of the feed."],
+              ["Collect", "Save cards into your own decks and play from them."],
+            ].map(([t, d], i) => (
+              <Reveal key={t} delay={i * 0.07}>
+                <div className="tg-trio__c"><b>{t}</b><p>{d}</p></div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+      <div className="tg-trim" aria-hidden />
+
       {/* REAL SCREENS */}
-      <section className="tg-section" style={{ paddingTop: 0 }}>
+      <section className="tg-section">
         <div className="tg-wrap">
           <Reveal>
             <span className="tg-eyebrow">From the build</span>
-            <h2 className="tg-h2">Real screens, <em>running locally.</em></h2>
-            <p className="tg-lead">Screenshots from the app on my machine with demo players. It isn&apos;t deployed yet.</p>
+            <h2 className="tg-h2">Real screens, <em>demo players.</em></h2>
+            <p className="tg-lead">Screenshots from the game running on my machine with made-up players.</p>
           </Reveal>
           <div className="tg-shots">
             {SHOTS.map((s, i) => (
-              <Reveal key={s.src} delay={i * 0.06} className="tg-shot">
+              <Reveal key={s.src} delay={i * 0.05} className="tg-shot">
                 <figure>
                   <div className="tg-shot__frame">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={s.src} alt={`Tag.ai screen: ${s.t}`} width={480} height={1039} loading="lazy" decoding="async" />
+                    <img src={s.src} alt={`Tag.ai screen: ${s.t}`} width={480} height={1038} loading="lazy" decoding="async" />
                   </div>
                   <figcaption><b>{s.t}</b>{s.d}</figcaption>
                 </figure>
@@ -606,7 +702,7 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
             ))}
           </div>
           <Reveal>
-            <p className="tg-18">Tag.Ai is for adults. The Adult deck needs every player to confirm they are 18 or older. Please drink responsibly.</p>
+            <p className="tg-18">Tag.Ai is for adults. The 18+ deck needs every player to confirm they are 18 or older. Please drink responsibly.</p>
           </Reveal>
         </div>
       </section>
@@ -616,24 +712,24 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
         <div className="tg-wrap">
           <Reveal>
             <span className="tg-eyebrow">Where it stands</span>
-            <h2 className="tg-h2">Honest status: <em>front of house is done.</em></h2>
+            <h2 className="tg-h2">Playable, early, and <em>still being built.</em></h2>
           </Reveal>
           <div className="tg-board">
             <Reveal>
               <div className="tg-col tg-col--done">
-                <h3 className="tg-h3"><span className="tg-sign">Built</span></h3>
+                <h3 className="tg-h3"><span className="tg-sign">Working today</span></h3>
                 <ul>{BUILT.map((b) => <li key={b}>{b}</li>)}</ul>
               </div>
             </Reveal>
             <Reveal delay={0.08}>
               <div className="tg-col tg-col--todo">
-                <h3 className="tg-h3"><span className="tg-sign">Not yet</span></h3>
+                <h3 className="tg-h3"><span className="tg-sign">What we&apos;re working on</span></h3>
                 <ul>{TODO.map((b) => <li key={b}>{b}</li>)}</ul>
               </div>
             </Reveal>
           </div>
           <Reveal>
-            <p className="tg-honest">Nothing here has shipped. The order from here: friends alpha, then the database and accounts, then payments, then a public beta.</p>
+            <p className="tg-honest">It is an early beta. A few friends have played it so far, and I&apos;m fixing what they find before inviting more people.</p>
           </Reveal>
         </div>
       </section>
@@ -644,10 +740,10 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
           <Reveal>
             <span className="tg-eyebrow">Stack</span>
             <div className="tg-stack" aria-label="Tech stack">
-              {["Next.js", "React", "TypeScript", "Tailwind CSS", "Framer Motion", "Zustand", "Vitest"].map((t) => <span key={t}>{t}</span>)}
-              {["Supabase", "PayMongo"].map((t) => <span className="is-plan" key={t}>{t} · planned</span>)}
+              {["Next.js", "React", "TypeScript", "Tailwind CSS", "Framer Motion", "Zustand", "Supabase", "Vitest"].map((t) => <span key={t}>{t}</span>)}
+              <span className="is-plan">PayMongo · planned</span>
             </div>
-            <p className="tg-stacknote">Solid chips are in the build today. Outlined chips are the next stage.</p>
+            <p className="tg-stacknote">Solid chips are in use today. The outlined chip is next.</p>
           </Reveal>
         </div>
       </section>
@@ -657,13 +753,12 @@ export function TagAiCaseStudy({ project, others }: { project: Project; others: 
         <div className="tg-wrap">
           <Reveal>
             <div className="tg-links">
-              <span className="tg-eyebrow">Next</span>
-              <h2 className="tg-sign" style={{ marginTop: "0.9rem", fontSize: "clamp(1.9rem,1rem + 4vw,3.4rem)", color: "var(--ink)", maxWidth: "14ch", lineHeight: 1.02 }}>
-                Pass the phone.
-              </h2>
-              <p>The next milestone is a friends alpha: a few real tables on real phones, then the database. I&apos;ll post it here when it&apos;s live.</p>
+              <span className="tg-eyebrow">Your turn</span>
+              <h2 className="tg-sign tg-links__h">Pass the phone.</h2>
+              <p>The early beta is open to try on your phone. Expect rough edges, and tell me what breaks.</p>
               <div className="tg-cta">
-                <Link className="tg-key" href="/#projects">Back to projects</Link>
+                {project.liveUrl && <a className="tg-key" href={project.liveUrl} target="_blank" rel="noopener noreferrer">Try the early beta <Arrow /></a>}
+                <Link className="tg-key tg-key--ghost" href="/#projects">Back to projects</Link>
                 {project.repoUrl && <a className="tg-key tg-key--ghost" href={project.repoUrl} target="_blank" rel="noopener noreferrer">Source code</a>}
               </div>
             </div>
