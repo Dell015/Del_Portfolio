@@ -98,15 +98,28 @@ export const HOLE_START_PX = PHASE_BUDGETS.GATHER + PHASE_BUDGETS.CONDENSE;
 let _pinned = false;
 export function setSequencePinned(v: boolean) {
   _pinned = v;
+  _ignitePending = false;
 }
-const _controls: { ignite: () => void; reset: () => void } = { ignite: () => {}, reset: () => {} };
-/** The hole has compressed: explode from its centre and play the rest of the sequence. */
-export function igniteSequence() {
-  _controls.ignite();
+/** Null until the hero reveal finishes, which is when the sequence can start. */
+let _controls: { ignite: (skipBurst: boolean) => void; reset: () => void } | null = null;
+/**
+ * The hole collapsed before the sequence was ready. Coming back from a case study lands
+ * past the collapse while the canvas is still loading, so the request has to wait.
+ */
+let _ignitePending = false;
+/**
+ * The hole has compressed: explode from its centre and play the rest of the sequence.
+ * With `skipBurst` the visitor jumped here without seeing the collapse, so go straight
+ * to the finished state.
+ */
+export function igniteSequence(skipBurst = false) {
+  if (_controls) _controls.ignite(skipBurst);
+  else _ignitePending = true;
 }
 /** The user went back above the hole's collapse: un-explode. */
 export function resetSequence() {
-  _controls.reset();
+  _ignitePending = false;
+  _controls?.reset();
 }
 
 export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
@@ -148,38 +161,48 @@ export function useVirtualScroll(enabled: boolean = true): VirtualScrollState {
 
   useEffect(() => {
     if (!enabled) return;
-    _controls.ignite = () => {
-      if (isLocked.current || sequenceComplete.current) return;
-      cancelAnimationFrame(rewindRaf.current);
-      hasEnteredZone.current = true;
-      isLocked.current = true;
-      applyPhases(HOLE_START_PX);
-      startBloom();
-      autoplay.current = true;
-      setLockedState(true);
-      lockScroll();
+    _controls = {
+      ignite: (skipBurst) => {
+        if (isLocked.current || sequenceComplete.current) return;
+        cancelAnimationFrame(rewindRaf.current);
+        hasEnteredZone.current = true;
+        if (skipBurst) {
+          applyPhases(TOTAL_BUDGET);
+          sequenceComplete.current = true;
+          return;
+        }
+        isLocked.current = true;
+        applyPhases(HOLE_START_PX);
+        startBloom();
+        autoplay.current = true;
+        setLockedState(true);
+        lockScroll();
+      },
+      reset: () => {
+        if (isLocked.current || !sequenceComplete.current) return;
+        sequenceComplete.current = false;
+        hasEnteredZone.current = false;
+        resetBloom();
+        cancelAnimationFrame(rewindRaf.current);
+        const from = virtualPx.current;
+        if (from <= 0) return;
+        const duration = 450 + 900 * (from / TOTAL_BUDGET);
+        const t0 = performance.now();
+        const run = (now: number) => {
+          const t = Math.min(1, (now - t0) / duration);
+          const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          applyPhases(from * (1 - eased));
+          if (t < 1) rewindRaf.current = requestAnimationFrame(run);
+        };
+        rewindRaf.current = requestAnimationFrame(run);
+      },
     };
-    _controls.reset = () => {
-      if (isLocked.current || !sequenceComplete.current) return;
-      sequenceComplete.current = false;
-      hasEnteredZone.current = false;
-      resetBloom();
-      cancelAnimationFrame(rewindRaf.current);
-      const from = virtualPx.current;
-      if (from <= 0) return;
-      const duration = 450 + 900 * (from / TOTAL_BUDGET);
-      const t0 = performance.now();
-      const run = (now: number) => {
-        const t = Math.min(1, (now - t0) / duration);
-        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        applyPhases(from * (1 - eased));
-        if (t < 1) rewindRaf.current = requestAnimationFrame(run);
-      };
-      rewindRaf.current = requestAnimationFrame(run);
-    };
+    if (_ignitePending) {
+      _ignitePending = false;
+      _controls.ignite(true);
+    }
     return () => {
-      _controls.ignite = () => {};
-      _controls.reset = () => {};
+      _controls = null;
     };
   }, [enabled, applyPhases, lockScroll]);
 

@@ -90,6 +90,9 @@ declare global {
   }
 }
 
+/** Input that means the visitor is moving the page themselves. */
+const TAKEOVER_EVENTS = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [totalPages, setTotalPages] = useState(0);
@@ -158,24 +161,33 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       setLockedState(false);
       // The case study's only way home is "Back to projects", so land there. The page
       // is still changing height right after the intro is skipped, so keep nudging
-      // until the section sits at the top (or give up after ~3s).
+      // until the section sits at the top (or give up after ~3s). With the 3D sphere on
+      // the page, "projects" means the formed sphere, further down its scroll spacer.
       const hash = window.location.hash.slice(1) || "projects";
       let tries = 0;
+      // Reaching the spot once isn't the end: the particles load later and make About
+      // much taller. So it runs the full ~3s, unless the visitor takes over first.
       settle = setInterval(() => {
-        const el = document.getElementById(hash);
+        const el =
+          (hash === "projects" ? document.getElementById("projects-sphere") : null) ??
+          document.getElementById(hash);
         tries++;
-        if (el && Math.abs(el.getBoundingClientRect().top) < 2) {
-          clearInterval(settle);
-          return;
+        if (el && Math.abs(el.getBoundingClientRect().top) >= 2) {
+          el.scrollIntoView({ behavior: "auto" });
         }
-        el?.scrollIntoView({ behavior: "auto" });
-        if (tries > 20) clearInterval(settle);
+        if (tries > 20) stopSettling();
       }, 150);
+      TAKEOVER_EVENTS.forEach((type) => window.addEventListener(type, stopSettling, { passive: true }));
     }, 200);
+
+    function stopSettling() {
+      clearInterval(settle);
+      TAKEOVER_EVENTS.forEach((type) => window.removeEventListener(type, stopSettling));
+    }
 
     return () => {
       clearTimeout(timer);
-      clearInterval(settle);
+      stopSettling();
     };
   }, [pathname]);
 

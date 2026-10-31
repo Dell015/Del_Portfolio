@@ -474,6 +474,7 @@ function PinnedAbout() {
   const [typing, setTyping] = useState<string | null>(null);
   const flying = useRef(false);
   const ignited = useRef(false);
+  const lastV = useRef(0);
   const raf = useRef(0);
   const cancelFly = useRef<(() => void) | null>(null);
 
@@ -526,13 +527,15 @@ function PinnedAbout() {
       swirlState.compress = collapse;
       if (fired && !ignited.current) {
         ignited.current = true;
-        igniteSequence();
+        // Arriving from well above the collapse in one step (a jump, not a scroll) means it was never seen.
+        igniteSequence(lastV.current < 0.9);
         animate(bgA, 0, { duration: 0.5, ease: "easeOut" });
         animate(layerA, 0, { duration: 0.28, ease: "easeOut" });
       } else if (!fired && v < 0.96 && ignited.current) {
         ignited.current = false;
         resetSequence();
       }
+      lastV.current = v;
       if (!fired && !ignited.current) {
         bgA.set(v > 0 ? 1 : ss(0.88, 1, entry));
         layerA.set(v > 0 ? 1 : ss(0.55, 0.95, entry));

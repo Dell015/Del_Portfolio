@@ -49,6 +49,8 @@ export function ProjectSphereSection() {
 
       {/* Tall scroll spacer, drives sphere phases via scrollProgress */}
       <div className="relative h-[300vh]">
+        {/* Where "Back to projects" lands: the sphere is formed and its labels are showing. */}
+        <div id="projects-sphere" aria-hidden="true" className="absolute top-[220vh] h-0 w-0" />
         <div className="pointer-events-none sticky top-0 h-screen w-full">
           <div
             aria-hidden="true"

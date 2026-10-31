@@ -148,6 +148,11 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
   const opacityMobile = useTransform(scrollMV, [0.04, 0.3], [1, 0]);
   const yMobile = useTransform(scrollMV, [0, 0.3], [0, -60]);
 
+  // Everything above has exited by here. The entrance fades end at full opacity, and if
+  // the page is already scrolled past (back from a case study) no scroll change follows
+  // to undo that, so past this point the whole overlay is simply hidden.
+  const overlayVisibility = useTransform(scrollMV, (v) => (v > 0.7 ? "hidden" : "visible"));
+
   if (!visible) return null;
 
   return (
@@ -156,6 +161,7 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.05 }}
+      style={{ visibility: overlayVisibility }}
     >
       {/* === DESKTOP LAYOUT === */}
       <motion.div className="relative hidden md:flex items-center justify-center w-full h-full" style={{ y: yShared }}>

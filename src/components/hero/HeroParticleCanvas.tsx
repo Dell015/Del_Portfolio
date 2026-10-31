@@ -1242,7 +1242,9 @@ export function HeroParticleCanvas({
       dissolveRef.current = 1;
       ambientRef.current = 1;
     }
-  }, [scrollProgress]);
+    // revealDone: the page can already be scrolled when the reveal ends (coming back
+    // from a case study), and no scroll event will follow to dissolve the portrait.
+  }, [scrollProgress, revealDone]);
 
   // Virtual-scroll-driven phases: GATHER → CONDENSE → EXPLODE → SMALL_FADE
   // These are updated by the useVirtualScroll hook directly via refs.
