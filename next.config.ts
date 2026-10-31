@@ -15,9 +15,6 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Don't advertise the framework in every response.
   poweredByHeader: false,
-  experimental: {
-    agentUpgrade: "security",
-  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
