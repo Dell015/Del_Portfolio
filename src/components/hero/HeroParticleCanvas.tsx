@@ -745,6 +745,8 @@ export function HeroParticleCanvas({
   /** The page is held still while the system is on screen; About and Skills are the exits. */
   const [locked, setLocked] = useState(false);
   const lockedRef = useRef(false);
+  /** True while the page is easing onto the landing spot (the pins must not fight it). */
+  const settlingRef = useRef(false);
   /** An exit was pressed: the page unlocks and the system fades while it scrolls away. */
   const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
@@ -987,7 +989,15 @@ export function HeroParticleCanvas({
       const anchor = anchorRef.current ?? (anchorRef.current = document.getElementById("projects-sphere"));
       if (container && anchor) {
         const vh = container.clientHeight;
-        const off = Math.abs(anchor.getBoundingClientRect().top - container.getBoundingClientRect().top);
+        let delta = anchor.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        // Content above can still grow while locked (coming back from a case study, the
+        // About scene gets taller once the particles load). That moves the landing spot
+        // without any scroll event, so re-pin from here every frame.
+        if (lockedRef.current && !settlingRef.current && !leavingRef.current && Math.abs(delta) > 1) {
+          container.scrollTop += delta;
+          delta = 0;
+        }
+        const off = Math.abs(delta);
         // The exit is over once the destination section sits at the top.
         if (leavingRef.current) {
           const dest = leavingToRef.current ? document.getElementById(leavingToRef.current) : null;
@@ -1035,8 +1045,6 @@ export function HeroParticleCanvas({
     };
   }, [blocking]);
 
-  /** True while the page is easing onto the landing spot (the pin below must not fight it). */
-  const settlingRef = useRef(false);
 
   // Whatever moves the page while it is locked (scrollbar drag, middle-click scroll,
   // find-in-page, focus jumps) is put straight back on the landing spot.

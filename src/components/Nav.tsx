@@ -78,7 +78,9 @@ export function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const particlesActive = useModeStore((s) => s.particlesActive);
-  const activeSection = useActiveSection(SECTION_IDS, particlesActive);
+  // The two home pages swap their sections at runtime, so re-observe when either changes.
+  const mode = useModeStore((s) => s.mode);
+  const activeSection = useActiveSection(SECTION_IDS, `${particlesActive}-${mode}`);
   const { scrollLocked, containerRef } = useSnapScroll();
   const hidden = useHideOnScrollDown();
   const pathname = usePathname();

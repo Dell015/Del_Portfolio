@@ -6,25 +6,34 @@ import { ProjectsSection } from "@/components/projects/ProjectsSection";
 import { SkillsField } from "@/components/skills/SkillsField";
 import { HandRevealSection } from "@/components/resume/HandRevealSection";
 import { Footer } from "@/components/footer/Footer";
+import { HomeView } from "@/components/home/HomeView";
+import { QuickLook } from "@/components/quicklook/QuickLook";
 import { isEmailConfigured } from "@/lib/email/sendContactEmail";
+import { discoverMomentPhotos } from "@/lib/content/discoverMomentPhotos";
 
-export default function Home() {
+export default async function Home() {
   // Resolved on the server so the contact form never renders as live when
   // submitting would fail. Only the boolean crosses to the client, never the key.
   const contactEnabled = isEmailConfigured();
+  const photosBySlug = await discoverMomentPhotos();
 
   return (
-    <>
-      <AmbientGradient />
-      <main id="main" tabIndex={-1} className="outline-none">
-        <Hero />
-        <About />
-        <ProjectsSection />
-        <SkillsField />
-        <Background />
-        <HandRevealSection />
-      </main>
-      <Footer contactEnabled={contactEnabled} />
-    </>
+    <HomeView
+      quick={<QuickLook contactEnabled={contactEnabled} photosBySlug={photosBySlug} />}
+      full={
+        <>
+          <AmbientGradient />
+          <main id="main" tabIndex={-1} className="outline-none">
+            <Hero />
+            <About />
+            <ProjectsSection />
+            <SkillsField />
+            <Background />
+            <HandRevealSection />
+          </main>
+          <Footer contactEnabled={contactEnabled} />
+        </>
+      }
+    />
   );
 }

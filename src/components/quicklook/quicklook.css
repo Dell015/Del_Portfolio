@@ -1,0 +1,65 @@
+/* Quick Look: small motion bits the build kit can't express with utilities. */
+
+.ql-canvas {
+  background-color: #0d0e11;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.055) 1px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+.ql-caret {
+  animation: ql-blink 0.9s steps(1) infinite;
+}
+@keyframes ql-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Cursor press: the pointer dips and a ring pulses out. */
+.ql-cursor .ql-pointer {
+  transition: transform 120ms ease-out;
+  transform-origin: 2px 2px;
+}
+.ql-cursor[data-press="true"] .ql-pointer {
+  transform: scale(0.82);
+}
+.ql-cursor[data-press="true"] .ql-ring {
+  animation: ql-ring 380ms ease-out;
+}
+@keyframes ql-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+.ql-rulers-in {
+  animation: ql-fade 900ms ease-out 400ms both;
+}
+@keyframes ql-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Idle drift for the presence avatars. */
+.ql-live {
+  animation: ql-pulse 2.4s ease-in-out infinite;
+}
+@keyframes ql-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-caret,
+  .ql-live,
+  .ql-rulers-in {
+    animation: none;
+  }
+}

@@ -18,14 +18,14 @@ const OPTIONS: {
     value: "clean",
     tag: "About 1 minute",
     title: "Quick look",
-    body: "The short version. A clean page with everything that matters, and no heavy effects. Works on any device.",
+    body: "The short version: everything that matters on one light page, built live as you scroll. Works on any device.",
     cta: "Show me the page",
   },
   {
     value: "immersive",
     tag: "The full experience",
     title: "Let's have fun",
-    body: "A particle portrait, a black hole and a 3D project sphere you can spin. Best on a laptop or desktop.",
+    body: "A particle portrait, a black hole and a solar system of my projects. Best on a laptop or desktop.",
     cta: "Let's go",
   },
 ];
