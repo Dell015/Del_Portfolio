@@ -1,0 +1,683 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
+import {
+  PLANETS,
+  SUN_RADIUS,
+  TILT,
+  fibonacciDirs,
+  focusCamera,
+  orbitPoint,
+  planetFocus,
+  toSystem,
+  type FocusState,
+} from "@/lib/system/layout";
+
+/**
+ * The project solar system. Every project is a particle planet in its own colours;
+ * its bright orbs are the project's main parts. A red sun (Randel) sits in the
+ * middle. The scene forms out of the scattered particles left by the About
+ * section (`formRef` 0 -> 1), then the camera flies between planets and the
+ * focused planet turns to face the selected part.
+ */
+
+export interface SystemSelection {
+  planet: number;
+  part: number;
+}
+
+/** Screen positions the HTML overlay pins its labels to (canvas pixels). */
+export interface SystemScreen {
+  ready: boolean;
+  parts: { x: number; y: number; front: boolean }[];
+  planets: { x: number; y: number; r: number }[];
+  sun: { x: number; y: number };
+}
+
+export function createSystemScreen(): SystemScreen {
+  return { ready: false, parts: [], planets: [], sun: { x: 0, y: 0 } };
+}
+
+interface SolarSystemProps {
+  /** 0 hidden -> 1 visible (crossfades in as the small particles fade out). */
+  alphaRef: React.MutableRefObject<number>;
+  /** 0 scattered -> 1 formed. */
+  formRef: React.MutableRefObject<number>;
+  /** 0 on screen -> 1 scrolled away. */
+  exitRef: React.MutableRefObject<number>;
+  selRef: React.MutableRefObject<SystemSelection>;
+  interactive: boolean;
+  lowPower: boolean;
+  reducedMotion: boolean;
+  screenRef: React.MutableRefObject<SystemScreen>;
+  onPickPlanet: (i: number) => void;
+  onPickPart: (i: number) => void;
+}
+
+const _dummy = new THREE.Object3D();
+const _v = new THREE.Vector3();
+const _w = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _qId = new THREE.Quaternion();
+const _spin = new THREE.Quaternion();
+const _yAxis = new THREE.Vector3(0, 1, 0);
+const _camPos = new THREE.Vector3();
+const _camTarget = new THREE.Vector3();
+const _white = new THREE.Color("#ffffff");
+const _m = new THREE.Matrix4();
+const _n = new THREE.Vector3();
+const _cam = new THREE.Vector3();
+
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Random points in a shell around the old sphere's spot, in world space. */
+function scatterWorld(count: number, rand: () => number): Float32Array {
+  const out = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const th = rand() * Math.PI * 2;
+    const ph = Math.acos(2 * rand() - 1);
+    const r = 6 * (0.3 + rand() * 0.7);
+    out[i * 3] = r * Math.sin(ph) * Math.cos(th);
+    out[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+    out[i * 3 + 2] = r * Math.cos(ph);
+  }
+  return out;
+}
+
+interface Body {
+  /** Formed positions, local to the body. */
+  formed: Float32Array;
+  /** Scattered start positions, local to the body (so formation lands exactly). */
+  scatter: Float32Array;
+  sizes: Float32Array;
+  colors: Float32Array;
+  count: number;
+}
+
+/** Builds one particle body: a fibonacci shell plus a looser inner layer. */
+function buildBody(
+  count: number,
+  radius: number,
+  centreSys: THREE.Vector3,
+  colorA: THREE.Color,
+  colorB: THREE.Color,
+  seed: number,
+  dotSize: number,
+): Body {
+  const rand = mulberry32(seed);
+  const formed = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  const colors = new Float32Array(count * 3);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const c = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / (count - 1)) * 2;
+    const ry = Math.sqrt(1 - y * y);
+    const th = golden * i;
+    // Most dots sit on the surface; a few float just inside it for depth.
+    const depth = rand() < 0.82 ? 1 : 0.72 + rand() * 0.22;
+    formed[i * 3] = Math.cos(th) * ry * radius * depth;
+    formed[i * 3 + 1] = y * radius * depth;
+    formed[i * 3 + 2] = Math.sin(th) * ry * radius * depth;
+    sizes[i] = dotSize * (0.75 + rand() * 0.55) * (depth < 1 ? 0.7 : 1);
+    // Latitude bands between the two theme colours, with a little noise.
+    const t = THREE.MathUtils.clamp((y + 1) / 2 + (rand() - 0.5) * 0.35, 0, 1);
+    c.copy(colorA).lerp(colorB, t);
+    const shade = 0.42 + rand() * 0.28;
+    colors[i * 3] = c.r * shade;
+    colors[i * 3 + 1] = c.g * shade;
+    colors[i * 3 + 2] = c.b * shade;
+  }
+  // Scatter starts in world space (where the About particles are), converted into
+  // this body's frame. Bodies are unrotated while forming, so this lands exactly.
+  const sw = scatterWorld(count, rand);
+  const scatter = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    _v.set(sw[i * 3]!, sw[i * 3 + 1]!, sw[i * 3 + 2]!);
+    toSystem(_v).sub(centreSys);
+    scatter[i * 3] = _v.x;
+    scatter[i * 3 + 1] = _v.y;
+    scatter[i * 3 + 2] = _v.z;
+  }
+  return { formed, scatter, sizes, colors, count };
+}
+
+/** Soft round falloff for the sun's corona (a sprite always faces the camera). */
+function makeGlowTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, "rgba(255,255,255,0.9)");
+    g.addColorStop(0.25, "rgba(255,255,255,0.35)");
+    g.addColorStop(0.6, "rgba(255,255,255,0.08)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function OrbitRing({ radius, matRef }: { radius: number; matRef: (m: THREE.LineBasicMaterial | null) => void }) {
+  const line = useMemo(() => {
+    const pts: THREE.Vector3[] = [];
+    const n = 160;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({
+      color: "#ffffff",
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    return new THREE.Line(geo, mat);
+  }, [radius]);
+  useEffect(() => {
+    matRef(line.material as THREE.LineBasicMaterial);
+    return () => {
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+    };
+  }, [line, matRef]);
+  return <primitive object={line} />;
+}
+
+export function SolarSystem({
+  alphaRef,
+  formRef,
+  exitRef,
+  selRef,
+  interactive,
+  lowPower,
+  reducedMotion,
+  screenRef,
+  onPickPlanet,
+  onPickPart,
+}: SolarSystemProps) {
+  const { camera, size } = useThree();
+  const perPlanet = lowPower ? 360 : 820;
+  const sunCount = lowPower ? 120 : 220;
+
+  // ── Static geometry ────────────────────────────────────────────────────────
+  const built = useMemo(() => {
+    const planets = PLANETS.map((p, i) => {
+      const centre = orbitPoint(p.orbit, p.angle);
+      const body = buildBody(
+        perPlanet,
+        p.radius,
+        centre,
+        new THREE.Color(p.colorA),
+        new THREE.Color(p.colorB),
+        0x51a7 + i * 977,
+        p.radius * 0.0165,
+      );
+      const partDirs = fibonacciDirs(p.partCount, 0.78);
+      return { layout: p, centre, body, partDirs, partColor: new THREE.Color(p.partColor) };
+    });
+    const sunCentre = new THREE.Vector3(0, 0, 0);
+    const sun = buildBody(
+      sunCount,
+      SUN_RADIUS,
+      sunCentre,
+      new THREE.Color("#D11A2A"),
+      new THREE.Color("#ff7a45"),
+      0xbeef,
+      0.026,
+    );
+    // The sun glows brighter than the planets.
+    for (let i = 0; i < sun.colors.length; i++) sun.colors[i] = Math.min(1, sun.colors[i]! * 1.9);
+    return { planets, sun };
+  }, [perPlanet, sunCount]);
+
+  // ── Refs to scene objects ──────────────────────────────────────────────────
+  const planetGroups = useRef<(THREE.Group | null)[]>([]);
+  const surfaceMeshes = useRef<(THREE.InstancedMesh | null)[]>([]);
+  const surfaceMats = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const partMeshes = useRef<(THREE.InstancedMesh | null)[]>([]);
+  const partMats = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const ringMats = useRef<(THREE.LineBasicMaterial | null)[]>([]);
+  const sunMesh = useRef<THREE.InstancedMesh>(null);
+  const sunMat = useRef<THREE.MeshBasicMaterial>(null);
+  const haloRef = useRef<THREE.Sprite>(null);
+  const haloMat = useRef<THREE.SpriteMaterial>(null);
+  const glow = useMemo(() => makeGlowTexture(), []);
+  useEffect(() => () => glow.dispose(), [glow]);
+  const systemRef = useRef<THREE.Group>(null);
+
+  const timeRef = useRef(0);
+  /** Last formation value the instance matrices were written for. */
+  const lastForm = useRef(-1);
+  /** Per-planet "how focused" 0..1, eased. */
+  const focusMix = useRef<number[]>(PLANETS.map((_, i) => (i === 0 ? 1 : 0)));
+  /** Per-part highlight 0..1 on the focused planet, eased. */
+  const partMix = useRef<number[][]>(PLANETS.map((p) => Array.from({ length: p.partCount }, () => 0)));
+
+  // Instance colours (set once).
+  useEffect(() => {
+    built.planets.forEach((p, i) => {
+      const mesh = surfaceMeshes.current[i];
+      if (!mesh) return;
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(p.body.colors, 3);
+      mesh.instanceColor.needsUpdate = true;
+      const parts = partMeshes.current[i];
+      if (parts) {
+        const cols = new Float32Array(p.layout.partCount * 3);
+        for (let k = 0; k < p.layout.partCount; k++) {
+          cols[k * 3] = p.partColor.r;
+          cols[k * 3 + 1] = p.partColor.g;
+          cols[k * 3 + 2] = p.partColor.b;
+        }
+        parts.instanceColor = new THREE.InstancedBufferAttribute(cols, 3);
+        parts.instanceColor.needsUpdate = true;
+      }
+    });
+    if (sunMesh.current) {
+      sunMesh.current.instanceColor = new THREE.InstancedBufferAttribute(built.sun.colors, 3);
+      sunMesh.current.instanceColor.needsUpdate = true;
+    }
+    lastForm.current = -1;
+  }, [built]);
+
+  // ── Picking: click a part on the focused planet, or another planet ─────────
+  useEffect(() => {
+    if (!interactive) {
+      document.body.style.cursor = "auto";
+      return;
+    }
+    const canvas = document.querySelector("#hero-particle-canvas canvas") as HTMLElement | null;
+    let down: { x: number; y: number } | null = null;
+    const isUi = (t: EventTarget | null) =>
+      t instanceof Element && !!t.closest("a, button, input, textarea, [data-system-ui]");
+
+    function hit(clientX: number, clientY: number): { kind: "part" | "planet"; index: number } | null {
+      const s = screenRef.current;
+      if (!s.ready || !canvas) return null;
+      const r = canvas.getBoundingClientRect();
+      const x = clientX - r.left;
+      const y = clientY - r.top;
+      let best: { kind: "part" | "planet"; index: number } | null = null;
+      let bestD = 30;
+      s.parts.forEach((p, i) => {
+        if (!p.front) return;
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d < bestD) {
+          bestD = d;
+          best = { kind: "part", index: i };
+        }
+      });
+      if (best) return best;
+      const focused = selRef.current.planet;
+      s.planets.forEach((p, i) => {
+        if (i === focused) return;
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d < Math.max(26, p.r + 10) && d < bestD + p.r) {
+          bestD = d;
+          best = { kind: "planet", index: i };
+        }
+      });
+      return best;
+    }
+
+    function onMove(e: PointerEvent) {
+      if (e.pointerType === "touch") return;
+      if (isUi(e.target)) return;
+      document.body.style.cursor = hit(e.clientX, e.clientY) ? "pointer" : "auto";
+    }
+    function onDown(e: PointerEvent) {
+      down = { x: e.clientX, y: e.clientY };
+    }
+    function onUp(e: PointerEvent) {
+      if (!down) return;
+      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+      down = null;
+      if (moved > 8 || isUi(e.target)) return;
+      const h = hit(e.clientX, e.clientY);
+      if (!h) return;
+      if (h.kind === "part") onPickPart(h.index);
+      else onPickPlanet(h.index);
+    }
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerdown", onDown, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = "auto";
+    };
+  }, [interactive, onPickPart, onPickPlanet, screenRef, selRef]);
+
+  // ── Per frame ─────────────────────────────────────────────────────────────
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.1);
+    timeRef.current += dt;
+    const time = timeRef.current;
+    const alpha = alphaRef.current;
+    const sp = formRef.current;
+    const s = sp * sp * (3 - 2 * sp);
+    const exit = exitRef.current;
+    const sel = selRef.current;
+    // "Formed enough" to explore: coming back from a case study can park the
+    // scene a hair short of 1, which must still count.
+    const formed = s > 0.97;
+
+    // Positions only need rewriting while the scene forms or dissolves.
+    const rewrite = Math.abs(s - lastForm.current) > 1e-4 || s < 0.999;
+    const drift = 0.05 * (1 - s);
+
+    const writeBody = (mesh: THREE.InstancedMesh | null, body: Body, k: number) => {
+      if (!mesh) return;
+      for (let i = 0; i < body.count; i++) {
+        const i3 = i * 3;
+        let x = body.scatter[i3]! + (body.formed[i3]! - body.scatter[i3]!) * s;
+        let y = body.scatter[i3 + 1]! + (body.formed[i3 + 1]! - body.scatter[i3 + 1]!) * s;
+        let z = body.scatter[i3 + 2]! + (body.formed[i3 + 2]! - body.scatter[i3 + 2]!) * s;
+        if (drift > 0.0005) {
+          x += Math.sin(time * 0.3 + i * 0.11 + k) * drift;
+          y += Math.cos(time * 0.2 + i * 0.07 + k) * drift;
+          z += Math.sin(time * 0.25 + i * 0.05 + k) * drift;
+        }
+        _dummy.position.set(x, y, z);
+        _dummy.scale.setScalar(body.sizes[i]!);
+        _dummy.updateMatrix();
+        mesh.setMatrixAt(i, _dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    };
+
+    if (rewrite) {
+      built.planets.forEach((p, i) => writeBody(surfaceMeshes.current[i] ?? null, p.body, i));
+      writeBody(sunMesh.current, built.sun, 9);
+      lastForm.current = s;
+    }
+
+    // Sun: slow turn and a soft pulse.
+    if (sunMesh.current) {
+      sunMesh.current.rotation.y += dt * 0.08;
+      const pulse = 1 + Math.sin(time * 1.4) * 0.03;
+      sunMesh.current.scale.setScalar(pulse);
+    }
+    if (sunMat.current) sunMat.current.opacity = alpha * 0.75 * (1 - exit * 0.4);
+    if (haloMat.current) {
+      haloMat.current.opacity = alpha * s * 0.55 * (1 + Math.sin(time * 1.4) * 0.12) * (1 - exit * 0.4);
+    }
+
+    const swell = 1 + exit * exit * 0.6;
+    const screen = screenRef.current;
+    screen.planets.length = PLANETS.length;
+
+    built.planets.forEach((p, i) => {
+      const group = planetGroups.current[i];
+      if (!group) return;
+      const isFocus = i === sel.planet;
+      const fm = focusMix.current;
+      fm[i] = THREE.MathUtils.damp(fm[i]!, isFocus ? 1 : 0, 3, dt);
+
+      // Orientation: forming = upright (so scatter lands), focused = face the
+      // selected part toward the camera, otherwise a slow spin on its own axis.
+      if (!formed) {
+        group.quaternion.slerp(_qId, 1 - Math.exp(-dt * 6));
+      } else if (isFocus && interactive) {
+        const dir = p.partDirs[sel.part] ?? p.partDirs[0];
+        if (dir) {
+          group.getWorldPosition(_w);
+          _v.copy(camera.position).sub(_w);
+          toSystem(_v).normalize();
+          // Turn the part slightly toward the text column so its label stays clear of the edge.
+          _q.setFromUnitVectors(dir, _v);
+          group.quaternion.slerp(_q, reducedMotion ? 1 : 1 - Math.exp(-dt * 3.2));
+        }
+      } else if (!reducedMotion) {
+        _spin.setFromAxisAngle(_yAxis, dt * 0.18);
+        group.quaternion.multiply(_spin);
+      }
+      group.scale.setScalar(swell);
+
+      const surf = surfaceMats.current[i];
+      // A background planet that drifts behind the text column fades right down, so
+      // the words always sit on plain space.
+      const prev = screen.planets[i];
+      const wide = size.width / size.height >= 0.95;
+      const behindText = wide && prev ? THREE.MathUtils.clamp((size.width * 0.42 - prev.x + prev.r) / (prev.r + 60), 0, 1) : 0;
+      const textFade = 1 - behindText * (1 - fm[i]!) * 0.85;
+      if (surf) surf.opacity = alpha * (0.22 + fm[i]! * 0.43) * (1 - exit * 0.4) * textFade;
+      const ring = ringMats.current[i];
+      if (ring) {
+        ring.opacity = alpha * s * (0.035 + fm[i]! * 0.14);
+        ring.color.set(p.layout.colorA).lerp(_white, 0.55 - fm[i]! * 0.35);
+      }
+
+      // Part orbs: always visible (they show how much is going on in a project),
+      // the selected one on the focused planet swells and pulses.
+      const parts = partMeshes.current[i];
+      const pm = partMix.current[i]!;
+      if (parts) {
+        for (let k = 0; k < p.layout.partCount; k++) {
+          const active = isFocus && k === sel.part && interactive;
+          pm[k] = THREE.MathUtils.damp(pm[k]!, active ? 1 : 0, 6, dt);
+          const dir = p.partDirs[k]!;
+          const r = p.layout.radius * (1.07 + pm[k]! * 0.05);
+          const pulse = reducedMotion ? 1 : 1 + Math.sin(time * 2.4 + k * 1.3) * 0.08 * (0.4 + pm[k]!);
+          const sz = p.layout.radius * (0.04 + fm[i]! * 0.012 + pm[k]! * 0.045) * pulse;
+          _dummy.position.set(dir.x * r * s, dir.y * r * s, dir.z * r * s);
+          _dummy.scale.setScalar(sz * Math.max(0.0001, s));
+          _dummy.updateMatrix();
+          parts.setMatrixAt(k, _dummy.matrix);
+        }
+        parts.instanceMatrix.needsUpdate = true;
+      }
+      const pmat = partMats.current[i];
+      if (pmat) pmat.opacity = alpha * s * (0.5 + fm[i]! * 0.35) * (1 - exit * 0.4) * textFade;
+
+      // Screen positions for the overlay and picking.
+      group.getWorldPosition(_w);
+      const centre = _w.clone();
+      _w.project(camera);
+      const sx = ((_w.x + 1) / 2) * size.width;
+      const sy = ((1 - _w.y) / 2) * size.height;
+      // Approximate on-screen radius from a point on the planet's edge.
+      _v.copy(camera.up).multiplyScalar(p.layout.radius * swell).add(centre).project(camera);
+      const edgeY = ((1 - _v.y) / 2) * size.height;
+      screen.planets[i] = { x: sx, y: sy, r: Math.abs(edgeY - sy) };
+
+      if (isFocus && parts) {
+        // Read each orb's real world position (instance matrix x mesh matrix), so the
+        // HTML markers sit exactly on what is drawn.
+        parts.updateWorldMatrix(true, false);
+        screen.parts.length = p.layout.partCount;
+        const toCam = _cam.copy(camera.position).sub(centre);
+        for (let k = 0; k < p.layout.partCount; k++) {
+          parts.getMatrixAt(k, _m);
+          _m.premultiply(parts.matrixWorld);
+          _v.setFromMatrixPosition(_m);
+          const front = _n.copy(_v).sub(centre).dot(toCam) > 0.12 * p.layout.radius * toCam.length();
+          _v.project(camera);
+          screen.parts[k] = {
+            x: ((_v.x + 1) / 2) * size.width,
+            y: ((1 - _v.y) / 2) * size.height,
+            front,
+          };
+        }
+      }
+    });
+
+    // Sun on screen
+    _w.set(0, 0, 0).project(camera);
+    screen.sun = { x: ((_w.x + 1) / 2) * size.width, y: ((1 - _w.y) / 2) * size.height };
+    screen.ready = interactive && formed;
+  });
+
+  return (
+    <group ref={systemRef} rotation={[TILT, 0, 0]}>
+      {/* Sun */}
+      <instancedMesh ref={sunMesh} args={[undefined, undefined, built.sun.count]} frustumCulled={false}>
+        <sphereGeometry args={[1, 6, 6]} />
+        <meshBasicMaterial
+          ref={sunMat}
+          color="#ffffff"
+          toneMapped={false}
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </instancedMesh>
+      <sprite ref={haloRef} scale={[SUN_RADIUS * 6, SUN_RADIUS * 6, 1]}>
+        <spriteMaterial
+          ref={haloMat}
+          map={glow}
+          color="#D11A2A"
+          toneMapped={false}
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </sprite>
+
+      {built.planets.map((p, i) => (
+        <group key={p.layout.slug}>
+          <OrbitRing
+            radius={p.layout.orbit}
+            matRef={(m) => {
+              ringMats.current[i] = m;
+            }}
+          />
+          <group
+            position={p.centre}
+            ref={(g) => {
+              planetGroups.current[i] = g;
+            }}
+          >
+            <instancedMesh
+              ref={(m) => {
+                surfaceMeshes.current[i] = m;
+              }}
+              args={[undefined, undefined, p.body.count]}
+              frustumCulled={false}
+            >
+              <sphereGeometry args={[1, 6, 6]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  surfaceMats.current[i] = m;
+                }}
+                color="#ffffff"
+                toneMapped={false}
+                transparent
+                opacity={0}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </instancedMesh>
+            <instancedMesh
+              ref={(m) => {
+                partMeshes.current[i] = m;
+              }}
+              args={[undefined, undefined, p.layout.partCount]}
+              frustumCulled={false}
+            >
+              <sphereGeometry args={[1, 14, 14]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  partMats.current[i] = m;
+                }}
+                color="#ffffff"
+                toneMapped={false}
+                transparent
+                opacity={0}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </instancedMesh>
+          </group>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+// ─── Camera ─────────────────────────────────────────────────────────────────
+
+/** Camera depth at the hero, which depends on the viewport's aspect ratio. */
+function heroZ(aspect: number) {
+  const baseZ = 1.6;
+  const z = aspect < 1 ? baseZ + (1 - aspect) * 0.5 : baseZ - (aspect - 1) * 0.08;
+  return Math.max(1.2, Math.min(2.2, z));
+}
+
+function shortestAngle(from: number, to: number) {
+  let d = (to - from) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+/**
+ * Owns the camera for the whole canvas. At the hero it sits exactly where the
+ * portrait expects it; as the system forms it travels to the selected planet;
+ * once the system is explorable it flies along the orbits between planets.
+ * The flight eases the orbit angle and radius (not a straight line), so moving to
+ * another planet sweeps around the sun instead of cutting through it.
+ */
+export function SystemCamera({
+  formRef,
+  selRef,
+  reducedMotion,
+}: {
+  formRef: React.MutableRefObject<number>;
+  selRef: React.MutableRefObject<SystemSelection>;
+  reducedMotion: boolean;
+}) {
+  const { camera, size } = useThree();
+  const cur = useRef<FocusState>(planetFocus(0));
+
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.1);
+    const aspect = size.width / size.height;
+    const sp = formRef.current;
+    const target = planetFocus(selRef.current.planet);
+
+    if (sp <= 0.001) {
+      // Hero / About: straight on, at the portrait's depth.
+      cur.current = { ...target };
+      camera.position.set(0, 0, heroZ(aspect));
+      camera.lookAt(0, 0, 0);
+      return;
+    }
+
+    const k = reducedMotion ? 1 : 1 - Math.exp(-dt * 2.4);
+    const c = cur.current;
+    c.angle += shortestAngle(c.angle, target.angle) * k;
+    c.orbit += (target.orbit - c.orbit) * k;
+    c.radius += (target.radius - c.radius) * k;
+    focusCamera(c, aspect, _camPos, _camTarget);
+
+    // Blend from the hero camera while the system forms (and back when scrolling up).
+    const e = sp * sp * (3 - 2 * sp);
+    camera.position.set(0, 0, heroZ(aspect)).lerp(_camPos, e);
+    _v.set(0, 0, 0).lerp(_camTarget, e);
+    camera.lookAt(_v);
+  });
+
+  return null;
+}

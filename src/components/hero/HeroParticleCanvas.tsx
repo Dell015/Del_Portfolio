@@ -4,36 +4,32 @@ import { useRef, useMemo, useEffect, useCallback, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { AdaptiveDpr, useAdaptiveDpr } from "@/components/perf/AdaptiveDpr";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import type { PointCloud } from "@/lib/particles/sampleImageToPoints";
 import { curlNoiseGLSL } from "@/lib/particles/curlNoise";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
-import { BigParticles } from "./BigParticles";
 import { BackdropParticles } from "./BackdropParticles";
 import { bloomValue, makeSwirlUniforms, swirlGlsl, syncSwirl } from "@/lib/swirl";
-import { ProjectNodeCard } from "@/components/projects/sphere/ProjectNodeCard";
-import { SphereOverlay } from "@/components/projects/sphere/SphereOverlay";
-import { useSphereHoverStore } from "@/lib/store/sphereHover";
+import { DEFAULT_SPHERE_SETTINGS, type SphereSettings } from "@/lib/sphere/settings";
+import { partsFor } from "@/lib/content/planets";
 import {
-  DEFAULT_SPHERE_SETTINGS,
-  loadSphereSettings,
-  saveSphereSettings,
-  type SphereSettings,
-} from "@/lib/sphere/settings";
+  SolarSystem,
+  SystemCamera,
+  createSystemScreen,
+  type SystemScreen,
+  type SystemSelection,
+} from "@/components/projects/system/SolarSystem";
+import { SystemOverlay } from "@/components/projects/system/SystemOverlay";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const SPHERE_RADIUS = 2.2;
-const _nodeColor = new THREE.Color();
 // Scratch vectors, reused every frame, allocating per node per frame in the
 // hover/projection code produced constant GC pressure (visible as micro-stutter).
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
-const _v3 = new THREE.Vector3();
-const _v4 = new THREE.Vector3();
 
 // Scroll progress breakpoints (for pre-lock phases only)
 const SP = {
@@ -78,28 +74,6 @@ function generateSpherePositions(count: number, radius: number): Float32Array {
     positions[i * 3] = Math.cos(theta) * radiusAtY * radius;
     positions[i * 3 + 1] = y * radius;
     positions[i * 3 + 2] = Math.sin(theta) * radiusAtY * radius;
-  }
-  return positions;
-}
-
-/** Get positions for project nodes on sphere surface */
-function getNodePositions(count: number, radius: number): [number, number, number][] {
-  const positions: [number, number, number][] = [];
-  // Evenly distribute across the sphere, excluding top/bottom poles (avoid ±30° from poles)
-  // Use golden ratio spiral for even spacing
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const yMin = -0.7; // exclude bottom pole
-  const yMax = 0.7;  // exclude top pole
-  for (let i = 0; i < count; i++) {
-    // Evenly space within the Y band
-    const y = yMax - (i / (count - 1)) * (yMax - yMin);
-    const radiusAtY = Math.sqrt(1 - y * y);
-    const theta = goldenAngle * i;
-    positions.push([
-      Math.cos(theta) * radiusAtY * radius,
-      y * radius,
-      Math.sin(theta) * radiusAtY * radius,
-    ]);
   }
   return positions;
 }
@@ -479,290 +453,8 @@ function ParticleSystem({
 }
 
 
-// ─── Project Nodes (rendered in same canvas) ───────────────────────────────────
-
-/** Pointer position in canvas pixels. Hover is tested in pixels, so a camera that is
- *  still easing or orbiting can't slide a node out from under a resting cursor. */
+/** Pointer position in canvas pixels (written by MouseTracker). */
 const _pointerPx = { x: 0, y: 0, valid: false, touch: false, tap: false };
-
-interface ProjectNodesProps {
-  sphereProgress: React.MutableRefObject<number>;
-  onHover: (index: number | null, screenX: number, screenY: number) => void;
-  isInteractingRef: React.MutableRefObject<boolean>;
-  interactive: boolean;
-  scaleRef: React.MutableRefObject<number>;
-  mouseRef: React.MutableRefObject<THREE.Vector3>;
-  /** Set to true by the parent to force-dismiss hover (background click / Escape). */
-  clearHoverRef: React.MutableRefObject<boolean>;
-  /** Project whose card is on screen (until its exit animation ends). Other nodes can't be picked meanwhile. */
-  cardIndexRef: React.MutableRefObject<number | null>;
-  /** Whether the cursor is near the sphere, pauses node rotation. */
-  cursorNearSphereRef: React.MutableRefObject<boolean>;
-  settingsRef: React.MutableRefObject<SphereSettings>;
-  /** 0 on screen -> 1 gone: nodes swell with the sphere as the section scrolls away. */
-  exitRef: React.MutableRefObject<number>;
-  holdRef: React.MutableRefObject<boolean>;
-  /** Touch: a tap landed outside the card and any node. */
-  onDismissTap: () => void;
-  /** The cursor is on the project card. */
-  cardHoveredRef: React.MutableRefObject<boolean>;
-}
-
-function ProjectNodes({ sphereProgress, onHover, isInteractingRef, interactive, scaleRef, mouseRef, clearHoverRef, cardIndexRef, cursorNearSphereRef, settingsRef, exitRef, holdRef, onDismissTap, cardHoveredRef }: ProjectNodesProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const nodePositions = useMemo(() => getNodePositions(projects.length, SPHERE_RADIUS + 0.15), []);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const detectedIndex = useRef<number | null>(null);
-  /** Node the cursor is sitting on but whose card was explicitly dismissed. */
-  const suppressedIndex = useRef<number | null>(null);
-  const { camera, size } = useThree();
-  // Smooth rotation speed that lerps to 0 on hover
-  const rotSpeedRef = useRef(0.002);
-
-  useFrame(() => {
-    if (!groupRef.current) return;
-    const show = sphereProgress.current > 0.7;
-
-    // External dismiss request (background click / Escape): drop hover immediately and
-    // suppress the node under the cursor so the card doesn't instantly re-open.
-    if (clearHoverRef.current) {
-      clearHoverRef.current = false;
-      suppressedIndex.current = detectedIndex.current;
-      detectedIndex.current = null;
-      setHoveredIndex(null);
-      document.body.style.cursor = "auto";
-    }
-
-    // Rotation: opposite direction from sphere, stops on hover, drag, or cursor proximity
-    const targetSpeed = (hoveredIndex !== null || isInteractingRef.current || cursorNearSphereRef.current) ? 0 : 0.003 * settingsRef.current.spin;
-    // A hovered node (or its card) freezes the nodes outright: easing out would let the
-    // node slide from under the cursor and drop the hover.
-    rotSpeedRef.current = holdRef.current ? 0 : THREE.MathUtils.lerp(rotSpeedRef.current, targetSpeed, 0.03);
-
-    if (sphereProgress.current > 0.5) {
-      groupRef.current.rotation.y += rotSpeedRef.current;
-    }
-
-    // Apply sphere scale from slider
-    const s = scaleRef.current * (1 + exitRef.current * exitRef.current * 0.9);
-    groupRef.current.scale.setScalar(s);
-
-    // Touch: a tap picks a node (the card then stays until a tap lands outside it), so
-    // finger drags and scrolls never open cards by accident.
-    if (_pointerPx.touch) {
-      if (interactive && sphereProgress.current > 0.7) {
-        if (_pointerPx.tap) {
-          _pointerPx.tap = false;
-          let tapIdx: number | null = null;
-          let best = 48;
-          groupRef.current.children.forEach((child, i) => {
-            if (!(child instanceof THREE.Group)) return;
-            child.getWorldPosition(_v2);
-            const pr = _v3.copy(_v2).project(camera);
-            const d = Math.hypot(((pr.x + 1) / 2) * size.width - _pointerPx.x, ((1 - pr.y) / 2) * size.height - _pointerPx.y);
-            if (d < best) {
-              best = d;
-              tapIdx = i;
-            }
-          });
-          if (tapIdx !== null) {
-            detectedIndex.current = tapIdx;
-            setHoveredIndex(tapIdx);
-          } else if (detectedIndex.current !== null || cardIndexRef.current !== null) {
-            detectedIndex.current = null;
-            setHoveredIndex(null);
-            onDismissTap();
-          }
-        }
-      } else {
-        _pointerPx.tap = false;
-        if (detectedIndex.current !== null) {
-          detectedIndex.current = null;
-          setHoveredIndex(null);
-          onHover(null, 0, 0);
-        }
-      }
-    } else if (cardHoveredRef.current && cardIndexRef.current !== null && interactive) {
-      // The cursor is on the card: the node it belongs to stays hovered (lit, enlarged, card
-      // pinned to it) until the cursor leaves the card.
-      if (detectedIndex.current !== cardIndexRef.current) {
-        detectedIndex.current = cardIndexRef.current;
-        setHoveredIndex(cardIndexRef.current);
-      }
-      document.body.style.cursor = "auto";
-    } else
-    // Manual hover detection, compare in screen pixels for reliability
-    if (interactive && sphereProgress.current > 0.7) {
-      const mouseX = mouseRef.current.x;
-      const mouseY = mouseRef.current.y;
-      
-      // If mouse left the window, clear hover
-      if (!_pointerPx.valid || Math.abs(mouseX) > 50 || Math.abs(mouseY) > 50) {
-        suppressedIndex.current = null;
-        if (detectedIndex.current !== null) {
-          detectedIndex.current = null;
-          document.body.style.cursor = "auto";
-          onHover(null, 0, 0);
-          setTimeout(() => setHoveredIndex(null), 300);
-        }
-      } else {
-        const mousePxX = _pointerPx.x;
-        const mousePxY = _pointerPx.y;
-
-        let closestIdx: number | null = null;
-        let closestDist = 60; // threshold in pixels
-
-        groupRef.current.children.forEach((child, i) => {
-          if (!(child instanceof THREE.Group)) return;
-          child.getWorldPosition(_v2);
-          const projected = _v3.copy(_v2).project(camera);
-          const nodePxX = ((projected.x + 1) / 2) * size.width;
-          const nodePxY = ((1 - projected.y) / 2) * size.height;
-          const dx = nodePxX - mousePxX;
-          const dy = nodePxY - mousePxY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < closestDist) {
-            closestDist = dist;
-            closestIdx = i;
-          }
-        });
-
-        // While a card is up, a node that happens to sit behind it can't take over: the
-        // cursor has to leave, and the card has to be gone, before another node is picked.
-        if (closestIdx !== null && cardIndexRef.current !== null && closestIdx !== cardIndexRef.current) {
-          closestIdx = null;
-        }
-
-        // A dismissed node stays dismissed until the cursor moves off it
-        if (suppressedIndex.current !== null) {
-          if (closestIdx === suppressedIndex.current) {
-            closestIdx = null;
-          } else {
-            suppressedIndex.current = null;
-          }
-        }
-
-        if (closestIdx !== detectedIndex.current) {
-          detectedIndex.current = closestIdx;
-          if (closestIdx !== null) {
-            setHoveredIndex(closestIdx);
-            document.body.style.cursor = "pointer";
-            const nodeGroup = groupRef.current.children[closestIdx];
-            if (nodeGroup) {
-              nodeGroup.getWorldPosition(_v4);
-              _v4.project(camera);
-              const screenX = ((_v4.x + 1) / 2) * size.width;
-              const screenY = ((1 - _v4.y) / 2) * size.height;
-              onHover(closestIdx, screenX, screenY);
-            }
-          } else {
-            document.body.style.cursor = "auto";
-            onHover(null, 0, 0);
-            setTimeout(() => setHoveredIndex(null), 300);
-          }
-        }
-      }
-    } else if (detectedIndex.current !== null) {
-      // The sphere stopped being interactive (scrolled away / dissolving) while a node
-      // was hovered. Clear it, or the position-update block below keeps re-opening the
-      // card every frame even though nothing can be hovered any more.
-      detectedIndex.current = null;
-      suppressedIndex.current = null;
-      document.body.style.cursor = "auto";
-      onHover(null, 0, 0);
-      setHoveredIndex(null);
-    }
-
-    // Fade in/out + hover effects
-    groupRef.current.children.forEach((child, i) => {
-      if (!(child instanceof THREE.Group)) return;
-      const targetOpacity = show ? 0.9 : 0;
-      // A node stays lit for as long as its card is up, also once the cursor has moved onto the card.
-      const litIndex = hoveredIndex ?? cardIndexRef.current;
-      const isHovered = litIndex === i;
-      const dimmed = litIndex !== null && !isHovered;
-
-      // Get project color for this node
-      const projectColor = projects[i]?.identityGradient[0] || "#ffffff";
-
-      child.children.forEach((mesh) => {
-        if (mesh instanceof THREE.Mesh) {
-          const mat = mesh.material as THREE.MeshBasicMaterial;
-          const finalOpacity = dimmed ? targetOpacity * 0.3 : targetOpacity;
-          mat.opacity = THREE.MathUtils.lerp(mat.opacity, finalOpacity, 0.08);
-
-          // Color: hovered node turns its project color, others stay white
-          if (isHovered) {
-            _nodeColor.set(projectColor);
-          } else {
-            _nodeColor.set("#ffffff");
-          }
-          mat.color.lerp(_nodeColor, 0.1);
-        }
-      });
-
-      // Scale up hovered node
-      const targetScale = isHovered ? 1.8 : 1;
-      child.scale.setScalar(THREE.MathUtils.lerp(child.scale.x, targetScale, 0.1));
-    });
-
-    // Update card position while the cursor is STILL on the node.
-    // Must key off detectedIndex (not the delayed `hoveredIndex` state), otherwise
-    // this keeps firing onHover(index) after hover-out and cancels the dismiss timer,
-    // which leaves the card stuck on screen forever.
-    if (detectedIndex.current !== null && groupRef.current) {
-      const nodeGroup = groupRef.current.children[detectedIndex.current];
-      if (nodeGroup) {
-        nodeGroup.getWorldPosition(_v4);
-        _v4.project(camera);
-        const screenX = ((_v4.x + 1) / 2) * size.width;
-        const screenY = ((1 - _v4.y) / 2) * size.height;
-        onHover(detectedIndex.current, screenX, screenY);
-      }
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      {nodePositions.map((pos, i) => (
-        <group
-          key={projects[i]?.slug || i}
-          position={pos}
-        >
-          {/* Invisible hitbox for raycasting (prevents flicker from overlapping visual meshes) */}
-          <mesh visible={false}>
-            <sphereGeometry args={[0.25, 8, 8]} />
-            <meshBasicMaterial />
-          </mesh>
-          {/* Core orb, white */}
-          <mesh raycast={() => null}>
-            <sphereGeometry args={[0.12, 16, 16]} />
-            <meshBasicMaterial
-              color="#ffffff"
-              toneMapped={false}
-              transparent
-              opacity={0}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-          {/* Outer glow shell, soft white */}
-          <mesh raycast={() => null}>
-            <sphereGeometry args={[0.2, 12, 12]} />
-            <meshBasicMaterial
-              color="#e0e0e0"
-              toneMapped={false}
-              transparent
-              opacity={0}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
 
 // ─── Morph Easing ──────────────────────────────────────────────────────────────
 
@@ -821,103 +513,6 @@ function TweenDriver({
       completedRef.current = true;
       onComplete();
     }
-  });
-
-  return null;
-}
-
-// ─── Camera Adjust ─────────────────────────────────────────────────────────────
-
-/** three.js cameras are mutable by design; these helpers keep that out of render scope. */
-/** Camera depth once the sphere is formed. Portrait screens pull back so the sphere fits with room to scroll past it. */
-function sphereZ(aspect: number): number {
-  return aspect >= 1 ? 7 : Math.min(12, 7 + (1 - aspect) * 9.5);
-}
-
-function setCameraZ(camera: THREE.Camera, z: number) {
-  camera.position.z = z;
-}
-
-/** Eases an off-axis camera (left there by dragging) back onto the z axis. */
-function easeCameraToAxis(camera: THREE.Camera, delta: number) {
-  if (camera.position.x === 0 && camera.position.y === 0) return;
-  const k = 1 - Math.exp(-delta * 8);
-  camera.position.x += (0 - camera.position.x) * k;
-  camera.position.y += (0 - camera.position.y) * k;
-  if (Math.abs(camera.position.x) < 0.001) camera.position.x = 0;
-  if (Math.abs(camera.position.y) < 0.001) camera.position.y = 0;
-  camera.lookAt(0, 0, 0);
-}
-
-function CameraAdjust({ sphereProgress, sphereInteractive }: { sphereProgress: React.MutableRefObject<number>; sphereInteractive: boolean }) {
-  const { camera, size } = useThree();
-  /** Camera depth at the hero (depends on the viewport's aspect ratio). */
-  const baseZRef = useRef(1.6);
-
-  useEffect(() => {
-    const aspect = size.width / size.height;
-    const baseZ = 1.6;
-    const adjustedZ = aspect < 1
-      ? baseZ + (1 - aspect) * 0.5
-      : baseZ - (aspect - 1) * 0.08;
-    baseZRef.current = Math.max(1.2, Math.min(2.2, adjustedZ));
-    // A canvas that mounts while the sphere is already formed (Refresh) starts
-    // pulled back; otherwise it would open inside the sphere.
-    setCameraZ(camera, sphereProgress.current > 0.9 || sphereInteractive ? sphereZ(aspect) : baseZRef.current);
-    camera.updateProjectionMatrix();
-  }, [camera, size, sphereInteractive, sphereProgress]);
-
-  // Zoom out as the sphere forms; once it is interactive DragRotate owns the camera.
-  useFrame((_, delta) => {
-    if (sphereInteractive) return;
-    const sp = sphereProgress.current;
-    // Always (also at sp = 0), so the camera lands on the hero's exact depth rather
-    // than wherever the last non-zero frame left it.
-    setCameraZ(camera, THREE.MathUtils.lerp(baseZRef.current, sphereZ(size.width / size.height), sp * sp));
-    // Dragging the sphere moved the camera off-axis; bring it back so the portrait
-    // lines up with the headline again.
-    easeCameraToAxis(camera, delta);
-  });
-
-  return null;
-}
-
-/** Mirrors "a node or its card is hovered" into one ref every rotating layer reads. */
-function HoldSync({
-  holdRef,
-  nodeHoveredRef,
-  cardHoveredRef,
-}: {
-  holdRef: React.MutableRefObject<boolean>;
-  nodeHoveredRef: React.MutableRefObject<number | null>;
-  cardHoveredRef: React.MutableRefObject<boolean>;
-}) {
-  useFrame(() => {
-    holdRef.current = nodeHoveredRef.current !== null || cardHoveredRef.current;
-  });
-  return null;
-}
-
-// ─── Cursor Proximity Detection ────────────────────────────────────────────────
-
-function CursorProximity({
-  mouseRef,
-  cursorNearSphereRef,
-  sphereInteractive,
-}: {
-  mouseRef: React.MutableRefObject<THREE.Vector3>;
-  cursorNearSphereRef: React.MutableRefObject<boolean>;
-  sphereInteractive: boolean;
-}) {
-  useFrame(() => {
-    if (!sphereInteractive) {
-      cursorNearSphereRef.current = false;
-      return;
-    }
-    // Check if cursor (in world space) is within proximity of sphere center (0,0,0)
-    const dist = Math.sqrt(mouseRef.current.x ** 2 + mouseRef.current.y ** 2);
-    // Sphere radius is ~2.2, detect when cursor is within ~4 units (generous zone)
-    cursorNearSphereRef.current = dist < 4.0;
   });
 
   return null;
@@ -1012,79 +607,6 @@ function MouseTracker({
 }
 
 
-// ─── Drag-to-Rotate (no scroll interception) ──────────────────────────────────
-
-function DragRotate({ isInteractingRef }: { isInteractingRef: React.MutableRefObject<boolean> }) {
-  const { camera } = useThree();
-  const isDragging = useRef(false);
-  const prevMouse = useRef({ x: 0, y: 0 });
-  const spherical = useRef(new THREE.Spherical().setFromVector3(camera.position));
-  const targetSpherical = useRef(new THREE.Spherical().setFromVector3(camera.position));
-
-  useEffect(() => {
-    spherical.current.setFromVector3(camera.position);
-    targetSpherical.current.copy(spherical.current);
-  }, [camera]);
-
-  useEffect(() => {
-    // Listen on window, the canvas has pointerEvents:none so we use window.
-    // Pointer events (not mouse events) so touch drags rotate the sphere too.
-    let releaseTimer: ReturnType<typeof setTimeout> | null = null;
-    function onMouseDown(e: PointerEvent) {
-      if (e.button !== 0) return;
-      if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = null; }
-      isDragging.current = true;
-      prevMouse.current = { x: e.clientX, y: e.clientY };
-      isInteractingRef.current = true;
-    }
-
-    function onMouseMove(e: PointerEvent) {
-      if (!isDragging.current) return;
-      const dx = e.clientX - prevMouse.current.x;
-      const dy = e.clientY - prevMouse.current.y;
-      prevMouse.current = { x: e.clientX, y: e.clientY };
-
-      const rotateSpeed = 0.005;
-      targetSpherical.current.theta -= dx * rotateSpeed;
-      targetSpherical.current.phi -= dy * rotateSpeed;
-      targetSpherical.current.phi = Math.max(0.1, Math.min(Math.PI - 0.1, targetSpherical.current.phi));
-    }
-
-    function onMouseUp() {
-      isDragging.current = false;
-      if (releaseTimer) clearTimeout(releaseTimer);
-      releaseTimer = setTimeout(() => { isInteractingRef.current = false; }, 2000);
-    }
-
-    window.addEventListener("pointerdown", onMouseDown);
-    window.addEventListener("pointermove", onMouseMove);
-    window.addEventListener("pointerup", onMouseUp);
-    window.addEventListener("pointercancel", onMouseUp);
-
-    return () => {
-      if (releaseTimer) clearTimeout(releaseTimer);
-      isInteractingRef.current = false;
-      window.removeEventListener("pointerdown", onMouseDown);
-      window.removeEventListener("pointermove", onMouseMove);
-      window.removeEventListener("pointerup", onMouseUp);
-      window.removeEventListener("pointercancel", onMouseUp);
-    };
-  }, [camera, isInteractingRef]);
-
-  // Damped rotation update
-  useFrame(() => {
-    const dampFactor = 0.08;
-    spherical.current.theta += (targetSpherical.current.theta - spherical.current.theta) * dampFactor;
-    spherical.current.phi += (targetSpherical.current.phi - spherical.current.phi) * dampFactor;
-    spherical.current.radius = targetSpherical.current.radius;
-
-    camera.position.setFromSpherical(spherical.current);
-    camera.lookAt(0, 0, 0);
-  });
-
-  return null;
-}
-
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 interface HeroParticleCanvasProps {
@@ -1100,6 +622,36 @@ interface HeroParticleCanvasProps {
   onFatalError?: () => void;
 }
 
+const SELECTION_KEY = "system-selection";
+
+function loadSelection(): SystemSelection {
+  try {
+    if (typeof window === "undefined") return { planet: 0, part: 0 };
+    const raw = sessionStorage.getItem(SELECTION_KEY);
+    if (!raw) return { planet: 0, part: 0 };
+    const v = JSON.parse(raw) as Partial<SystemSelection>;
+    const planet = Number.isInteger(v.planet) && v.planet! >= 0 && v.planet! < projects.length ? v.planet! : 0;
+    const n = partsFor(projects[planet]!.slug).length;
+    const part = Number.isInteger(v.part) && v.part! >= 0 && v.part! < n ? v.part! : 0;
+    return { planet, part };
+  } catch {
+    return { planet: 0, part: 0 };
+  }
+}
+
+/** Reads the OS "reduce motion" setting once on mount (and follows changes). */
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+
 export function HeroParticleCanvas({
   cloudA,
   cloudB,
@@ -1112,6 +664,7 @@ export function HeroParticleCanvas({
   // Hero passes a lower DPR cap on weak devices; reuse that as the "go lighter" signal
   const lowPower = maxDpr <= 1;
   const adaptiveDpr = useAdaptiveDpr(maxDpr);
+  const reducedMotion = useReducedMotion();
   const progressRef = useRef(0);
   const dissolveRef = useRef(0);
   const ambientRef = useRef(0);
@@ -1123,61 +676,69 @@ export function HeroParticleCanvas({
   const scatterRef = useRef(0);
   const sphereRef = useRef(0);
   const bigAlphaRef = useRef(0);
-  const tintColorRef = useRef<string | null>(null);
-  const isInteractingRef = useRef(false);
   const sphereScaleRef = useRef(1);
-  const particleSizeRef = useRef(1);
   /** Background particles: fade-in level, and how far the scene has scrolled away. */
   const backdropAlphaRef = useRef(0);
   const exitRef = useRef(0);
+  /** Fixed look for the hero layers that used to follow the sphere's Customize panel. */
+  const settingsRef = useRef<SphereSettings>(DEFAULT_SPHERE_SETTINGS);
+  /** The hero layer still reads these; the solar system never holds or slows it. */
+  const holdRef = useRef(false);
+  const cursorNearRef = useRef(false);
 
-  // ── Visitor customization (saved) + a remount key for the Refresh button ──
-  const [settings, setSettings] = useState<SphereSettings>(() => loadSphereSettings());
-  const settingsRef = useRef(settings);
-  /** Rotation hold: a node or its card is hovered. */
-  const holdRotationRef = useRef(false);
-  const [canvasKey, setCanvasKey] = useState(0);
-  /** Which canvas generation is live. A discarded canvas reports a lost WebGL context
-   *  while it is torn down; that must not be mistaken for a GPU failure. */
-  const canvasGenRef = useRef(0);
+  /** A discarded canvas reports a lost WebGL context while it is torn down; that must not be mistaken for a GPU failure. */
+  const aliveRef = useRef(true);
   useEffect(() => {
+    aliveRef.current = true;
     return () => {
-      canvasGenRef.current = -1;
+      aliveRef.current = false;
     };
   }, []);
   const mouseRef = useRef(new THREE.Vector3(999, 999, 0));
   const mouseActiveRef = useRef(false);
   const preRevealRef = useRef(true);
 
+  // ── Solar system selection ──
+  // Remembered for the session, so "back" from a case study lands on the same planet.
+  const [selection, setSelection] = useState<SystemSelection>(() => loadSelection());
+  const selRef = useRef(selection);
   useEffect(() => {
-    settingsRef.current = settings;
-    sphereScaleRef.current = settings.scale;
-    particleSizeRef.current = settings.size;
-    saveSphereSettings(settings);
-  }, [settings]);
-
-  const updateSettings = useCallback((patch: Partial<SphereSettings>) => {
-    setSettings((prev) => ({ ...prev, ...patch }));
+    selRef.current = selection;
+    try {
+      sessionStorage.setItem(SELECTION_KEY, JSON.stringify(selection));
+    } catch {
+      // storage unavailable: the system just starts on the first planet
+    }
+  }, [selection]);
+  const screenRef = useRef<SystemScreen>(createSystemScreen());
+  const pickPlanet = useCallback((i: number) => {
+    setSelection((s) => (s.planet === i ? s : { planet: i, part: 0 }));
   }, []);
-  const resetSettings = useCallback(() => setSettings(DEFAULT_SPHERE_SETTINGS), []);
+  const pickPart = useCallback((i: number) => {
+    setSelection((s) => {
+      const n = partsFor(projects[s.planet]?.slug ?? "").length || 1;
+      return { planet: s.planet, part: ((i % n) + n) % n };
+    });
+  }, []);
+  const stepPlanet = useCallback((d: number) => {
+    setSelection((s) => ({ planet: (s.planet + d + projects.length) % projects.length, part: 0 }));
+  }, []);
+  const stepPart = useCallback((d: number) => {
+    setSelection((s) => {
+      const n = partsFor(projects[s.planet]?.slug ?? "").length || 1;
+      return { planet: s.planet, part: (s.part + d + n) % n };
+    });
+  }, []);
 
-  // ── Sphere hand-off: fade out + freeze once the Projects section scrolls away ──
+  // ── Hand-off: fade out + freeze once the Projects section scrolls away ──
   const wrapperRef = useRef<HTMLDivElement>(null);
   const projectsElRef = useRef<HTMLElement | null>(null);
   /** true = render loop stopped, canvas hidden (Skills / Activity / Resume / Footer) */
   const [frozen, setFrozen] = useState(false);
   const frozenRef = useRef(false);
-  /** Latest card teardown fn, called when the sphere zone is left. */
-  const closeCardRef = useRef<(() => void) | null>(null);
-  const cursorNearSphereRef = useRef(false);
 
-  // Sphere interactivity state
+  // Explorable once the system has formed (post-lock)
   const [sphereInteractive, setSphereInteractive] = useState(false);
-  const [cardState, setCardState] = useState<{
-    projectIndex: number;
-    screenX: number;
-    screenY: number;
-  } | null>(null);
 
   const { scrollProgress } = useSnapScroll();
   /** Latest scroll value for the rAF loops below, reading it from a ref means those
@@ -1275,8 +836,8 @@ export function HeroParticleCanvas({
       if (virtualScroll.smallFadeRef.current >= 1) {
         const postLockScroll = scrollRef.current - LOCK_TRIGGER;
         if (sphereInteractive && postLockScroll > 1.0) {
-          // Sphere is formed and being explored: hold it so OrbitControls rotation and
-          // zoom aren't fought by small scroll changes. Released once the user scrolls
+          // The system is formed and being explored: hold it so small scroll changes
+          // don't pull it apart. Released once the user scrolls
           // clearly back up, so the sphere can dissolve on the way to the top.
           scatterTarget = 1;
           sphereTarget = 1;
@@ -1320,11 +881,7 @@ export function HeroParticleCanvas({
         if ((hidden >= 1) !== frozenRef.current) {
           frozenRef.current = hidden >= 1;
           setFrozen(frozenRef.current);
-          if (frozenRef.current) {
-            // Leaving the sphere zone, drop any open card and release the cursor
-            closeCardRef.current?.();
-            document.body.style.cursor = "auto";
-          }
+          if (frozenRef.current) document.body.style.cursor = "auto";
         }
       }
 
@@ -1351,12 +908,7 @@ export function HeroParticleCanvas({
       if (next !== last) {
         last = next;
         setSphereInteractive(next);
-        if (!next) {
-          // Sphere dissolved (scrolling back up), a project card has nothing to
-          // point at any more, so drop it and release the pointer cursor.
-          closeCardRef.current?.();
-          document.body.style.cursor = "auto";
-        }
+        if (!next) document.body.style.cursor = "auto";
       }
       rafId = requestAnimationFrame(check);
     }
@@ -1364,145 +916,39 @@ export function HeroParticleCanvas({
     return () => cancelAnimationFrame(rafId);
   }, [virtualScroll.smallFadeRef]);
 
-  // Handle node hover
-  const setHoveredIndex = useSphereHoverStore((s) => s.setHoveredIndex);
-  const cardDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Cursor is over the card itself, keeps it alive while the user reaches for the link. */
-  const cardHoveredRef = useRef(false);
-  /** Node currently under the cursor (null = none). */
-  const nodeHoveredRef = useRef<number | null>(null);
-  /** Project whose card is showing; cleared once the card's exit animation has finished. */
-  const cardIndexRef = useRef<number | null>(null);
-  /** Flag read by ProjectNodes to force-drop its hover state. */
-  const clearNodeHoverRef = useRef(false);
-  /** Where the last pointerdown landed, used to tell a click apart from a drag. */
-  const pointerDownRef = useRef({ x: 0, y: 0 });
-
-  const cancelDismiss = useCallback(() => {
-    if (cardDismissTimer.current) {
-      clearTimeout(cardDismissTimer.current);
-      cardDismissTimer.current = null;
-    }
-  }, []);
-
-  /** Immediate teardown of the card. */
-  const closeCard = useCallback(() => {
-    cancelDismiss();
-    cardHoveredRef.current = false;
-    nodeHoveredRef.current = null;
-    setCardState(null);
-    tintColorRef.current = null;
-    setHoveredIndex(null);
-    // Safety net in case the exit animation never reports back.
-    setTimeout(() => { if (nodeHoveredRef.current === null) cardIndexRef.current = null; }, 700);
-  }, [cancelDismiss, setHoveredIndex]);
-
-  /**
-   * Rebuilds the WebGL scene from scratch (new renderer, fresh geometry). Scroll
-   * position and sphere phase live outside the canvas, so the visitor lands back on
-   * the same sphere, just without whatever got stuck.
-   */
-  const refreshScene = useCallback(() => {
-    closeCard();
-    clearNodeHoverRef.current = true;
-    isInteractingRef.current = false;
-    document.body.style.cursor = "auto";
-    canvasGenRef.current += 1;
-    setCanvasKey(canvasGenRef.current);
-  }, [closeCard]);
-
-  /** Grace period so moving cursor node → card doesn't kill the card. */
-  const scheduleDismiss = useCallback(() => {
-    if (cardDismissTimer.current) return;
-    cardDismissTimer.current = setTimeout(() => {
-      cardDismissTimer.current = null;
-      // Re-check: user may have landed on the card or another node in the meantime
-      if (cardHoveredRef.current || nodeHoveredRef.current !== null) return;
-      setCardState(null);
-      tintColorRef.current = null;
-      setHoveredIndex(null);
-      setTimeout(() => { if (nodeHoveredRef.current === null) cardIndexRef.current = null; }, 700);
-    }, 300);
-  }, [setHoveredIndex]);
-
-  const handleNodeHover = useCallback((index: number | null, screenX: number, screenY: number) => {
-    if (index === null) {
-      nodeHoveredRef.current = null;
-      if (!cardHoveredRef.current) scheduleDismiss();
-      return;
-    }
-    // A mouse hover lands here every frame; only a real change needs the rest.
-
-    nodeHoveredRef.current = index;
-    cardIndexRef.current = index;
-    cancelDismiss();
-    // Only re-render when the target or its screen position actually changed
-    setCardState((prev) => {
-      if (
-        prev &&
-        prev.projectIndex === index &&
-        Math.abs(prev.screenX - screenX) < 0.5 &&
-        Math.abs(prev.screenY - screenY) < 0.5
-      ) {
-        return prev;
-      }
-      return { projectIndex: index, screenX, screenY };
-    });
-    setHoveredIndex(index);
-    const project = projects[index];
-    if (project) {
-      tintColorRef.current = project.identityGradient[0];
-    }
-  }, [cancelDismiss, scheduleDismiss, setHoveredIndex]);
-
-  // Dismiss on background click (a click, not a sphere drag) and on Escape
-  const cardVisible = cardState !== null;
+  // Keyboard: left/right step through parts, shift + left/right through planets.
+  // Touch: a sideways swipe steps through parts (vertical drags still scroll).
   useEffect(() => {
-    if (!cardVisible) return;
-
-    function onPointerDown(e: PointerEvent) {
-      pointerDownRef.current = { x: e.clientX, y: e.clientY };
+    if (!sphereInteractive || frozen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const d = e.key === "ArrowLeft" ? -1 : 1;
+      e.preventDefault();
+      if (e.shiftKey) stepPlanet(d);
+      else stepPart(d);
     }
-
-    function onPointerUp(e: PointerEvent) {
-      // Ignore drags, rotating the sphere shouldn't close the card
-      const moved = Math.hypot(
-        e.clientX - pointerDownRef.current.x,
-        e.clientY - pointerDownRef.current.y,
-      );
-      if (moved > 6) return;
-      // Touch taps are handled by the nodes themselves (tap a node = open, tap away = close).
-      if (e.pointerType === "touch") return;
-      // Clicks inside the card belong to the card
-      const target = e.target;
-      if (target instanceof Element && target.closest("[data-project-node-card]")) return;
-      clearNodeHoverRef.current = true;
-      closeCard();
+    let start: { x: number; y: number } | null = null;
+    function onDown(e: PointerEvent) {
+      if (e.pointerType === "touch") start = { x: e.clientX, y: e.clientY };
     }
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      clearNodeHoverRef.current = true;
-      closeCard();
+    function onUp(e: PointerEvent) {
+      if (e.pointerType !== "touch" || !start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) stepPart(dx < 0 ? 1 : -1);
     }
-
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
     return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
     };
-  }, [cardVisible, closeCard]);
-
-  // Clean up the pending dismiss timer on unmount
-  useEffect(() => () => cancelDismiss(), [cancelDismiss]);
-
-  // Expose the teardown to the scroll loop (used when the sphere zone is left)
-  useEffect(() => {
-    closeCardRef.current = closeCard;
-  }, [closeCard]);
+  }, [sphereInteractive, frozen, stepPart, stepPlanet]);
 
   return (
     <div
@@ -1512,14 +958,13 @@ export function HeroParticleCanvas({
       style={{
         // Must stay "none": this is a fixed, full-viewport layer, so its scroll chain is
         // the document (overflow:hidden) rather than the SmoothScroll container, making it
-        // hit-testable swallows the wheel and scrolling dies. Hover/drag are handled by
-        // window listeners, and the project card re-enables pointer events on itself.
+        // hit-testable swallows the wheel and scrolling dies. Picking is done from window
+        // listeners, and the overlay's buttons re-enable pointer events on themselves.
         pointerEvents: "none",
         transition: "opacity 0.15s linear",
       }}
     >
       <Canvas
-        key={canvasKey}
         camera={{ position: [0, 0, 1.6], fov: 60 }}
         dpr={adaptiveDpr.dpr}
         gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
@@ -1529,14 +974,13 @@ export function HeroParticleCanvas({
           // allow the browser to restore it; if it never comes back, fall back to the
           // static page instead of leaving a black hole where the hero was.
           const el = gl.domElement;
-          const generation = canvasGenRef.current;
           let timer: ReturnType<typeof setTimeout> | null = null;
           el.addEventListener("webglcontextlost", (e) => {
             e.preventDefault();
-            // Lost because this canvas was replaced (Refresh) or unmounted: expected.
-            if (canvasGenRef.current !== generation) return;
+            // Lost because this canvas unmounted: expected.
+            if (!aliveRef.current) return;
             timer = setTimeout(() => {
-              if (canvasGenRef.current === generation) onFatalError?.();
+              if (aliveRef.current) onFatalError?.();
             }, 4000);
           });
           el.addEventListener("webglcontextrestored", () => {
@@ -1545,10 +989,8 @@ export function HeroParticleCanvas({
         }}
         style={{ background: "transparent", pointerEvents: "none" }}
       >
-        <CameraAdjust sphereProgress={sphereRef} sphereInteractive={sphereInteractive} />
-        <HoldSync holdRef={holdRotationRef} nodeHoveredRef={nodeHoveredRef} cardHoveredRef={cardHoveredRef} />
+        <SystemCamera formRef={sphereRef} selRef={selRef} reducedMotion={reducedMotion} />
         <MouseTracker mouseRef={mouseRef} mouseActiveRef={mouseActiveRef} />
-        <CursorProximity mouseRef={mouseRef} cursorNearSphereRef={cursorNearSphereRef} sphereInteractive={sphereInteractive} />
         <ParticleSystem
           cloudA={cloudA}
           cloudB={cloudB}
@@ -1566,9 +1008,9 @@ export function HeroParticleCanvas({
           mouseRef={mouseRef}
           mouseActiveRef={mouseActiveRef}
           preRevealRef={preRevealRef}
-          cursorNearSphereRef={cursorNearSphereRef}
+          cursorNearSphereRef={cursorNearRef}
           settingsRef={settingsRef}
-          holdRef={holdRotationRef}
+          holdRef={holdRef}
         />
         <BackdropParticles
           alphaRef={backdropAlphaRef}
@@ -1576,35 +1018,17 @@ export function HeroParticleCanvas({
           settingsRef={settingsRef}
           lowPower={lowPower}
         />
-        <ProjectNodes
-          sphereProgress={sphereRef}
-          onHover={handleNodeHover}
-          isInteractingRef={isInteractingRef}
-          interactive={sphereInteractive}
-          scaleRef={sphereScaleRef}
-          mouseRef={mouseRef}
-          clearHoverRef={clearNodeHoverRef}
-          cardIndexRef={cardIndexRef}
-          cursorNearSphereRef={cursorNearSphereRef}
-          settingsRef={settingsRef}
-          exitRef={exitRef}
-          holdRef={holdRotationRef}
-          cardHoveredRef={cardHoveredRef}
-          onDismissTap={() => {
-            clearNodeHoverRef.current = true;
-            closeCard();
-          }}
-        />
-        <BigParticles
+        <SolarSystem
           alphaRef={bigAlphaRef}
-          sphereFormRef={sphereRef}
-          tintColorRef={tintColorRef}
-          sizeRef={particleSizeRef}
-          scaleRef={sphereScaleRef}
-          cursorNearSphereRef={cursorNearSphereRef}
-          settingsRef={settingsRef}
+          formRef={sphereRef}
           exitRef={exitRef}
-          holdRef={holdRotationRef}
+          selRef={selRef}
+          interactive={sphereInteractive && !frozen}
+          lowPower={lowPower}
+          reducedMotion={reducedMotion}
+          screenRef={screenRef}
+          onPickPlanet={pickPlanet}
+          onPickPart={pickPart}
         />
         <AdaptiveDpr dpr={adaptiveDpr.dpr} onSlow={adaptiveDpr.stepDown} />
         <TweenDriver
@@ -1615,48 +1039,22 @@ export function HeroParticleCanvas({
         />
         <EffectComposer multisampling={0}>
           <Bloom
-            intensity={1.2 * settings.glow}
+            intensity={1.2}
             luminanceThreshold={0.1}
             luminanceSmoothing={0.9}
             mipmapBlur
           />
         </EffectComposer>
-        {/* Custom drag-to-rotate, doesn't intercept scroll events */}
-        {sphereInteractive && (
-          <DragRotate
-            isInteractingRef={isInteractingRef}
-          />
-        )}
       </Canvas>
 
-      {/* Words and controls around the sphere */}
-      <SphereOverlay
+      {/* Words and controls around the solar system */}
+      <SystemOverlay
         visible={sphereInteractive && !frozen}
-        settings={settings}
-        onChange={updateSettings}
-        onReset={resetSettings}
-        onRefresh={refreshScene}
+        selection={selection}
+        onPlanet={pickPlanet}
+        onPart={pickPart}
+        screenRef={screenRef}
       />
-
-      {/* HTML overlay for project node card */}
-      <AnimatePresence onExitComplete={() => { cardIndexRef.current = null; }}>
-        {cardState && (
-          <ProjectNodeCard
-            key="project-node-card"
-            project={projects[cardState.projectIndex]!}
-            screenX={cardState.screenX}
-            screenY={cardState.screenY}
-            onPointerEnter={() => {
-              cardHoveredRef.current = true;
-              cancelDismiss();
-            }}
-            onPointerLeave={() => {
-              cardHoveredRef.current = false;
-              if (nodeHoveredRef.current === null) scheduleDismiss();
-            }}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -40,8 +40,8 @@ Next.js here is NOT the one in your training data. Read `node_modules/next/dist/
 
 ## Architecture map
 - Scroll: a custom container (`components/SmoothScroll.tsx`, `div.h-screen`), not window scroll. Use `containerRef.scrollTop` / `scrollIntoView`. It remounts on every navigation, so state that must survive uses `window` flags (`__leftHome`, `__introLoadHandled`). Strict mode runs effects twice. The wheel is eased with a speed cap (`MAX_SCREENS_PER_SEC`); touch uses native momentum.
-- One continuous scroll-driven sequence on a shared canvas: hero portrait → About black hole → project sphere (`components/hero/HeroParticleCanvas.tsx`, big, careful edits). The sphere only forms in the real sequence.
-- Sphere hover is computed in screen pixels from the window pointer (canvas is `pointer-events: none` so the page still scrolls). The card is HTML on top. Touch: tap opens the card, tap outside closes it, `TouchBall` rotates it.
+- One continuous scroll-driven sequence on a shared canvas: hero portrait → About black hole → project solar system (`components/hero/HeroParticleCanvas.tsx`, big, careful edits). The system only forms in the real sequence.
+- Solar system: `components/projects/system/SolarSystem.tsx` (planets, sun, `SystemCamera` owns the camera for the whole canvas) + `SystemOverlay.tsx` (text column, orbit rail, part markers). Geometry in `lib/system/layout.ts`, part copy in `lib/content/planets.ts`. Picking is screen-pixel based from window listeners (canvas stays `pointer-events: none`). Keys: ←/→ parts, Shift+←/→ planets; touch: swipe sideways for parts. Selection is kept in sessionStorage `system-selection`.
 - Case studies: `app/projects/[slug]/page.tsx`. Karela has a custom page (`components/projects/karela/`, scoped `.kz` CSS, resets via `:where()`); the other six projects use the plain template.
 - Content lives in `lib/content/` (`site.ts`, `projects.ts`, `timeline.ts`, `skills.ts`). Background photos come from `public/moments/<slug>/` at build time (`#` in a filename = front photo; keep original proportions, no cropping).
 - Contact: `app/api/contact/route.ts` (per-IP and global rate limits, honeypot, min fill time, Resend via `RESEND_API_KEY`). The form falls back to `mailto:` when the key is missing. The in-memory limiter is per serverless instance; add Cloudflare Turnstile if abused.
@@ -68,6 +68,5 @@ Next.js here is NOT the one in your training data. Read `node_modules/next/dist/
 ## Known open work
 - Custom case studies for HIRED.PH (suggested first), Tag.Ai, Icarus, garahe, Seated, Aipon; real screenshots in place of placeholders.
 - Karela "What's next" / Phase 2 text may be out of date. Ask him before changing it.
-- Sphere glow while the cursor is on a card was fixed twice and never verified live. Re-check it.
 - Phone fling can't be capped. Section snapping on phones is an option, but it changes the feel, so ask first.
 - Leftovers to delete: `components/mode/ModeToggle.tsx`, `public/moments/2026-ignite-ogis/`. Update `docs/planning/HANDOFF.md`.
