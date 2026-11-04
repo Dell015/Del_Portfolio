@@ -733,14 +733,84 @@ export function HeroParticleCanvas({
   // ── Hand-off: fade out + freeze once the Projects section scrolls away ──
   const wrapperRef = useRef<HTMLDivElement>(null);
   const projectsElRef = useRef<HTMLElement | null>(null);
+  const anchorRef = useRef<HTMLElement | null>(null);
   /** true = render loop stopped, canvas hidden (Skills / Activity / Resume / Footer) */
   const [frozen, setFrozen] = useState(false);
   const frozenRef = useRef(false);
 
+  const { scrollProgress, containerRef } = useSnapScroll();
+
   // Explorable once the system has formed (post-lock)
   const [sphereInteractive, setSphereInteractive] = useState(false);
+  /** The page is held still while the system is on screen; About and Skills are the exits. */
+  const [locked, setLocked] = useState(false);
+  const lockedRef = useRef(false);
+  /** An exit was pressed: the page unlocks and the system fades while it scrolls away. */
+  const [leaving, setLeaving] = useState(false);
+  const leavingRef = useRef(false);
+  const leavingToRef = useRef<string | null>(null);
+  const live = sphereInteractive && !frozen && !leaving;
 
-  const { scrollProgress } = useSnapScroll();
+  const applyLock = useCallback((v: boolean) => {
+    lockedRef.current = v;
+    setLocked(v);
+  }, []);
+  const glideRef = useRef(0);
+  const graceRef = useRef(0);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(glideRef.current);
+      clearTimeout(graceRef.current);
+    },
+    [],
+  );
+  /**
+   * Carry the page to a section ourselves. The browser's own smooth scroll is cancelled
+   * by any wheel or touch input, even a blocked one, so it could stop half way.
+   */
+  const leaveTo = useCallback(
+    (to: "about" | "skills") => {
+      const c = containerRef.current;
+      const el = document.getElementById(to);
+      leavingRef.current = true;
+      leavingToRef.current = to;
+      setLeaving(true);
+      applyLock(false);
+      if (!c || !el) return;
+      const from = c.scrollTop;
+      const target = from + (el.getBoundingClientRect().top - c.getBoundingClientRect().top);
+      const dur = reducedMotion ? 1 : Math.min(1200, 450 + Math.abs(target - from) * 0.14);
+      const t0 = performance.now();
+      cancelAnimationFrame(glideRef.current);
+      const run = (now: number) => {
+        const t = Math.min(1, (now - t0) / dur);
+        const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        c.scrollTop = from + (target - from) * e;
+        if (t < 1) {
+          glideRef.current = requestAnimationFrame(run);
+        } else {
+          // Trackpad momentum keeps sending wheel events for a moment after the finger
+          // lifts, so keep the page still a little longer instead of letting it leak in.
+          graceRef.current = window.setTimeout(() => {
+            leavingRef.current = false;
+            setLeaving(false);
+          }, 800);
+        }
+      };
+      glideRef.current = requestAnimationFrame(run);
+    },
+    [containerRef, applyLock, reducedMotion],
+  );
+  // Safety net: if the scroll never happened, give the system back after a moment.
+  useEffect(() => {
+    if (!leaving) return;
+    const t = setTimeout(() => {
+      leavingRef.current = false;
+      setLeaving(false);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [leaving]);
+
   /** Latest scroll value for the rAF loops below, reading it from a ref means those
    *  loops no longer tear down and re-register on every scroll tick. */
   const scrollRef = useRef(scrollProgress);
@@ -910,16 +980,121 @@ export function HeroParticleCanvas({
         setSphereInteractive(next);
         if (!next) document.body.style.cursor = "auto";
       }
+
+      // Lock the page once the system sits on its landing spot (#projects-sphere), and
+      // let go when the visitor is clearly away from it or the scene is gone.
+      const container = containerRef.current;
+      const anchor = anchorRef.current ?? (anchorRef.current = document.getElementById("projects-sphere"));
+      if (container && anchor) {
+        const vh = container.clientHeight;
+        const off = Math.abs(anchor.getBoundingClientRect().top - container.getBoundingClientRect().top);
+        // The exit is over once the destination section sits at the top.
+        if (leavingRef.current) {
+          const dest = leavingToRef.current ? document.getElementById(leavingToRef.current) : null;
+          const arrived = !dest || Math.abs(dest.getBoundingClientRect().top - container.getBoundingClientRect().top) < 8;
+          if (arrived) {
+            leavingRef.current = false;
+            setLeaving(false);
+          }
+        }
+        const want = lockedRef.current
+          ? next && off < vh * 0.3
+          : next && !leavingRef.current && off < vh * 0.15;
+        if (want !== lockedRef.current) applyLock(want);
+      }
       rafId = requestAnimationFrame(check);
     }
     rafId = requestAnimationFrame(check);
     return () => cancelAnimationFrame(rafId);
-  }, [virtualScroll.smallFadeRef]);
+  }, [virtualScroll.smallFadeRef, containerRef, applyLock]);
+
+  // While the system is locked, and while an exit is scrolling away, wheel, touch-drag
+  // and the scrolling keys do nothing, so nothing can fight the transition.
+  const blocking = locked || leaving;
+  useEffect(() => {
+    if (!blocking) return;
+    const stop = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest("[data-native-scroll], textarea")) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const SCROLL_KEYS = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"];
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const space = e.key === " " && !(t instanceof HTMLElement && /^(BUTTON|A)$/.test(t.tagName));
+      if (space || SCROLL_KEYS.includes(e.key)) e.preventDefault();
+    };
+    window.addEventListener("wheel", stop, { passive: false, capture: true });
+    window.addEventListener("touchmove", stop, { passive: false, capture: true });
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => {
+      window.removeEventListener("wheel", stop, { capture: true });
+      window.removeEventListener("touchmove", stop, { capture: true });
+      window.removeEventListener("keydown", onKey, { capture: true });
+    };
+  }, [blocking]);
+
+  /** True while the page is easing onto the landing spot (the pin below must not fight it). */
+  const settlingRef = useRef(false);
+
+  // Whatever moves the page while it is locked (scrollbar drag, middle-click scroll,
+  // find-in-page, focus jumps) is put straight back on the landing spot.
+  useEffect(() => {
+    if (!locked) return;
+    const c = containerRef.current;
+    if (!c) return;
+    const pin = () => {
+      if (!lockedRef.current || settlingRef.current) return;
+      const a = document.getElementById("projects-sphere");
+      if (!a) return;
+      const want = c.scrollTop + (a.getBoundingClientRect().top - c.getBoundingClientRect().top);
+      if (Math.abs(want - c.scrollTop) > 1) c.scrollTop = want;
+    };
+    c.addEventListener("scroll", pin, { passive: true });
+    return () => c.removeEventListener("scroll", pin);
+  }, [locked, containerRef]);
+
+  // Settle onto the exact landing spot so the scene always looks the same.
+  useEffect(() => {
+    if (!locked) return;
+    const container = containerRef.current;
+    let raf = 0;
+    settlingRef.current = true;
+    // Let any wheel momentum already in flight finish before nudging the page.
+    const timer = setTimeout(() => {
+      const anchor = document.getElementById("projects-sphere");
+      if (!container || !anchor) {
+        settlingRef.current = false;
+        return;
+      }
+      const from = container.scrollTop;
+      const to = from + (anchor.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      if (Math.abs(to - from) < 2) {
+        settlingRef.current = false;
+        return;
+      }
+      const t0 = performance.now();
+      const run = (now: number) => {
+        const t = Math.min(1, (now - t0) / 380);
+        container.scrollTop = from + (to - from) * (1 - Math.pow(1 - t, 3));
+        if (t < 1) raf = requestAnimationFrame(run);
+        else settlingRef.current = false;
+      };
+      raf = requestAnimationFrame(run);
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(raf);
+      settlingRef.current = false;
+    };
+  }, [locked, containerRef]);
 
   // Keyboard: left/right step through parts, shift + left/right through planets.
   // Touch: a sideways swipe steps through parts (vertical drags still scroll).
   useEffect(() => {
-    if (!sphereInteractive || frozen) return;
+    if (!live) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       const t = e.target;
@@ -948,7 +1123,7 @@ export function HeroParticleCanvas({
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [sphereInteractive, frozen, stepPart, stepPlanet]);
+  }, [live, stepPart, stepPlanet]);
 
   return (
     <div
@@ -1023,7 +1198,7 @@ export function HeroParticleCanvas({
           formRef={sphereRef}
           exitRef={exitRef}
           selRef={selRef}
-          interactive={sphereInteractive && !frozen}
+          interactive={live}
           lowPower={lowPower}
           reducedMotion={reducedMotion}
           screenRef={screenRef}
@@ -1049,11 +1224,12 @@ export function HeroParticleCanvas({
 
       {/* Words and controls around the solar system */}
       <SystemOverlay
-        visible={sphereInteractive && !frozen}
+        visible={live}
         selection={selection}
         onPlanet={pickPlanet}
         onPart={pickPart}
         screenRef={screenRef}
+        onLeave={leaveTo}
       />
     </div>
   );

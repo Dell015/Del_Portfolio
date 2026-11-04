@@ -150,7 +150,76 @@ function buildBody(
     scatter[i * 3 + 1] = _v.y;
     scatter[i * 3 + 2] = _v.z;
   }
+  // Shuffle, so drawing only the first N dots (distant planets) still covers the
+  // whole sphere evenly.
+  for (let i = count - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    for (const [arr, w] of [[formed, 3], [scatter, 3], [colors, 3], [sizes, 1]] as const) {
+      for (let k = 0; k < w; k++) {
+        const t = arr[i * w + k]!;
+        arr[i * w + k] = arr[j * w + k]!;
+        arr[j * w + k] = t;
+      }
+    }
+  }
   return { formed, scatter, sizes, colors, count };
+}
+
+/**
+ * Dots are GPU points (one vertex each, drawn round in the shader) instead of tiny
+ * sphere meshes: thousands of 72-triangle spheres a few pixels wide is the slowest
+ * thing a GPU can be asked to draw. Formation and drift also run in the shader, so
+ * the CPU does no per-dot work at all.
+ */
+const dotVertex = /* glsl */ `
+  attribute vec3 aScatter;
+  attribute vec3 aColor;
+  attribute float aSize;
+  uniform float uForm;
+  uniform float uTime;
+  uniform float uK;
+  varying vec3 vColor;
+  void main() {
+    vec3 p = mix(aScatter, position, uForm);
+    float drift = 0.05 * (1.0 - uForm);
+    float seed = aSize * 917.0 + position.x * 13.0;
+    p += vec3(sin(uTime * 0.3 + seed), cos(uTime * 0.2 + seed * 0.7), sin(uTime * 0.25 + seed * 0.5)) * drift;
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    // World-space dot radius -> pixels (diameter) at this depth
+    gl_PointSize = max(1.0, aSize * uK / -mv.z);
+    vColor = aColor;
+  }
+`;
+
+const dotFragment = /* glsl */ `
+  uniform float uOpacity;
+  varying vec3 vColor;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    if (d > 0.5) discard;
+    float a = 1.0 - smoothstep(0.36, 0.5, d);
+    gl_FragColor = vec4(vColor, a * uOpacity);
+  }
+`;
+
+function makeDots(body: Body) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(body.formed, 3));
+  geo.setAttribute("aScatter", new THREE.BufferAttribute(body.scatter, 3));
+  geo.setAttribute("aColor", new THREE.BufferAttribute(body.colors, 3));
+  geo.setAttribute("aSize", new THREE.BufferAttribute(body.sizes, 1));
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: dotVertex,
+    fragmentShader: dotFragment,
+    uniforms: { uForm: { value: 0 }, uTime: { value: 0 }, uK: { value: 900 }, uOpacity: { value: 0 } },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  return pts;
 }
 
 /** Soft round falloff for the sun's corona (a sprite always faces the camera). */
@@ -192,13 +261,19 @@ function OrbitRing({ radius, matRef }: { radius: number; matRef: (m: THREE.LineB
     });
     return new THREE.Line(geo, mat);
   }, [radius]);
+  // Hand the material out on every render (cheap), but only free the GPU objects when
+  // the ring itself is replaced. Disposing inside an effect keyed on `matRef` (a new
+  // function each render) made three.js recompile the shader on every scroll tick.
   useEffect(() => {
     matRef(line.material as THREE.LineBasicMaterial);
-    return () => {
+  }, [line, matRef]);
+  useEffect(
+    () => () => {
       line.geometry.dispose();
       (line.material as THREE.Material).dispose();
-    };
-  }, [line, matRef]);
+    },
+    [line],
+  );
   return <primitive object={line} />;
 }
 
@@ -246,18 +321,18 @@ export function SolarSystem({
     );
     // The sun glows brighter than the planets.
     for (let i = 0; i < sun.colors.length; i++) sun.colors[i] = Math.min(1, sun.colors[i]! * 1.9);
-    return { planets, sun };
+    return {
+      planets: planets.map((p) => ({ ...p, dots: makeDots(p.body) })),
+      sun,
+      sunDots: makeDots(sun),
+    };
   }, [perPlanet, sunCount]);
 
   // ── Refs to scene objects ──────────────────────────────────────────────────
   const planetGroups = useRef<(THREE.Group | null)[]>([]);
-  const surfaceMeshes = useRef<(THREE.InstancedMesh | null)[]>([]);
-  const surfaceMats = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const partMeshes = useRef<(THREE.InstancedMesh | null)[]>([]);
   const partMats = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const ringMats = useRef<(THREE.LineBasicMaterial | null)[]>([]);
-  const sunMesh = useRef<THREE.InstancedMesh>(null);
-  const sunMat = useRef<THREE.MeshBasicMaterial>(null);
   const haloRef = useRef<THREE.Sprite>(null);
   const haloMat = useRef<THREE.SpriteMaterial>(null);
   const glow = useMemo(() => makeGlowTexture(), []);
@@ -265,37 +340,38 @@ export function SolarSystem({
   const systemRef = useRef<THREE.Group>(null);
 
   const timeRef = useRef(0);
-  /** Last formation value the instance matrices were written for. */
-  const lastForm = useRef(-1);
+  const { viewport } = useThree();
+  const sunDots = useRef<THREE.Points | null>(null);
+  const planetDots = useRef<(THREE.Points | null)[]>([]);
+
+  useEffect(
+    () => () => {
+      for (const o of [built.sunDots, ...built.planets.map((p) => p.dots)]) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    },
+    [built],
+  );
   /** Per-planet "how focused" 0..1, eased. */
   const focusMix = useRef<number[]>(PLANETS.map((_, i) => (i === 0 ? 1 : 0)));
   /** Per-part highlight 0..1 on the focused planet, eased. */
   const partMix = useRef<number[][]>(PLANETS.map((p) => Array.from({ length: p.partCount }, () => 0)));
 
-  // Instance colours (set once).
+  // Part orb colours (set once).
   useEffect(() => {
     built.planets.forEach((p, i) => {
-      const mesh = surfaceMeshes.current[i];
-      if (!mesh) return;
-      mesh.instanceColor = new THREE.InstancedBufferAttribute(p.body.colors, 3);
-      mesh.instanceColor.needsUpdate = true;
       const parts = partMeshes.current[i];
-      if (parts) {
-        const cols = new Float32Array(p.layout.partCount * 3);
-        for (let k = 0; k < p.layout.partCount; k++) {
-          cols[k * 3] = p.partColor.r;
-          cols[k * 3 + 1] = p.partColor.g;
-          cols[k * 3 + 2] = p.partColor.b;
-        }
-        parts.instanceColor = new THREE.InstancedBufferAttribute(cols, 3);
-        parts.instanceColor.needsUpdate = true;
+      if (!parts) return;
+      const cols = new Float32Array(p.layout.partCount * 3);
+      for (let k = 0; k < p.layout.partCount; k++) {
+        cols[k * 3] = p.partColor.r;
+        cols[k * 3 + 1] = p.partColor.g;
+        cols[k * 3 + 2] = p.partColor.b;
       }
+      parts.instanceColor = new THREE.InstancedBufferAttribute(cols, 3);
+      parts.instanceColor.needsUpdate = true;
     });
-    if (sunMesh.current) {
-      sunMesh.current.instanceColor = new THREE.InstancedBufferAttribute(built.sun.colors, 3);
-      sunMesh.current.instanceColor.needsUpdate = true;
-    }
-    lastForm.current = -1;
   }, [built]);
 
   // ── Picking: click a part on the focused planet, or another planet ─────────
@@ -381,43 +457,24 @@ export function SolarSystem({
     // scene a hair short of 1, which must still count.
     const formed = s > 0.97;
 
-    // Positions only need rewriting while the scene forms or dissolves.
-    const rewrite = Math.abs(s - lastForm.current) > 1e-4 || s < 0.999;
-    const drift = 0.05 * (1 - s);
-
-    const writeBody = (mesh: THREE.InstancedMesh | null, body: Body, k: number) => {
-      if (!mesh) return;
-      for (let i = 0; i < body.count; i++) {
-        const i3 = i * 3;
-        let x = body.scatter[i3]! + (body.formed[i3]! - body.scatter[i3]!) * s;
-        let y = body.scatter[i3 + 1]! + (body.formed[i3 + 1]! - body.scatter[i3 + 1]!) * s;
-        let z = body.scatter[i3 + 2]! + (body.formed[i3 + 2]! - body.scatter[i3 + 2]!) * s;
-        if (drift > 0.0005) {
-          x += Math.sin(time * 0.3 + i * 0.11 + k) * drift;
-          y += Math.cos(time * 0.2 + i * 0.07 + k) * drift;
-          z += Math.sin(time * 0.25 + i * 0.05 + k) * drift;
-        }
-        _dummy.position.set(x, y, z);
-        _dummy.scale.setScalar(body.sizes[i]!);
-        _dummy.updateMatrix();
-        mesh.setMatrixAt(i, _dummy.matrix);
-      }
-      mesh.instanceMatrix.needsUpdate = true;
+    // Dot size: world radius -> pixels needs the drawing-buffer height and the fov.
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? 60;
+    const k = (size.height * viewport.dpr) / Math.tan(THREE.MathUtils.degToRad(fov) / 2);
+    const setDots = (o: THREE.Points, opacity: number) => {
+      const u = (o.material as THREE.ShaderMaterial).uniforms;
+      u.uForm!.value = s;
+      u.uTime!.value = time;
+      u.uK!.value = k;
+      u.uOpacity!.value = opacity;
     };
 
-    if (rewrite) {
-      built.planets.forEach((p, i) => writeBody(surfaceMeshes.current[i] ?? null, p.body, i));
-      writeBody(sunMesh.current, built.sun, 9);
-      lastForm.current = s;
-    }
-
     // Sun: slow turn and a soft pulse.
-    if (sunMesh.current) {
-      sunMesh.current.rotation.y += dt * 0.08;
-      const pulse = 1 + Math.sin(time * 1.4) * 0.03;
-      sunMesh.current.scale.setScalar(pulse);
+    const sun = sunDots.current;
+    if (sun) {
+      sun.rotation.y += dt * 0.08;
+      sun.scale.setScalar(1 + Math.sin(time * 1.4) * 0.03);
+      setDots(sun, alpha * 0.75 * (1 - exit * 0.4));
     }
-    if (sunMat.current) sunMat.current.opacity = alpha * 0.75 * (1 - exit * 0.4);
     if (haloMat.current) {
       haloMat.current.opacity = alpha * s * 0.55 * (1 + Math.sin(time * 1.4) * 0.12) * (1 - exit * 0.4);
     }
@@ -453,14 +510,18 @@ export function SolarSystem({
       }
       group.scale.setScalar(swell);
 
-      const surf = surfaceMats.current[i];
       // A background planet that drifts behind the text column fades right down, so
       // the words always sit on plain space.
       const prev = screen.planets[i];
       const wide = size.width / size.height >= 0.95;
       const behindText = wide && prev ? THREE.MathUtils.clamp((size.width * 0.42 - prev.x + prev.r) / (prev.r + 60), 0, 1) : 0;
       const textFade = 1 - behindText * (1 - fm[i]!) * 0.85;
-      if (surf) surf.opacity = alpha * (0.22 + fm[i]! * 0.43) * (1 - exit * 0.4) * textFade;
+      const dots = planetDots.current[i];
+      if (dots) {
+        setDots(dots, alpha * (0.22 + fm[i]! * 0.43) * (1 - exit * 0.4) * textFade);
+        // Distant planets are a few dozen pixels wide: draw a sample of their dots.
+        dots.geometry.setDrawRange(0, Math.round(p.body.count * (0.4 + fm[i]! * 0.6)));
+      }
       const ring = ringMats.current[i];
       if (ring) {
         ring.opacity = alpha * s * (0.035 + fm[i]! * 0.14);
@@ -530,18 +591,12 @@ export function SolarSystem({
   return (
     <group ref={systemRef} rotation={[TILT, 0, 0]}>
       {/* Sun */}
-      <instancedMesh ref={sunMesh} args={[undefined, undefined, built.sun.count]} frustumCulled={false}>
-        <sphereGeometry args={[1, 6, 6]} />
-        <meshBasicMaterial
-          ref={sunMat}
-          color="#ffffff"
-          toneMapped={false}
-          transparent
-          opacity={0}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </instancedMesh>
+      <primitive
+        object={built.sunDots}
+        ref={(o: THREE.Points | null) => {
+          sunDots.current = o;
+        }}
+      />
       <sprite ref={haloRef} scale={[SUN_RADIUS * 6, SUN_RADIUS * 6, 1]}>
         <spriteMaterial
           ref={haloMat}
@@ -569,26 +624,12 @@ export function SolarSystem({
               planetGroups.current[i] = g;
             }}
           >
-            <instancedMesh
-              ref={(m) => {
-                surfaceMeshes.current[i] = m;
+            <primitive
+              object={p.dots}
+              ref={(o: THREE.Points | null) => {
+                planetDots.current[i] = o;
               }}
-              args={[undefined, undefined, p.body.count]}
-              frustumCulled={false}
-            >
-              <sphereGeometry args={[1, 6, 6]} />
-              <meshBasicMaterial
-                ref={(m) => {
-                  surfaceMats.current[i] = m;
-                }}
-                color="#ffffff"
-                toneMapped={false}
-                transparent
-                opacity={0}
-                blending={THREE.AdditiveBlending}
-                depthWrite={false}
-              />
-            </instancedMesh>
+            />
             <instancedMesh
               ref={(m) => {
                 partMeshes.current[i] = m;

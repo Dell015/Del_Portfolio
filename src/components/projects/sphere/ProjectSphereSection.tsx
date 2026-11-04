@@ -45,8 +45,8 @@ export function ProjectSphereSection() {
 
       {/* Tall scroll spacer, drives sphere phases via scrollProgress */}
       <div className="relative h-[300vh]">
-        {/* Where "Back to projects" lands: the sphere is formed and its labels are showing. */}
-        <div id="projects-sphere" aria-hidden="true" className="absolute top-[220vh] h-0 w-0" />
+        {/* Where the system parks (and where "Back to projects" lands). 200vh is the last spot where the sticky screen still fills the viewport, so the next section can't peek in. */}
+        <div id="projects-sphere" aria-hidden="true" className="absolute top-[200vh] h-0 w-0" />
         <div className="pointer-events-none sticky top-0 h-screen w-full">
           <div
             aria-hidden="true"

@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useSnapScroll } from "@/components/SmoothScroll";
 import { projects, type Project } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
 import { PLANETS } from "@/lib/system/layout";
@@ -23,6 +22,8 @@ interface SystemOverlayProps {
   onPlanet: (i: number) => void;
   onPart: (i: number) => void;
   screenRef: React.MutableRefObject<SystemScreen>;
+  /** Leave the system for the section above (About) or below (Skills). */
+  onLeave: (to: "about" | "skills") => void;
 }
 
 function Arrow({ dir }: { dir: "left" | "right" }) {
@@ -35,11 +36,10 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
 
 /**
  * Words and controls for the project solar system. The wrapper is pointer
- * transparent so the page still scrolls under it; only buttons and links opt
- * back in, and they forward the wheel to the scroll container.
+ * transparent; only buttons and links opt back in. While the system is showing the
+ * page is locked, so the About and Skills buttons are the ways out.
  */
-export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef }: SystemOverlayProps) {
-  const { containerRef } = useSnapScroll();
+export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef, onLeave }: SystemOverlayProps) {
   const project = projects[selection.planet] ?? projects[0]!;
   const parts = partsFor(project.slug);
   const part = parts[selection.part] ?? parts[0];
@@ -47,17 +47,6 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
   const c0 = layout.colorA;
   const c1 = layout.partColor;
   const total = projects.length;
-
-  const forwardWheel = useCallback(
-    (e: React.WheelEvent) => {
-      const el = containerRef.current;
-      if (!el) return;
-      el.dispatchEvent(
-        new WheelEvent("wheel", { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, bubbles: true, cancelable: true }),
-      );
-    },
-    [containerRef],
-  );
 
   // ── Labels pinned to the part orbs (positions come from the canvas each frame) ──
   const markerRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -108,7 +97,10 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
   const nextPart = () => onPart((selection.part + 1) % parts.length);
 
   const btn =
-    "pointer-events-auto inline-flex h-9 w-9 items-center justify-center border border-white/15 bg-[#0A0C0F]/70 text-white/80 backdrop-blur-md transition-colors duration-200 hover:border-white/45 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+    "pointer-events-auto inline-flex h-9 w-9 items-center justify-center border border-white/15 bg-[#0A0C0F]/85 text-white/80 transition-colors duration-200 hover:border-white/45 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+  const exitBtn =
+    "pointer-events-auto group absolute inline-flex items-center gap-2 border-b border-white/25 pb-1 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white/65 transition-colors duration-200 hover:border-white/70 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
 
   const partTicks = (
     <div className="flex items-center gap-1.5" role="group" aria-label="Parts">
@@ -117,7 +109,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
           key={pt.name}
           type="button"
           onClick={() => onPart(i)}
-          onWheel={forwardWheel}
+         
           aria-label={`${pad(i + 1)} ${pt.name}`}
           aria-current={i === selection.part ? "true" : undefined}
           className="pointer-events-auto group flex h-6 items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -183,7 +175,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
           type="button"
           tabIndex={-1}
           onClick={() => onPart(i)}
-          onWheel={forwardWheel}
+         
           aria-label={pt.name}
           className="absolute left-0 top-0 flex h-7 w-7 items-center justify-center font-[family-name:var(--font-mono)] text-[9px] text-white/70 opacity-0 transition-opacity duration-300"
         >
@@ -200,6 +192,17 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
           {pad(selection.part + 1)} · {part?.name}
         </span>
       </div>
+
+
+      {/* ── Ways out: scrolling is locked while the system shows ─────────── */}
+      <button type="button" onClick={() => onLeave("about")} className={`${exitBtn} left-4 top-[4.75rem] lg:left-auto lg:right-10 lg:top-8`}>
+        <span aria-hidden="true" className="transition-transform duration-300 group-hover:-translate-y-0.5">↑</span>
+        About
+      </button>
+      <button type="button" onClick={() => onLeave("skills")} className={`${exitBtn} right-4 top-[4.75rem] lg:bottom-7 lg:right-10 lg:top-auto`}>
+        Skills
+        <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-y-0.5">↓</span>
+      </button>
 
       {/* ── Desktop: text column ─────────────────────────────────────────── */}
       <div className="absolute left-10 top-1/2 hidden w-[23rem] -translate-y-1/2 lg:block xl:left-16">
@@ -227,10 +230,10 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
         <div className="mt-6 border-t border-dashed border-white/15 pt-5">{partBody}</div>
 
         <div className="mt-5 flex items-center gap-3">
-          <button type="button" onClick={prevPart} onWheel={forwardWheel} aria-label="Previous part" className={btn}>
+          <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
             <Arrow dir="left" />
           </button>
-          <button type="button" onClick={nextPart} onWheel={forwardWheel} aria-label="Next part" className={btn}>
+          <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
             <Arrow dir="right" />
           </button>
           <div className="ml-1">{partTicks}</div>
@@ -238,7 +241,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
 
         <Link
           href={`/projects/${project.slug}`}
-          onWheel={forwardWheel}
+         
           className="pointer-events-auto group mt-6 inline-flex items-center gap-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
         >
           <span className="border-b pb-1" style={{ borderColor: c0 }}>
@@ -253,7 +256,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
       {/* ── Desktop: orbit rail (planet switcher) ────────────────────────── */}
       <div className="absolute inset-x-0 bottom-7 hidden justify-center lg:flex">
         <div className="flex items-center gap-4">
-          <button type="button" onClick={prevPlanet} onWheel={forwardWheel} aria-label="Previous planet" className={btn}>
+          <button type="button" onClick={prevPlanet} aria-label="Previous planet" className={btn}>
             <Arrow dir="left" />
           </button>
           <div className="relative flex items-center gap-1" role="group" aria-label="Planets">
@@ -270,7 +273,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
                   key={p.slug}
                   type="button"
                   onClick={() => onPlanet(i)}
-                  onWheel={forwardWheel}
+                 
                   aria-current={active ? "true" : undefined}
                   className="pointer-events-auto relative flex items-center gap-2 bg-[#0A0C0F] px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   style={{ color: active ? "#fff" : "rgba(255,255,255,0.45)" }}
@@ -290,14 +293,11 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef 
               );
             })}
           </div>
-          <button type="button" onClick={nextPlanet} onWheel={forwardWheel} aria-label="Next planet" className={btn}>
+          <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>
             <Arrow dir="right" />
           </button>
         </div>
       </div>
-      <p className="absolute bottom-[4.6rem] left-1/2 hidden -translate-x-1/2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.18em] text-white/35 lg:block">
-        ← → parts · shift + ← → planets · click any dot
-      </p>
 
       {/* ── Phones and tablets: sheet under the planet ───────────────────── */}
       <div className="absolute inset-x-3 bottom-3 lg:hidden">
