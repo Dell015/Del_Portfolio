@@ -118,7 +118,7 @@ function Hero({ play }: { play: boolean }) {
         mode="time"
         play={play}
         replay={replay}
-        duration={3.8}
+        duration={6.5}
         className={`${wrap} grid min-h-[100svh] content-center gap-8 pb-16 pt-24 sm:gap-12 sm:pt-28 lg:grid-cols-[1.12fr_1fr] lg:items-center lg:gap-14 lg:pt-24`}
       >
         <div>
@@ -343,7 +343,7 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
   const single = c0.toLowerCase() === c1.toLowerCase();
   const fill = single ? `linear-gradient(135deg, ${c0}, #1b1b1b 85%)` : `linear-gradient(135deg, ${c0}, ${c1})`;
   return (
-    <Build offset={["start 0.95", "start 0.42"]}>
+    <Build offset={["start 0.72", "start 0.06"]}>
       <a
         href={`/projects/${p.slug}`}
         data-a="card"
@@ -447,7 +447,7 @@ function SkillGroup({ i, label, items }: { i: number; label: string; items: stri
   const who = (["code", "design", "copy", "randel", "code"] as Who[])[i] ?? "code";
   const step = 0.5 / Math.max(1, items.length);
   return (
-    <Build offset={["start 0.95", "start 0.55"]}>
+    <Build offset={["start 0.75", "start 0.22"]}>
       <div data-a="group" className="h-full border border-white/10 bg-[#111316] p-5">
         <div className={`flex items-center justify-between ${mono} text-[10px] uppercase tracking-[0.16em] text-white/40`}>
           <span>{label}</span>
@@ -505,7 +505,7 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
     <section id="background" data-snap-section="" className="relative">
       <div className={`${wrap} py-24 lg:py-28`}>
         <SectionHead n="05" name="Track record" lead="The track record " accent="so far." intro={background.intro} />
-        <Build offset={["start 0.92", "start 0.25"]} className="mt-12">
+        <Build offset={["start 0.72", "start 0"]} className="mt-12">
           <ol className="border-y border-white/10">
             {rows.map((m, i) => {
               const at = 0.08 + i * 0.1;

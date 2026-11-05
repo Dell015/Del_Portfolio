@@ -25,7 +25,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { animate, useMotionValue, useReducedMotion, useScroll, useSpring } from "framer-motion";
+import { animate, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import { useSnapScroll } from "@/components/SmoothScroll";
 
 // ─── The four people in the file (all of them are Randel) ───────────────────
@@ -126,7 +126,7 @@ export function Build({
   play = true,
   duration = 3.4,
   replay = 0,
-  offset = ["start 0.92", "start 0.38"],
+  offset = ["start 0.72", "start 0.06"],
 }: BuildProps) {
   const root = useRef<HTMLDivElement>(null);
   const { containerRef } = useSnapScroll();
@@ -137,8 +137,14 @@ export function Build({
     container: containerRef,
     offset: offset as never,
   });
-  // A light spring so cursors glide between wheel steps instead of jumping.
-  const smooth = useSpring(scrollYProgress, { stiffness: 120, damping: 26, restDelta: 0.0004 });
+  // At the very bottom of the page the last blocks can't scroll any higher, so they
+  // count as finished there instead of staying half built.
+  const toEnd = useTransform(scrollYProgress, (v) => {
+    const c = containerRef.current;
+    return c && c.scrollTop + c.clientHeight >= c.scrollHeight - 4 ? 1 : v;
+  });
+  // A soft spring: cursors glide and settle instead of snapping to each wheel step.
+  const smooth = useSpring(toEnd, { stiffness: 55, damping: 18, restDelta: 0.0004 });
   const timer = useMotionValue(still ? 1 : 0);
   const src = mode === "time" ? timer : smooth;
 
