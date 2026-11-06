@@ -38,6 +38,15 @@ function subscribeScroll(cb: () => void) {
  * after it the extra height is subtracted, so those thresholds keep their meaning.
  */
 let _pinEl: HTMLElement | null = null;
+
+/**
+ * Set while the site itself is carrying the page somewhere (a nav link, a section
+ * button), so scroll-triggered behaviour such as the solar system's lock lets it pass.
+ */
+export const navTransit = { until: 0 };
+function markNavTransit() {
+  navTransit.until = performance.now() + 2000;
+}
 export function registerScrollPin(el: HTMLElement | null) {
   _pinEl = el;
 }
@@ -346,6 +355,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (el) {
+      markNavTransit();
       el.scrollIntoView({ behavior: "smooth" });
     }
   }, []);
@@ -367,6 +377,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         if (el && containerRef.current) {
           e.preventDefault();
           window.history.pushState(null, "", `#${id}`);
+          markNavTransit();
           el.scrollIntoView({ behavior: "smooth" });
         }
       }
@@ -393,7 +404,8 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     >
       <div
         ref={containerRef}
-        className={`relative h-screen ${scrollLocked ? "overflow-hidden" : "overflow-y-auto"}`}
+        // The gutter is always reserved, so locking (overflow hidden) never shifts the page sideways.
+        className={`relative h-screen [scrollbar-gutter:stable] ${scrollLocked ? "overflow-hidden" : "overflow-y-auto"}`}
       >
         {children}
       </div>

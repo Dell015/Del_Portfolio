@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { projects, type Project } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
@@ -91,6 +91,16 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
     return () => cancelAnimationFrame(raf);
   }, [visible, screenRef]);
 
+  const nextPartName = parts[(selection.part + 1) % parts.length]?.name ?? "";
+  const nextPlanetIdx = (selection.planet + 1) % total;
+  const nextPlanet_ = projects[nextPlanetIdx]!;
+  const nextPlanetCol = PLANETS[nextPlanetIdx]?.colorA ?? "#fff";
+  const prevPlanetName = projects[(selection.planet - 1 + total) % total]!.name;
+  // Until the visitor has moved once, the "next part" button breathes, so it's obvious
+  // that this is something you step through.
+  const [first] = useState(selection);
+  const touched = selection.planet !== first.planet || selection.part !== first.part;
+
   const prevPlanet = () => onPlanet((selection.planet - 1 + total) % total);
   const nextPlanet = () => onPlanet((selection.planet + 1) % total);
   const prevPart = () => onPart((selection.part - 1 + parts.length) % parts.length);
@@ -101,6 +111,27 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
 
   const exitBtn =
     "pointer-events-auto group absolute inline-flex items-center gap-2 border-b border-white/25 pb-1 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white/65 transition-colors duration-200 hover:border-white/70 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
+
+  const nextPartBtn = (
+    <button
+      type="button"
+      onClick={nextPart}
+      aria-label={`Next part: ${nextPartName}`}
+      className="pointer-events-auto group relative flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-3 border px-4 py-2 text-left transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      style={{ borderColor: c0, background: `${c0}14` }}
+    >
+      {!touched && (
+        <span aria-hidden="true" className="absolute -inset-[4px] animate-pulse border" style={{ borderColor: `${c0}99` }} />
+      )}
+      <span className="min-w-0">
+        <span className="block font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.18em] text-white/55">Next part</span>
+        <span className="mt-0.5 block truncate text-[14px] font-semibold text-white">{nextPartName}</span>
+      </span>
+      <span aria-hidden="true" className="text-lg transition-transform duration-300 group-hover:translate-x-1" style={{ color: c0 }}>
+        →
+      </span>
+    </button>
+  );
 
   const partTicks = (
     <div className="flex items-center gap-1.5" role="group" aria-label="Parts">
@@ -229,15 +260,13 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
 
         <div className="mt-6 border-t border-dashed border-white/15 pt-5">{partBody}</div>
 
-        <div className="mt-5 flex items-center gap-3">
-          <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
+        <div className="mt-5 flex items-stretch gap-2">
+          <button type="button" onClick={prevPart} aria-label="Previous part" className={`${btn} h-auto w-12`}>
             <Arrow dir="left" />
           </button>
-          <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
-            <Arrow dir="right" />
-          </button>
-          <div className="ml-1">{partTicks}</div>
+          {nextPartBtn}
         </div>
+        <div className="mt-3">{partTicks}</div>
 
         <Link
           href={`/projects/${project.slug}`}
@@ -256,8 +285,14 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
       {/* ── Desktop: orbit rail (planet switcher) ────────────────────────── */}
       <div className="absolute inset-x-0 bottom-7 hidden justify-center lg:flex">
         <div className="flex items-center gap-4">
-          <button type="button" onClick={prevPlanet} aria-label="Previous planet" className={btn}>
+          <button
+            type="button"
+            onClick={prevPlanet}
+            aria-label={`Previous planet: ${prevPlanetName}`}
+            className={`${btn} h-10 w-auto gap-2 px-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em]`}
+          >
             <Arrow dir="left" />
+            Prev
           </button>
           <div className="relative flex items-center gap-1" role="group" aria-label="Planets">
             <span aria-hidden="true" className="absolute inset-x-3 top-1/2 h-px bg-white/12" />
@@ -293,8 +328,19 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
               );
             })}
           </div>
-          <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>
-            <Arrow dir="right" />
+          <button
+            type="button"
+            onClick={nextPlanet}
+            aria-label={`Next planet: ${nextPlanet_.name}`}
+            className="pointer-events-auto group inline-flex h-10 items-center gap-2.5 border bg-[#0A0C0F]/90 px-4 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            style={{ borderColor: nextPlanetCol }}
+          >
+            <span className="text-white/55">Next planet</span>
+            <span className="h-2 w-2 rounded-full" style={{ background: nextPlanetCol }} />
+            {nextPlanet_.name}
+            <span className="transition-transform duration-300 group-hover:translate-x-0.5">
+              <Arrow dir="right" />
+            </span>
           </button>
         </div>
       </div>
@@ -314,20 +360,25 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
                 {project.name}
               </p>
             </div>
-            <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>
+            <button
+              type="button"
+              onClick={nextPlanet}
+              aria-label={`Next planet: ${nextPlanet_.name}`}
+              className={`${btn} w-auto gap-1.5 px-2.5 font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.12em]`}
+              style={{ borderColor: nextPlanetCol }}
+            >
+              {nextPlanet_.name}
               <Arrow dir="right" />
             </button>
           </div>
           <div className="mt-3 border-t border-dashed border-white/15 pt-3 [&_p:nth-of-type(2)]:line-clamp-3">{partBody}</div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
-                <Arrow dir="left" />
-              </button>
-              <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
-                <Arrow dir="right" />
-              </button>
-            </div>
+          <div className="mt-3 flex items-stretch gap-2">
+            <button type="button" onClick={prevPart} aria-label="Previous part" className={`${btn} h-auto w-11`}>
+              <Arrow dir="left" />
+            </button>
+            {nextPartBtn}
+          </div>
+          <div className="mt-2.5 flex justify-end">
             <Link
               href={`/projects/${project.slug}`}
               className="pointer-events-auto font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white underline decoration-1 underline-offset-4"

@@ -7,7 +7,7 @@ import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { PointCloud } from "@/lib/particles/sampleImageToPoints";
 import { curlNoiseGLSL } from "@/lib/particles/curlNoise";
-import { useSnapScroll } from "@/components/SmoothScroll";
+import { navTransit, useSnapScroll } from "@/components/SmoothScroll";
 import { useVirtualScroll, LOCK_TRIGGER } from "@/lib/hooks/useVirtualScroll";
 import { projects } from "@/lib/content/projects";
 import { BackdropParticles } from "./BackdropParticles";
@@ -753,8 +753,11 @@ export function HeroParticleCanvas({
   const leavingToRef = useRef<string | null>(null);
   const live = sphereInteractive && !frozen && !leaving;
 
+  /** When the lock last engaged: it holds for a moment even if the scene briefly reads as gone. */
+  const lockedAtRef = useRef(0);
   const applyLock = useCallback((v: boolean) => {
     lockedRef.current = v;
+    if (v) lockedAtRef.current = performance.now();
     setLocked(v);
   }, []);
   const glideRef = useRef(0);
@@ -973,6 +976,8 @@ export function HeroParticleCanvas({
   useEffect(() => {
     let rafId: number;
     let last = false;
+    /** Where the landing spot was last frame, to catch a scroll that jumps right over it. */
+    let prevDelta: number | null = null;
     function check() {
       const isFormed = sphereRef.current > 0.9;
       const isPostLock = virtualScroll.smallFadeRef.current >= 1;
@@ -997,7 +1002,6 @@ export function HeroParticleCanvas({
           container.scrollTop += delta;
           delta = 0;
         }
-        const off = Math.abs(delta);
         // The exit is over once the destination section sits at the top.
         if (leavingRef.current) {
           const dest = leavingToRef.current ? document.getElementById(leavingToRef.current) : null;
@@ -1007,9 +1011,22 @@ export function HeroParticleCanvas({
             setLeaving(false);
           }
         }
+        // Engage as soon as the visitor is near the landing spot from either side (up to a
+        // third of a screen before it, or almost a screen past it, coming back up from
+        // Skills), without waiting for the planets to finish forming: a fast scroll or a
+        // phone fling can't slip past it that way. The settle below glides the rest.
+        // Once locked, only the About/Skills buttons (or the scene going away) let go.
+        const nearSpot = delta < vh * 0.35 && delta > -vh * 0.9;
+        // A slow frame can let a fast scroll jump over the whole zone in one step, so
+        // crossing the spot in either direction since last frame counts too.
+        const crossed = prevDelta !== null && ((prevDelta > 2 && delta < -2) || (prevDelta < -2 && delta > 2));
+        prevDelta = delta;
+        // The site's own navigation (nav links, section buttons) passes straight through.
+        const navigating = performance.now() < navTransit.until;
+        const holding = performance.now() - lockedAtRef.current < 1500;
         const want = lockedRef.current
-          ? next && off < vh * 0.3
-          : next && !leavingRef.current && off < vh * 0.15;
+          ? isPostLock && (!frozenRef.current || holding || settlingRef.current)
+          : isPostLock && !leavingRef.current && !navigating && ((nearSpot && !frozenRef.current) || crossed);
         if (want !== lockedRef.current) applyLock(want);
       }
       rafId = requestAnimationFrame(check);
@@ -1038,12 +1055,19 @@ export function HeroParticleCanvas({
     window.addEventListener("wheel", stop, { passive: false, capture: true });
     window.addEventListener("touchmove", stop, { passive: false, capture: true });
     window.addEventListener("keydown", onKey, { capture: true });
+    // The container stops being scrollable by the visitor at all. This also kills a phone's
+    // momentum that started before the lock, and scrollbar dragging; code (the settle and
+    // the exit glide) can still move it. The container keeps its scrollbar gutter, so
+    // nothing shifts sideways.
+    const c = containerRef.current;
+    if (c) c.style.overflowY = "hidden";
     return () => {
+      if (c) c.style.overflowY = "";
       window.removeEventListener("wheel", stop, { capture: true });
       window.removeEventListener("touchmove", stop, { capture: true });
       window.removeEventListener("keydown", onKey, { capture: true });
     };
-  }, [blocking]);
+  }, [blocking, containerRef]);
 
 
   // Whatever moves the page while it is locked (scrollbar drag, middle-click scroll,
@@ -1082,9 +1106,11 @@ export function HeroParticleCanvas({
         settlingRef.current = false;
         return;
       }
+      // Longer glides for longer distances (it can start almost a screen away).
+      const dur = Math.min(900, 380 + Math.abs(to - from) * 0.45);
       const t0 = performance.now();
       const run = (now: number) => {
-        const t = Math.min(1, (now - t0) / 380);
+        const t = Math.min(1, (now - t0) / dur);
         container.scrollTop = from + (to - from) * (1 - Math.pow(1 - t, 3));
         if (t < 1) raf = requestAnimationFrame(run);
         else settlingRef.current = false;
