@@ -76,7 +76,7 @@ export function ViewSwitch({ className = "" }: { className?: string }) {
               onClick={() => go(v.mode)}
               disabled={here || off}
               aria-pressed={here}
-              className={`group relative flex min-h-[200px] flex-col justify-between overflow-hidden border bg-[#0d0e11] p-6 text-left transition-[border-color,box-shadow] duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent sm:p-7 ${
+              className={`group relative flex min-h-[200px] flex-col justify-start overflow-hidden border bg-[#0d0e11] p-6 text-left transition-[border-color,box-shadow] duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent sm:p-7 ${
                 here
                   ? "cursor-default border-white/10"
                   : off
