@@ -95,7 +95,7 @@ export function ViewSwitch({ className = "" }: { className?: string }) {
                 ) : off ? (
                   <span className="text-white/45">Not available</span>
                 ) : (
-                  <span className="inline-flex items-center gap-2 bg-accent px-2 py-1 text-white">
+                  <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap bg-accent px-2 py-1 text-white">
                     Switch
                     <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
                       →
@@ -117,7 +117,7 @@ export function ViewSwitch({ className = "" }: { className?: string }) {
                 </span>
                 {heavy && (
                   <span
-                    className={`mt-4 inline-flex items-start gap-2 border border-[#F2A541]/40 bg-[#F2A541]/10 px-2.5 py-1.5 ${mono} text-[10px] uppercase leading-snug tracking-[0.12em] text-[#F2A541]`}
+                    className={`mt-4 inline-flex items-start gap-2 border relative border-[#F2A541]/40 bg-[#1c160c] px-2.5 py-1.5 ${mono} text-[10px] uppercase leading-snug tracking-[0.12em] text-[#F2A541]`}
                   >
                     <span aria-hidden="true">⚠</span>
                     <span>Heavy: needs a strong GPU. Best on a laptop or desktop; may stutter on phones and older machines.</span>

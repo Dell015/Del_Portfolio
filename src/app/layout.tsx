@@ -143,8 +143,9 @@ export default function RootLayout({
           <SmoothScroll>
             <Nav />
             {children}
+            {/* Inside the scroll context so picking "have fun" can replay the hero intro. */}
+            <ModeGate />
           </SmoothScroll>
-          <ModeGate />
         <PageTransition />
         </ModeProvider>
         {/* Vercel Web Analytics: page views only, no cookies, nothing personal. The script

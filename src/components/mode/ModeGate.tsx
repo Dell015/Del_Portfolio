@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useModeStore, type Mode } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { site } from "@/lib/content/site";
+import { useSnapScroll } from "@/components/SmoothScroll";
+import { ViewPreview } from "./ViewPreview";
 
 const OPTIONS: {
   value: Mode;
@@ -18,14 +20,14 @@ const OPTIONS: {
     value: "clean",
     tag: "About 1 minute",
     title: "Quick look",
-    body: "The short version: everything that matters on one light page, built live as you scroll. Works on any device.",
-    cta: "Show me the page",
+    body: "The short version, built live by four cursors as you scroll. Light on any device.",
+    cta: "Show me",
   },
   {
     value: "immersive",
     tag: "The full experience",
     title: "Let's have fun",
-    body: "A particle portrait, a black hole and a solar system of my projects. Heavy on the GPU: best on a laptop or desktop, may stutter on phones.",
+    body: "A particle portrait, a black hole and a solar system of my projects.",
     cta: "Let's go",
   },
 ];
@@ -44,12 +46,20 @@ export function ModeGate() {
   const reducedMotion = useModeStore((s) => s.reducedMotion);
   const choose = useModeStore((s) => s.choose);
   const { webglAvailable } = useDeviceCapability();
+  const { replayIntro } = useSnapScroll();
 
   // Only the home page has the two experiences; a shared case-study link opens straight to its content.
   const onHome = usePathname() === "/";
   const open = onHome && hydrated && !chosen && webglAvailable && !reducedMotion;
 
-  return <AnimatePresence>{open && <Gate onChoose={choose} />}</AnimatePresence>;
+  // Picking the full experience always starts with its intro, even if this visit began on
+  // another page (which normally skips the intro when coming home).
+  const pick = (m: Mode) => {
+    if (m === "immersive") replayIntro();
+    choose(m);
+  };
+
+  return <AnimatePresence>{open && <Gate onChoose={pick} />}</AnimatePresence>;
 }
 
 function Gate({ onChoose }: { onChoose: (m: Mode) => void }) {
@@ -143,7 +153,7 @@ function Gate({ onChoose }: { onChoose: (m: Mode) => void }) {
         ))}
       </div>
 
-      <div className="relative w-full max-w-3xl text-center">
+      <div className="relative w-full max-w-4xl text-center">
         <motion.p
           className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.2em] text-text-muted"
           initial={{ opacity: 0, y: 10 }}
@@ -172,7 +182,7 @@ function Gate({ onChoose }: { onChoose: (m: Mode) => void }) {
           Same person, same work. Pick how you want to meet it. You can change this from the footer.
         </motion.p>
 
-        <div className="mt-10 grid gap-4 text-left sm:grid-cols-2">
+        <div className="mt-10 grid gap-3 text-left sm:grid-cols-2">
           {OPTIONS.map((o, i) => {
             const fun = o.value === "immersive";
             return (
@@ -183,38 +193,45 @@ function Gate({ onChoose }: { onChoose: (m: Mode) => void }) {
                 }}
                 type="button"
                 onClick={() => onChoose(o.value)}
-                className={`group relative overflow-hidden rounded-2xl border p-6 text-left transition-all duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent sm:p-7 ${
+                className={`group relative flex min-h-[230px] flex-col justify-start overflow-hidden border bg-[#0d0e11] p-6 text-left transition-[border-color,box-shadow] duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent sm:p-7 ${
                   fun
-                    ? "border-accent/50 bg-gradient-to-br from-accent/[0.14] to-white/[0.02] hover:border-accent hover:shadow-[0_0_60px_-10px_rgba(209,26,42,0.55)]"
-                    : "border-white/10 bg-white/[0.03] hover:border-white/30 hover:bg-white/[0.06]"
-                } hover:-translate-y-1`}
+                    ? "border-accent/60 hover:border-accent hover:shadow-[0_0_0_1px_#D11A2A,0_18px_60px_-20px_rgba(209,26,42,0.55)]"
+                    : "border-white/15 hover:border-white/40 hover:shadow-[0_18px_60px_-24px_rgba(255,255,255,0.18)]"
+                }`}
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.55 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
               >
-                <span
-                  className={`font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.18em] ${
-                    fun ? "text-accent" : "text-text-muted"
-                  }`}
-                >
-                  {o.tag}
-                </span>
-                <span className="mt-3 block font-[family-name:var(--font-display)] text-2xl font-semibold text-text">
-                  {o.title}
-                </span>
-                <span className="mt-2 block text-sm leading-relaxed text-text-muted">{o.body}</span>
-                <span
-                  className={`mt-6 inline-flex items-center gap-2 font-[family-name:var(--font-display)] text-sm font-semibold ${
-                    fun ? "text-white" : "text-text"
-                  }`}
-                >
-                  {o.cta}
-                  <span
-                    aria-hidden="true"
-                    className="inline-block transition-transform duration-300 group-hover:translate-x-1.5"
-                  >
-                    →
+                {/* A live miniature of each view, the same ones as the switch in the footer */}
+                <ViewPreview kind={fun ? "particles" : "cursors"} />
+
+                <span className="relative flex items-center justify-between gap-4 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em]">
+                  <span className={`min-w-0 ${fun ? "text-accent" : "text-text-muted"}`}>
+                    {String(i + 1).padStart(2, "0")} · {o.tag}
                   </span>
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap px-2 py-1 ${
+                      fun ? "bg-accent text-white" : "border border-white/20 text-text"
+                    }`}
+                  >
+                    {o.cta}
+                    <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
+                      →
+                    </span>
+                  </span>
+                </span>
+
+                <span className="relative mt-8 block">
+                  <span className="block font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.5rem)] font-bold leading-none tracking-[-0.02em] text-text">
+                    {o.title}
+                  </span>
+                  <span className="mt-3 block max-w-[17rem] text-[14px] leading-relaxed text-white/70">{o.body}</span>
+                  {fun && (
+                    <span className="mt-4 inline-flex items-start gap-2 border relative border-[#F2A541]/40 bg-[#1c160c] px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-[10px] uppercase leading-snug tracking-[0.12em] text-[#F2A541]">
+                      <span aria-hidden="true">⚠</span>
+                      <span>Heavy: needs a strong GPU. Best on a laptop or desktop; may stutter on phones and older machines.</span>
+                    </span>
+                  )}
                 </span>
               </motion.button>
             );

@@ -55,8 +55,8 @@ export function ViewPreview({ kind, dim = false }: { kind: "particles" | "cursor
     const drawParticles = (dt: number) => {
       // Narrow cards (phones) keep it up in the top-right corner, clear of the text.
       const narrow = w < 480;
-      const cx = narrow ? w * 0.78 : w * 0.72;
-      const cy = narrow ? h * 0.3 : h * 0.5;
+      const cx = narrow ? w * 0.8 : w * 0.72;
+      const cy = narrow ? h * 0.42 : h * 0.56;
       const R = narrow ? Math.min(w * 0.3, h * 0.42) : Math.min(w * 0.4, h * 1.05);
       const tilt = -0.28;
       const spin = 1 + hot.k * 2.4;
@@ -97,9 +97,9 @@ export function ViewPreview({ kind, dim = false }: { kind: "particles" | "cursor
       { c: "#3DD6C3", l: "copy" },
       { c: "#9B8CFF", l: "code" },
     ];
-    const M = phone ? 6 : 9;
+    const M = phone ? 5 : 9;
     // Narrow cards (phones) keep the swarm in the top-right corner, clear of the text.
-    const area = () => (w < 480 ? { x0: w * 0.45, x1: w - 64, y0: 34, y1: h * 0.46 } : { x0: w * 0.46, x1: w - 72, y0: 40, y1: h - 34 });
+    const area = () => (w < 480 ? { x0: w * 0.56, x1: w - 64, y0: 62, y1: h * 0.62 } : { x0: w * 0.48, x1: w - 72, y0: 66, y1: h - 34 });
     const pick = () => {
       const A = area();
       return { x: A.x0 + Math.random() * (A.x1 - A.x0), y: A.y0 + Math.random() * (A.y1 - A.y0) };
