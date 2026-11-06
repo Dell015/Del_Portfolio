@@ -37,9 +37,10 @@ const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visi
 type Pos = "tl" | "tr" | "bl" | "br";
 const CORNER: Record<Pos, { box: string; mark: string }> = {
   tl: { box: "left-4 top-4 pl-5 pt-1 sm:left-7 sm:top-6", mark: "left-0 top-0 border-l border-t" },
-  tr: { box: "right-4 top-4 pr-5 pt-1 text-right sm:right-7 sm:top-6", mark: "right-0 top-0 border-r border-t" },
+  // Right-hand corners step in by the scroll container's scrollbar width (--sbw), or the bar covers them.
+  tr: { box: "right-[calc(1rem+var(--sbw,0px))] top-4 pr-5 pt-1 text-right sm:right-[calc(1.75rem+var(--sbw,0px))] sm:top-6", mark: "right-0 top-0 border-r border-t" },
   bl: { box: "bottom-6 left-7 pb-1 pl-5", mark: "bottom-0 left-0 border-b border-l" },
-  br: { box: "bottom-6 right-7 pb-1 pr-5 text-right", mark: "bottom-0 right-0 border-b border-r" },
+  br: { box: "bottom-6 right-[calc(1.75rem+var(--sbw,0px))] pb-1 pr-5 text-right", mark: "bottom-0 right-0 border-b border-r" },
 };
 
 function Corner({ pos, className = "", children }: { pos: Pos; className?: string; children: React.ReactNode }) {
@@ -73,6 +74,18 @@ export function Nav() {
     if (barRef.current) barRef.current.style.transform = `scaleX(${pct / 100})`;
   });
 
+  // Width of the scroll container's scrollbar (0 for overlay scrollbars on phones/macOS).
+  const [sbw, setSbw] = useState(0);
+  useEffect(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const measure = () => setSbw(Math.max(0, c.offsetWidth - c.clientWidth));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(c);
+    return () => ro.disconnect();
+  }, [containerRef]);
+
   // Hidden while the immersive intro holds the page; always there otherwise.
   const visible = !scrollLocked || menuOpen;
 
@@ -97,7 +110,7 @@ export function Nav() {
         initial={{ opacity: 0 }}
         animate={{ opacity: visible ? 1 : 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        style={{ visibility: visible ? "visible" : "hidden" }}
+        style={{ visibility: visible ? "visible" : "hidden", ["--sbw" as string]: `${sbw}px` }}
       >
         {/* ── top-left: name ── */}
         <Corner pos="tl">
@@ -151,7 +164,8 @@ export function Nav() {
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
             aria-controls="site-menu"
-            className={`${mono} min-h-[28px] text-[11px] uppercase tracking-[0.18em] text-text md:hidden ${focus}`}
+            // Same line height as the name so the two top corners line up; the bigger tap area is invisible.
+            className={`relative block ${mono} text-[11px] uppercase leading-[17px] tracking-[0.18em] text-text after:absolute after:-inset-3 after:content-[''] md:hidden ${focus}`}
           >
             {menuOpen ? "Close ×" : "Menu"}
           </button>
