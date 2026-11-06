@@ -13,6 +13,8 @@ interface ScrollContextValue {
   scrollLocked: boolean;
   /** True once the visitor came back to a section (e.g. from a case study), skipping the hero intro. */
   introSkipped: boolean;
+  /** Play the hero intro again (the visitor just switched to the full experience on purpose). */
+  replayIntro: () => void;
   unlockScroll: () => void;
   lockScroll: () => void;
   scrollToSection: (id: string) => void;
@@ -61,6 +63,7 @@ const ScrollContext = createContext<ScrollContextValue>({
   totalPages: 0,
   scrollLocked: true,
   introSkipped: false,
+  replayIntro: () => {},
   unlockScroll: () => {},
   lockScroll: () => {},
   scrollToSection: () => {},
@@ -102,6 +105,12 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const [lockedState, setLockedState] = useState(!cameBack);
   const [introSkipped, setIntroSkipped] = useState(cameBack);
   const pathname = usePathname();
+  // Skipping the intro is for coming back from another page. Switching to the full
+  // experience from the view switch is a fresh start, so the intro plays again.
+  const replayIntro = useCallback(() => {
+    setIntroSkipped(false);
+    setLockedState(true);
+  }, []);
   // Only the home page ever locks scrolling (until the immersive hero is revealed).
   const scrollLocked = lockedState && pathname === "/";
 
@@ -375,6 +384,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
         totalPages,
         scrollLocked,
         introSkipped,
+        replayIntro,
         unlockScroll,
         lockScroll,
         scrollToSection,

@@ -25,7 +25,7 @@ const OPTIONS: {
     value: "immersive",
     tag: "The full experience",
     title: "Let's have fun",
-    body: "A particle portrait, a black hole and a solar system of my projects. Best on a laptop or desktop.",
+    body: "A particle portrait, a black hole and a solar system of my projects. Heavy on the GPU: best on a laptop or desktop, may stutter on phones.",
     cta: "Let's go",
   },
 ];
