@@ -19,6 +19,14 @@ export async function generateMetadata({
   return {
     title: project.name, // the layout's title template appends the site name
     description: project.pitch,
+    // Each case study is its own page: without this it inherits the homepage's
+    // canonical ("/") and search engines treat it as a duplicate of the homepage.
+    alternates: { canonical: `/projects/${project.slug}` },
+    openGraph: {
+      title: `${project.name} | Randel Serafica`,
+      description: project.pitch,
+      url: `/projects/${project.slug}`,
+    },
   };
 }
 

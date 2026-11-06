@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { FiArrowUpRight, FiFacebook, FiGithub, FiLinkedin, FiMail, FiPhone } from "react-icons/fi";
@@ -19,7 +20,7 @@ import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { useLocalTime } from "@/lib/hooks/useLocalTime";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useModeStore } from "@/lib/store/mode";
-import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
+import { ViewSwitch } from "@/components/mode/ViewSwitch";
 import { ContactForm } from "./ContactForm";
 import { DriftParticles } from "@/components/background/DriftParticles";
 
@@ -73,9 +74,6 @@ export interface FooterProps {
 export function Footer({ contactEnabled = false }: FooterProps) {
   const { containerRef } = useSnapScroll();
   const reducedMotion = useModeStore((s) => s.reducedMotion);
-  const reopenChoice = useModeStore((s) => s.reopenChoice);
-  const { webglAvailable } = useDeviceCapability();
-  const canSwitchView = webglAvailable && !reducedMotion;
   const sectionRef = useRef<HTMLElement>(null);
   const localTime = useLocalTime("Asia/Manila");
 
@@ -266,17 +264,6 @@ export function Footer({ contactEnabled = false }: FooterProps) {
                   </a>
                 </motion.li>
               ))}
-              {canSwitchView && (
-              <li>
-                <button
-                  type="button"
-                  onClick={reopenChoice}
-                  className="inline-flex min-h-[44px] items-center font-[family-name:var(--font-mono)] text-sm text-text-muted transition-colors duration-300 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  Change view
-                </button>
-              </li>
-              )}
             </ul>
           </nav>
 
@@ -319,6 +306,9 @@ export function Footer({ contactEnabled = false }: FooterProps) {
           </motion.div>
         </div>
 
+        {/* ══ Switch view: big and obvious, the last thing before the fine print ══ */}
+        <ViewSwitch className="mb-16 border-t border-border pt-14 md:mb-20" />
+
         {/* ══ ROW 3, Built with (left) / copyright (right) ══ */}
         <div className="flex flex-col items-center gap-8 md:flex-row md:justify-between md:gap-6">
           <div className="flex flex-col items-center gap-3 md:flex-row md:gap-4">
@@ -353,6 +343,10 @@ export function Footer({ contactEnabled = false }: FooterProps) {
             transition={{ duration: 0.4, delay: 0.2 }}
           >
             © {new Date().getFullYear()} {site.name}
+            <span className="mx-2 text-border">·</span>
+            <Link href="/privacy" className="underline decoration-border underline-offset-4 transition-colors hover:text-text">
+              Privacy
+            </Link>
           </motion.p>
         </div>
       </div>

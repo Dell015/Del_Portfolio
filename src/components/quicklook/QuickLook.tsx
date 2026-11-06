@@ -2,6 +2,8 @@
 
 import "./quicklook.css";
 import Image from "next/image";
+import Link from "next/link";
+import { ViewSwitch } from "@/components/mode/ViewSwitch";
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { useSnapScroll } from "@/components/SmoothScroll";
@@ -666,7 +668,6 @@ function Resume() {
 // ─── Contact ─────────────────────────────────────────────────────────────────
 
 function Contact({ contactEnabled }: { contactEnabled: boolean }) {
-  const reopenChoice = useModeStore((s) => s.reopenChoice);
   // "Let's build something " + "worth" + " shipping."
   const [pre, post] = footer.personalityLine.split("worth");
   const links = [
@@ -722,15 +723,16 @@ function Contact({ contactEnabled }: { contactEnabled: boolean }) {
           </Appear>
         </div>
 
-        <div className={`mt-20 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 ${mono} text-[11px] text-white/40`}>
+        <ViewSwitch className="mt-24 border-t border-white/10 pt-14" />
+
+        <div className={`mt-16 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 ${mono} text-[11px] text-white/40`}>
           <span>© {new Date().getFullYear()} {site.name}</span>
-          <button
-            type="button"
-            onClick={reopenChoice}
+          <Link
+            href="/privacy"
             className="underline decoration-white/20 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            Change view: try the full experience
-          </button>
+            Privacy
+          </Link>
         </div>
 
         <Cursor

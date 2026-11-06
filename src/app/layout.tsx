@@ -5,7 +5,9 @@ import { ModeGate } from "@/components/mode/ModeGate";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { Nav } from "@/components/Nav";
 import { PageTransition } from "@/components/PageTransition";
+import Script from "next/script";
 import { contact, site } from "@/lib/content/site";
+import { SITE_URL } from "@/lib/siteUrl";
 import "./globals.css";
 
 /*
@@ -45,9 +47,6 @@ const instrumentSerif = localFont({
   variable: "--font-serif",
   display: "swap",
 });
-
-/** Absolute site URL, set NEXT_PUBLIC_SITE_URL in production (used for link previews, sitemap, schema). */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
 
 const TITLE = "Randel Serafica | Full-Stack Developer & Startup Founder";
 const DESCRIPTION =
@@ -148,6 +147,9 @@ export default function RootLayout({
           <ModeGate />
         <PageTransition />
         </ModeProvider>
+        {/* Vercel Web Analytics: page views only, no cookies, nothing personal. The script
+            only exists on Vercel deployments, so it isn't loaded in local dev. */}
+        {process.env.VERCEL === "1" && <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />}
       </body>
     </html>
   );
