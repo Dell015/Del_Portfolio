@@ -52,7 +52,7 @@ export const resume = {
   requestLabel: "Request my resume",
   href: "/Randel_Serafica_Resume.pdf",
   fileName: "Randel_Serafica_Resume.pdf",
-  meta: "PDF · 1 page · Updated October 2026",
+  meta: "PDF · 1 page · Updated November 2026",
   preview: {
     role: "Full-stack developer",
     location: "Cauayan, Isabela · Philippines",

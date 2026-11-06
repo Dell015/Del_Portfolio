@@ -46,6 +46,24 @@
   }
 }
 
+/* Cursor idle drift: hands are never perfectly still. */
+.ql-fidget {
+  position: relative;
+  animation: ql-fidget 3s ease-in-out infinite;
+}
+@keyframes ql-fidget {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  30% {
+    transform: translate(1.5px, -1px);
+  }
+  65% {
+    transform: translate(-1px, 1.5px);
+  }
+}
+
 /* Idle drift for the presence avatars. */
 .ql-live {
   animation: ql-pulse 2.4s ease-in-out infinite;
@@ -58,6 +76,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ql-caret,
+  .ql-fidget,
   .ql-live,
   .ql-rulers-in {
     animation: none;

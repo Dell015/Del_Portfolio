@@ -20,6 +20,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -44,6 +45,25 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 /** 0 → 1 as `v` goes from `a` to `b`. */
 export const seg = (v: number, a: number, b: number) => clamp01((v - a) / (b - a || 1e-6));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** Lands a touch past the target and settles back, like a hand that isn't perfectly precise. */
+const easeOver = (t: number) => {
+  const c = 0.9;
+  const u = t - 1;
+  return 1 + (c + 1) * u * u * u + c * u * u;
+};
+
+/**
+ * Repeatable "random" number in 0..1 from a string. The same string always gives the
+ * same number, so the server and the browser agree and nothing jumps on hydration.
+ */
+export function rand(seed: string) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 10000) / 10000;
+}
 
 interface Box {
   x: number;
@@ -116,6 +136,8 @@ interface BuildProps {
   replay?: number;
   /** Where the build starts and ends, as framer-motion scroll offsets. */
   offset?: [string, string];
+  /** Changes this block's own pace. Defaults to a per-block id, so no two blocks build in lockstep. */
+  seed?: string;
 }
 
 export function Build({
@@ -127,8 +149,15 @@ export function Build({
   duration = 3.4,
   replay = 0,
   offset = ["start 0.72", "start 0.06"],
+  seed,
 }: BuildProps) {
   const root = useRef<HTMLDivElement>(null);
+  const autoSeed = useId();
+  const key = seed ?? autoSeed;
+  // Each scroll block starts a little late and/or finishes a little early, by its own
+  // amount, so blocks next to each other drift out of step like separate people.
+  const late = mode === "scroll" ? rand(`${key}:late`) * 0.14 : 0;
+  const early = mode === "scroll" ? rand(`${key}:early`) * 0.12 : 0;
   const { containerRef } = useSnapScroll();
   const still = !!useReducedMotion();
 
@@ -151,7 +180,8 @@ export function Build({
   const listeners = useRef(new Set<Listener>());
   const version = useRef(0);
   const raf = useRef(0);
-  const get = useCallback(() => (still ? 1 : src.get()), [still, src]);
+  const pace = useCallback((v: number) => seg(v, late, 1 - early), [late, early]);
+  const get = useCallback(() => (still ? 1 : pace(src.get())), [still, src, pace]);
   const notify = useCallback(() => {
     const v = get();
     listeners.current.forEach((f) => f(v));
@@ -165,7 +195,10 @@ export function Build({
   useEffect(() => {
     const el = root.current;
     const unsub = src.on("change", (v) => {
-      if (!still) listeners.current.forEach((f) => f(v));
+      if (!still) {
+        const w = pace(v);
+        listeners.current.forEach((f) => f(w));
+      }
     });
     const ro = new ResizeObserver(() => invalidate());
     if (el) ro.observe(el);
@@ -178,7 +211,7 @@ export function Build({
       ro.disconnect();
       cancelAnimationFrame(raf.current);
     };
-  }, [src, still, invalidate]);
+  }, [src, still, invalidate, pace]);
 
   // Time scopes: play once when allowed, again whenever `replay` changes.
   useEffect(() => {
@@ -290,8 +323,25 @@ export function Typed({
   const rest = useRef<HTMLSpanElement>(null);
   const bar = useRef<HTMLSpanElement>(null);
   const last = useRef(-1);
+  // When each character lands, 0..1. Uneven on purpose: quick bursts, a beat after
+  // punctuation, longer gaps between words and the odd hesitation.
+  const schedule = useMemo(() => {
+    const out: number[] = [];
+    let sum = 0;
+    for (let i = 0; i < text.length; i++) {
+      let k = 0.55 + rand(`${text}:${i}`) * 0.9;
+      if (text[i] === " ") k *= 1.6;
+      if (i > 0 && ".,;:?!".includes(text[i - 1]!)) k += 2.4;
+      if (rand(`${text}:pause:${i}`) > 0.93) k += 1.8;
+      sum += k;
+      out.push(sum);
+    }
+    return out.map((x) => x / (sum || 1));
+  }, [text]);
   useProgress((v) => {
-    const n = Math.round(seg(v, from, to) * text.length);
+    const t = seg(v, from, to);
+    let n = 0;
+    while (n < schedule.length && schedule[n]! <= t + 1e-9) n++;
     if (n !== last.current && shown.current && rest.current) {
       last.current = n;
       shown.current.textContent = text.slice(0, n);
@@ -343,8 +393,12 @@ export function Cursor({
   const carryRef = useRef<HTMLSpanElement>(null);
   const pts = useRef<{ at: number; x: number; y: number; click?: boolean }[]>([]);
   const measured = useRef(-1);
+  const id = `${who}:${keys[0]?.to ?? ""}:${keys.length}`;
+  // Nobody moves in perfect time with the others: each cursor runs slightly early or late.
+  const lag = (rand(`${id}:lag`) - 0.5) * 0.035;
 
-  const scope = useProgress((v, { version, root }) => {
+  const scope = useProgress((raw, { version, root }) => {
+    const v = raw - lag;
     const el = ref.current;
     if (!el || !root) return;
     if (measured.current !== version) {
@@ -376,9 +430,16 @@ export function Cursor({
       while (i < ps.length - 2 && v > ps[i + 1]!.at) i++;
       const a = ps[i]!;
       const b = ps[i + 1]!;
-      const t = ease(seg(v, a.at, b.at));
-      x = a.x + (b.x - a.x) * t;
-      y = a.y + (b.y - a.y) * t;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const s = seg(v, a.at, b.at);
+      // Long moves sometimes overshoot and settle; every move bows a little sideways
+      // instead of travelling in a ruler-straight line.
+      const t = len > 70 && rand(`${id}:o${i}`) > 0.45 ? easeOver(s) : ease(s);
+      const bend = (rand(`${id}:b${i}`) - 0.5) * Math.min(90, len * 0.4) * Math.sin(Math.PI * Math.min(1, s));
+      x = a.x + dx * t + (-dy / len) * bend;
+      y = a.y + dy * t + (dx / len) * bend;
     }
     const opacity = Math.min(seg(v, first.at - 0.08, first.at - 0.02), 1 - seg(v, lastP.at + 0.02, lastP.at + 0.08));
     el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
@@ -397,6 +458,11 @@ export function Cursor({
       className="ql-cursor group pointer-events-none absolute left-0 top-0 z-40"
       style={{ opacity: 0 }}
     >
+      {/* Hands are never perfectly still: a small idle drift, each cursor on its own rhythm. */}
+      <div
+        className="ql-fidget"
+        style={{ animationDelay: `-${(rand(`${id}:fd`) * 4).toFixed(2)}s`, animationDuration: `${(2.4 + rand(`${id}:fl`) * 1.8).toFixed(2)}s` }}
+      >
       <svg width="18" height="20" viewBox="0 0 18 20" className="ql-pointer block drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
         <path d="M1.5 1.5 16 9.2l-6.4 1.6-3 6.7L1.5 1.5Z" fill={p.color} stroke="#fff" strokeWidth="1.4" strokeLinejoin="round" />
       </svg>
@@ -419,6 +485,7 @@ export function Cursor({
           {carry.label}
         </span>
       )}
+      </div>
     </div>
   );
 }

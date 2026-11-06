@@ -13,7 +13,7 @@ import { skills, skillCategories } from "@/lib/content/skills";
 import { background, moments, momentPhotos, type DiscoveredPhoto } from "@/lib/content/timeline";
 import { ContactForm } from "@/components/footer/ContactForm";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
-import { Appear, Build, Cursor, Drop, Gap, PEOPLE, Prop, Rulers, Select, Toggle, Typed, type Who } from "./kit";
+import { Appear, Build, Cursor, Drop, Gap, PEOPLE, Prop, Rulers, Select, Toggle, Typed, rand, type Who } from "./kit";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const PLATFORM: Record<Project["platform"], string> = { mobile: "Mobile", web: "Web", "web+mobile": "Web + mobile" };
@@ -287,7 +287,7 @@ function About() {
           </div>
           <div data-a="stats" className="grid grid-cols-2 gap-3 self-start">
             {stats.map((s, i) => (
-              <Appear key={s.label} at={0.48 + i * 0.05} as="div" a={`s${i}`} className="border border-white/10 bg-[#121418] p-5">
+              <Appear key={s.label} at={0.46 + i * 0.05 + rand(s.label) * 0.05} as="div" a={`s${i}`} className="border border-white/10 bg-[#121418] p-5">
                 {i === 0 ? (
                   <Toggle at={0.74} className={`block ${display} text-5xl font-bold tracking-tight text-accent transition-colors duration-300 data-[on=false]:text-text`}>
                     {s.value}
@@ -375,7 +375,7 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
           </Appear>
           <ul data-a="chips" className="mt-4 flex flex-wrap gap-1.5">
             {p.techStack.slice(0, 4).map((t, k) => (
-              <Appear key={t} as="li" at={0.62 + k * 0.035} className={`border border-white/12 px-2 py-1 ${mono} text-[10px] text-white/60`}>
+              <Appear key={t} as="li" at={0.6 + k * 0.035 + rand(`${p.slug}${t}`) * 0.05} className={`border border-white/12 px-2 py-1 ${mono} text-[10px] text-white/60`}>
                 {t}
               </Appear>
             ))}
@@ -455,7 +455,7 @@ function SkillGroup({ i, label, items }: { i: number; label: string; items: stri
         </div>
         <ul data-a="chips" className="mt-4 flex flex-wrap gap-1.5">
           {items.map((s, k) => (
-            <Appear key={s} as="li" at={0.2 + k * step} a={k === 0 ? "first" : undefined} className="border border-white/12 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-white/80">
+            <Appear key={s} as="li" at={0.18 + k * step + rand(s) * step * 1.4} a={k === 0 ? "first" : undefined} className="border border-white/12 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-white/80">
               {s}
             </Appear>
           ))}
@@ -508,7 +508,7 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
         <Build offset={["start 0.72", "start 0"]} className="mt-12">
           <ol className="border-y border-white/10">
             {rows.map((m, i) => {
-              const at = 0.08 + i * 0.1;
+              const at = 0.08 + i * 0.1 + rand(m.slug) * 0.05;
               const photo = momentPhotos(m, photosBySlug[m.slug] ?? [])[0];
               return (
                 <Appear
@@ -704,7 +704,7 @@ function Contact({ contactEnabled }: { contactEnabled: boolean }) {
             </Appear>
             <ul className="mt-8 grid grid-cols-1 gap-px border border-white/10 bg-white/10 sm:grid-cols-2">
               {links.map((l, i) => (
-                <Appear key={l.label} as="li" at={0.48 + i * 0.04} className="bg-[#0f1013]">
+                <Appear key={l.label} as="li" at={0.46 + i * 0.04 + rand(l.label) * 0.04} className="bg-[#0f1013]">
                   <a
                     href={l.href}
                     {...(l.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
