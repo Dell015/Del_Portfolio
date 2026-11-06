@@ -195,11 +195,11 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
 
 
       {/* ── Ways out: scrolling is locked while the system shows ─────────── */}
-      <button type="button" onClick={() => onLeave("about")} className={`${exitBtn} left-4 top-[4.75rem] lg:left-auto lg:right-10 lg:top-8`}>
+      <button type="button" onClick={() => onLeave("about")} className={`${exitBtn} left-4 top-[4.75rem] lg:left-auto lg:right-10 lg:top-[6.5rem]`}>
         <span aria-hidden="true" className="transition-transform duration-300 group-hover:-translate-y-0.5">↑</span>
         About
       </button>
-      <button type="button" onClick={() => onLeave("skills")} className={`${exitBtn} right-4 top-[4.75rem] lg:bottom-7 lg:right-10 lg:top-auto`}>
+      <button type="button" onClick={() => onLeave("skills")} className={`${exitBtn} right-4 top-[4.75rem] lg:bottom-[5.75rem] lg:right-10 lg:top-auto`}>
         Skills
         <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-y-0.5">↓</span>
       </button>

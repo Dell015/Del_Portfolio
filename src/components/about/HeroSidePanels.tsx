@@ -132,7 +132,7 @@ export function BottomLeftPanel({ delay, style }: { delay: number; style: { y: M
 
       <dl className="mt-3 grid grid-cols-3 gap-4">
         {[
-          { to: 7, label: "products designed", suffix: "", pad: 2 },
+          { to: 4, label: "products designed", suffix: "", pad: 2 },
           { to: 2, label: "competition placements", suffix: "", pad: 2 },
           { to: 5, label: "people, largest team led", suffix: "", pad: 2 },
         ].map((s, i) => (

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { animate, motion, useInView, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
-import { projects } from "@/lib/content/projects";
 import { stats } from "@/lib/content/site";
 import { EASE } from "@/components/motion/tokens";
 import { useModeStore } from "@/lib/store/mode";
@@ -21,17 +20,20 @@ const BlackHoleCanvas = dynamic(
 );
 
 /**
- * About, as one terminal window (`developer.sh`).
+ * About, as an editorial spread: one statement you can read at a glance (lit word
+ * by word), one serif line, the milestones as dots and the numbers.
  *
  * Immersive: the section is pinned for several screens and the scroll position
- * drives everything. The portrait's particles fall into a black hole, the window
- * opens beside it and prints, and the prompt at the bottom ("want to see the
- * source?") collapses the hole and hands over to the project sphere. Enter, a tap or
+ * drives everything. The portrait's particles fall into a black hole, the spread
+ * builds beside it, and the prompt at the bottom ("want to see the source?")
+ * collapses the hole and hands over to the project solar system. Enter, a tap or
  * simply scrolling on all do the same thing.
  *
  * Otherwise (Clean mode, reduced motion, no WebGL): the same window, unpinned, and
  * the prompt scrolls to the projects.
  */
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /** Extra screens of scrolling the pinned section holds the page for. */
 const PIN_PAGES = 2.4;
@@ -70,119 +72,24 @@ const HISTORY = [
   },
 ] as const;
 
-type Cell = { t: string; cls?: string };
-type Row = { cells: Cell[]; cls?: string };
-interface Block {
-  key: string;
-  /** Pinned mode: the block starts typing at progress `at` and is done at `end`. */
-  at: number;
-  end: number;
-  cmd: string;
-  layout: "para" | "list" | "grid";
-  rows: (compact: boolean) => Row[];
-  hideOnShort?: boolean;
-  hideOnNarrow?: boolean;
-  /** Skipped in the pinned scene (the Projects section right after shows it anyway). */
-  staticOnly?: boolean;
-}
+const seg = (v: number, a: number, b: number) => clamp01((v - a) / (b - a || 1e-6));
 
-const cellLen = (rows: Row[]) => rows.reduce((n, r) => n + r.cells.reduce((m, c) => m + c.t.length, 0), 0);
-
-/** The terminal's output, one block per command. */
-const BLOCKS: Block[] = [
-  {
-    key: "whoami",
-    at: 0.55,
-    end: 0.6,
-    cmd: "whoami",
-    layout: "para",
-    rows: () => [{ cells: [{ t: "randel serafica / cs student / cauayan, isabela" }] }],
-  },
-  {
-    key: "about",
-    at: 0.6,
-    end: 0.67,
-    cmd: "cat about.md",
-    layout: "para",
-    rows: () => [
-      {
-        cells: [
-          {
-            t: "I design the product, architect the system, write the code and lead the team around it. I used to ship code I couldn't explain. Now I understand every layer I build on.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    key: "how",
-    at: 0.67,
-    end: 0.73,
-    cmd: "cat how-i-work.md",
-    layout: "para",
-    rows: () => [
-      {
-        cells: [
-          {
-            t: "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    key: "projects",
-    at: 0.73,
-    end: 0.78,
-    staticOnly: true,
-    cmd: "git log --oneline projects/",
-    layout: "list",
-    hideOnNarrow: true,
-    hideOnShort: true,
-    rows: () =>
-      projects.map((p, i) => ({
-        cells: [
-          { t: String(7 - i).padStart(3, "0"), cls: "w-[3ch] shrink-0 text-text-muted/45" },
-          { t: p.name.toLowerCase(), cls: "w-[8ch] shrink-0 text-text sm:w-[9ch]" },
-          { t: p.status.toLowerCase(), cls: "truncate" },
-        ],
-        cls: "flex gap-3",
-      })),
-  },
-  {
-    key: "history",
-    at: 0.73,
-    end: 0.8,
-    cmd: "git log --graph --oneline history/",
-    layout: "list",
-    hideOnShort: true,
-    hideOnNarrow: true,
-    rows: (compact) =>
-      HISTORY.map((h, i) => ({
-        cells: [
-          { t: i === HISTORY.length - 1 ? "*" : "|", cls: "w-[2ch] shrink-0 text-[var(--tab-accent)]" },
-          { t: h.tag, cls: "w-[6ch] shrink-0 text-text" },
-          { t: compact ? h.short : h.text, cls: compact ? "truncate" : undefined },
-        ],
-        cls: "flex gap-3",
-      })),
-  },
-  {
-    key: "numbers",
-    at: 0.8,
-    end: 0.845,
-    cmd: "./numbers",
-    layout: "grid",
-    rows: () =>
-      stats.map((s) => ({
-        cells: [
-          { t: s.value, cls: "whitespace-nowrap text-lg font-semibold text-[var(--tab-accent)]" },
-          { t: s.label.charAt(0).toLowerCase() + s.label.slice(1), cls: "text-[11px] leading-tight" },
-        ],
-        cls: "flex items-baseline gap-2",
-      })),
-  },
+/** The headline, in pieces so one phrase can carry the accent. */
+const LEAD: { t: string; red?: boolean }[] = [
+  { t: "I design the product, architect the system, " },
+  { t: "write the code", red: true },
+  { t: " and lead the team around it." },
 ];
+const LINE = "I used to ship code I couldn't explain. Now I understand every layer I build on.";
+const HOW =
+  "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.";
+
+/** Words of the headline with the position each one lights up at (0..1 along the headline). */
+const LEAD_WORDS = (() => {
+  const words = LEAD.flatMap((s) => s.t.split(/(\s+)/).filter(Boolean).map((w) => ({ w, red: !!s.red })));
+  const total = words.filter((x) => x.w.trim()).length;
+  return words.map((x, i) => ({ ...x, k: words.slice(0, i).filter((y) => y.w.trim()).length / total, total }));
+})();
 
 function Cursor() {
   return (
@@ -207,51 +114,147 @@ function Typed({ text, n, cls, cursor }: { text: string; n: number; cls?: string
   );
 }
 
-/** One command and its output; `count` is how many characters have been typed so far. */
-function BlockView({ block, count, compact }: { block: Block; count: number; compact: boolean }) {
-  const rows = block.rows(compact);
-  const total = block.cmd.length + cellLen(rows);
-  const started = count > 0;
-  const done = count >= total;
-  const cmdActive = started && count < block.cmd.length;
-
-  // Characters each cell starts at, so every cell knows how much of itself is typed.
-  const lens = rows.flatMap((r) => r.cells.map((c) => c.t.length));
-  const cum = lens.reduce<number[]>((acc, l) => [...acc, (acc[acc.length - 1] ?? block.cmd.length) + l], []);
-  const startOf = (flat: number) => (flat === 0 ? block.cmd.length : cum[flat - 1]!);
-  const rowBase = rows.map((_, ri) => rows.slice(0, ri).reduce((n, r) => n + r.cells.length, 0));
-
-  const body = rows.map((r, ri) => (
-    <Row key={ri} cls={r.cls}>
-      {r.cells.map((c, ci) => {
-        const n = count - startOf(rowBase[ri]! + ci);
-        const active = started && !done && n >= 0 && n < c.t.length;
-        return <Typed key={ci} text={c.t} n={n} cls={c.cls} cursor={active} />;
-      })}
-    </Row>
-  ));
-
+/** One headline word: dim until the scroll reaches it, then fully lit. */
+function Word({ p, a, b, red, children }: { p: MotionValue<number>; a: number; b: number; red: boolean; children: string }) {
+  const opacity = useTransform(p, [a, b], [0.14, 1]);
   return (
-    <div>
-      <div>
-        <span className="text-[var(--tab-accent)]" style={{ opacity: started ? 1 : 0 }}>
-          $
-        </span>{" "}
-        <Typed text={block.cmd} n={count} cls="text-text" cursor={cmdActive} />
-      </div>
-      {block.layout === "para" && <div className="max-w-[64ch]">{body}</div>}
-      {block.layout === "list" && <ul>{body}</ul>}
-      {block.layout === "grid" && <dl className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">{body}</dl>}
+    <motion.span style={{ opacity }} className={red ? "text-accent" : undefined}>
+      {children}
+    </motion.span>
+  );
+}
+
+/** Scroll-linked fade-and-rise: hidden until progress `at`, settled by `at + 0.04`. */
+function Beat({ p, at, className, children }: { p: MotionValue<number>; at: number; className?: string; children: React.ReactNode }) {
+  const opacity = useTransform(p, [at, at + 0.04], [0, 1]);
+  const y = useTransform(p, [at, at + 0.04], [10, 0]);
+  return (
+    <motion.div style={{ opacity, y }} className={className}>
+      {children}
+    </motion.div>
+  );
+}
+
+function Step({ p, at, h, last }: { p: MotionValue<number>; at: number; h: (typeof HISTORY)[number]; last: boolean }) {
+  const opacity = useTransform(p, [at, at + 0.02], [0, 1]);
+  const y = useTransform(p, [at, at + 0.02], [8, 0]);
+  return (
+    <motion.li style={{ opacity, y }} className="relative pt-6">
+      <span
+        aria-hidden="true"
+        className={`absolute left-0 top-0 h-[9px] w-[9px] border ${last ? "border-accent bg-accent" : "border-white/50 bg-bg"}`}
+      />
+      <span className={`block font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.18em] ${last ? "text-accent" : "text-text"}`}>
+        {h.tag}
+      </span>
+      <span className="mt-1.5 block text-[12.5px] leading-snug text-text-muted">{h.short}</span>
+    </motion.li>
+  );
+}
+
+/** The six milestones as dots on one line, drawn left to right. */
+function Timeline({ p, at }: { p: MotionValue<number>; at: number }) {
+  const line = useTransform(p, [at, at + 0.06], [0, 1]);
+  return (
+    <div className="relative">
+      <motion.span aria-hidden="true" className="absolute left-1 right-10 top-[4px] h-px origin-left bg-white/20" style={{ scaleX: line }} />
+      <ol className="grid grid-cols-6 gap-4">
+        {HISTORY.map((h, i) => (
+          <Step key={h.tag} p={p} at={at + i * 0.01} h={h} last={i === HISTORY.length - 1} />
+        ))}
+      </ol>
     </div>
   );
 }
 
-function Row({ cls, children }: { cls?: string; children: React.ReactNode }) {
-  return <div className={cls}>{children}</div>;
+/** A number that counts up as the scroll reaches it. */
+function Stat({ p, at, value, label }: { p: MotionValue<number>; at: number; value: string; label: string }) {
+  const target = Number(value) || 0;
+  const at01 = (v: number) => Math.round(seg(v, at, at + 0.035) * target);
+  const [n, setN] = useState(() => at01(p.get()));
+  useMotionValueEvent(p, "change", (v) => {
+    const c = at01(v);
+    setN((prev) => (prev === c ? prev : c));
+  });
+  const opacity = useTransform(p, [at, at + 0.02], [0, 1]);
+  return (
+    <motion.div style={{ opacity }}>
+      <dd className="font-[family-name:var(--font-display)] text-[clamp(2.4rem,4vw,3.6rem)] font-bold leading-none tracking-[-0.04em] text-text">
+        {Number.isFinite(target) && target ? n : value}
+      </dd>
+      <dt className="mt-2 font-[family-name:var(--font-mono)] text-[10px] uppercase leading-snug tracking-[0.16em] text-text-muted">{label}</dt>
+    </motion.div>
+  );
+}
+
+/**
+ * About as an editorial spread: one statement you can read at a glance, then the
+ * detail for whoever wants it. Everything is tied to `p` (0..1). The pinned scene
+ * scrubs it with the scroll; the plain version passes a fixed 1.
+ */
+function Editorial({ p, narrow, short }: { p: MotionValue<number>; narrow: boolean; short: boolean }) {
+  const T = { eyebrow: 0.55, leadA: 0.565, leadB: 0.655, line: 0.665, how: 0.7, steps: 0.725, stats: 0.79 };
+  return (
+    <div>
+      <Beat p={p} at={T.eyebrow}>
+        <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.2em] text-text-muted">
+          <span className="text-accent">$</span> whoami · {narrow ? "Cauayan, Isabela" : "CS student · Cauayan, Isabela"}
+        </p>
+      </Beat>
+      <h2
+        className={`mt-5 font-[family-name:var(--font-display)] font-bold tracking-[-0.03em] text-text ${
+          narrow ? "text-[1.7rem] leading-[1.1]" : "text-[clamp(2.1rem,3.5vw,3.5rem)] leading-[1.04]"
+        }`}
+      >
+        <span className="sr-only">{LEAD.map((s) => s.t).join("")}</span>
+        <span aria-hidden="true">
+          {LEAD_WORDS.map((x, i) =>
+            x.w.trim() ? (
+              <Word
+                key={i}
+                p={p}
+                a={T.leadA + x.k * (T.leadB - T.leadA)}
+                b={T.leadA + (x.k + 1 / x.total) * (T.leadB - T.leadA)}
+                red={x.red}
+              >
+                {x.w}
+              </Word>
+            ) : (
+              x.w
+            ),
+          )}
+        </span>
+      </h2>
+      <Beat p={p} at={T.line}>
+        <p
+          className={`mt-6 max-w-[38rem] font-[family-name:var(--font-serif)] italic leading-[1.25] text-[#d4d4d4] ${
+            narrow ? "text-[1.15rem]" : "text-[clamp(1.25rem,1.8vw,1.7rem)]"
+          }`}
+        >
+          {LINE}
+        </p>
+      </Beat>
+      {!narrow && !short && (
+        <Beat p={p} at={T.how}>
+          <p className="mt-4 max-w-[34rem] text-[15px] leading-relaxed text-text-muted">{HOW}</p>
+        </Beat>
+      )}
+      {!narrow && (
+        <div className={short ? "mt-7" : "mt-10"}>
+          <Timeline p={p} at={T.steps} />
+        </div>
+      )}
+      <dl className={`grid ${narrow ? "mt-6 grid-cols-4 gap-3" : "mt-10 grid-cols-4 gap-8"} max-w-[40rem]`}>
+        {stats.map((s, i) => (
+          <Stat key={s.label} p={p} at={T.stats + i * 0.008} value={s.value} label={s.label} />
+        ))}
+      </dl>
+    </div>
+  );
 }
 
 function PinnedPrompt({ p, typing, onRun }: { p: MotionValue<number>; typing: string | null; onRun: () => void }) {
-  const at = (v: number) => Math.round(clamp01((v - 0.85) / 0.035) * PROMPT.question.length);
+  const at = (v: number) => Math.round(clamp01((v - 0.85) / 0.03) * PROMPT.question.length);
   const [count, setCount] = useState(() => at(p.get()));
   useMotionValueEvent(p, "change", (v) => {
     const c = at(v);
@@ -260,98 +263,32 @@ function PinnedPrompt({ p, typing, onRun }: { p: MotionValue<number>; typing: st
   return <PromptBar typing={typing} onRun={onRun} count={count} />;
 }
 
-/**
- * Where typing may pause: the end of the command, then the end of each line of output
- * (paragraphs break at word boundaries about every 60 characters, lists per row).
- */
-function lineStops(block: Block, compact: boolean): number[] {
-  const rows = block.rows(compact);
-  const stops = [block.cmd.length];
-  let at = block.cmd.length;
-  for (const r of rows) {
-    const text = r.cells.map((c) => c.t).join("");
-    if (block.layout === "para") {
-      let line = 0;
-      for (const word of text.split(/(?<=\s)/)) {
-        if (line > 0 && line + word.length > 60) {
-          stops.push(at);
-          line = 0;
-        }
-        line += word.length;
-        at += word.length;
-      }
-      stops.push(at);
-    } else {
-      at += text.length;
-      stops.push(at);
-    }
-  }
-  return stops;
-}
-
-function countAt(block: Block, v: number, compact: boolean) {
-  const total = block.cmd.length + cellLen(block.rows(compact));
-  const q = Math.max(0, Math.min(1, (v - block.at) / (block.end - block.at)));
-  const raw = Math.round(q * total);
-  if (raw <= 0) return 0;
-  if (raw >= total) return total;
-  // One scroll reveals one line, never a stray letter.
-  return lineStops(block, compact).find((s) => s >= raw) ?? total;
-}
-
-/** Typing driven by scroll: scrub forward and the text types, scrub back and it un-types. */
-function PinnedBlock({ block, p, compact }: { block: Block; p: MotionValue<number>; compact: boolean }) {
-  const [count, setCount] = useState(() => countAt(block, p.get(), compact));
-  useMotionValueEvent(p, "change", (v) => {
-    const c = countAt(block, v, compact);
-    setCount((prev) => (prev === c ? prev : c));
-  });
-  return <BlockView block={block} count={count} compact={compact} />;
-}
-
-function TitleBar() {
-  return (
-    <div className="flex items-end gap-1 border-b border-border bg-[#101010] px-3 pt-2.5">
-      <div className="mb-2.5 mr-3 hidden items-center gap-1.5 sm:flex" aria-hidden="true">
-        <span className="h-2.5 w-2.5 rounded-full bg-[#3a3a3a]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#3a3a3a]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#3a3a3a]" />
-      </div>
-      <span className="relative rounded-t-md bg-[#0a0a0a] px-3.5 py-2 text-[12px] text-text">
-        developer.sh
-        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] rounded-t-md bg-[var(--tab-accent)]" />
-      </span>
-          </div>
-  );
-}
-
+/** The handover to the projects: a plain link-style button, Enter or a tap runs it. */
 function PromptBar({ typing, onRun, count = Infinity }: { typing: string | null; onRun: () => void; count?: number }) {
   const hint = count >= PROMPT.question.length;
   return (
     <button
       type="button"
       onClick={onRun}
-      className="group mt-5 flex w-full items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-left transition-colors hover:border-[var(--tab-accent)] focus-visible:border-[var(--tab-accent)] focus-visible:outline-none"
-      aria-label={`${PROMPT.question} Run ${PROMPT.cmd}`}
+      className="group mt-8 flex w-full items-center gap-4 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      aria-label={`${PROMPT.question} Go to the projects`}
     >
-      <span className="text-[var(--tab-accent)]">$</span>
-      {typing ? (
-        <span className="text-text">
-          {typing}
-          <span className="ml-0.5 inline-block h-[1em] w-[0.5ch] translate-y-[2px] bg-text" />
-        </span>
-      ) : (
-        <>
-          <Typed text={PROMPT.question} n={count} cls="text-text" cursor={count < PROMPT.question.length} />
-          {hint && <span className="inline-block h-[1em] w-[0.5ch] translate-y-[2px] animate-pulse bg-text-muted" />}
-        </>
-      )}
+      <span className="border-b border-accent pb-1 font-[family-name:var(--font-mono)] text-[12px] uppercase tracking-[0.18em] text-text transition-colors group-hover:text-white">
+        {typing ? (
+          <>
+            {typing}
+            <span className="ml-0.5 inline-block h-[1em] w-[0.5ch] translate-y-[2px] bg-text" />
+          </>
+        ) : (
+          <Typed text={PROMPT.question} n={count} cursor={count < PROMPT.question.length} />
+        )}
+      </span>
       <span
-        className="ml-auto shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-text-muted transition-[color,opacity] duration-300 group-hover:text-text"
+        className="shrink-0 border border-white/15 px-2 py-0.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.14em] text-text-muted transition-[color,opacity] duration-300 group-hover:text-text"
         style={{ opacity: hint ? 1 : 0 }}
       >
         <span className="hidden pointer-fine:inline">press enter ↵</span>
-        <span className="pointer-fine:hidden">tap to run ↵</span>
+        <span className="pointer-fine:hidden">tap ↵</span>
       </span>
     </button>
   );
@@ -373,20 +310,7 @@ function useEnterToRun(enabled: boolean, run: () => void) {
   }, [enabled, run]);
 }
 
-/* ───────────────────────── static (Clean / reduced motion) ───────────────────────── */
-
-function Out({ i, children, reduced }: { i: number; children: React.ReactNode; reduced: boolean }) {
-  if (reduced) return <div>{children}</div>;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: 0.12 + i * 0.16, ease: EASE.out }}
-    >
-      {children}
-    </motion.div>
-  );
-}
+/* ───────────────────────── static (no WebGL, before the particles load) ───────────────────────── */
 
 function StaticAbout() {
   const reduced = !!useReducedMotion();
@@ -394,6 +318,7 @@ function StaticAbout() {
   const inView = useInView(sectionRef, { amount: 0.5 });
   const [typing, setTyping] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const done = useMotionValue(1);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
@@ -418,45 +343,22 @@ function StaticAbout() {
       aria-label="About"
       className="relative z-[2] flex min-h-screen items-center bg-bg py-24 md:py-28"
     >
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-8">
-        <p className="mb-4 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-text-muted">
-          About / developer.sh
-        </p>
-        <div
-          className="overflow-hidden rounded-xl border border-border bg-[#0a0a0a] font-[family-name:var(--font-mono)] text-[12px] leading-[1.7] text-text-muted shadow-[0_40px_100px_-40px_rgba(0,0,0,0.95)] sm:text-[13px]"
-          style={{ ["--tab-accent" as string]: "#d11a2a" }}
-        >
-          <TitleBar />
-          <div className="px-4 py-5 sm:px-6">
-            <div className="space-y-3">
-              {BLOCKS.map((b, i) => (
-                <Out key={b.key} i={i} reduced={reduced}>
-                  <BlockView block={b} count={Infinity} compact={false} />
-                </Out>
-              ))}
-            </div>
-            <PromptBar typing={typing} onRun={run} />
-          </div>
-        </div>
-      </div>
+      <motion.div
+        className="mx-auto w-full max-w-5xl px-5 sm:px-8"
+        initial={reduced ? false : { opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.6, ease: EASE.out }}
+      >
+        <Editorial p={done} narrow={false} short={false} />
+        <PromptBar typing={typing} onRun={run} />
+      </motion.div>
     </section>
   );
 }
 
 /* ───────────────────────── pinned black-hole version ───────────────────────── */
 
-/** Scroll-linked fade-and-rise: hidden until progress `at`, settled by `at + 0.04`. */
-function Beat({ p, at, className, children }: { p: MotionValue<number>; at: number; className?: string; children: React.ReactNode }) {
-  const opacity = useTransform(p, [at, at + 0.04], [0, 1]);
-  const y = useTransform(p, [at, at + 0.04], [10, 0]);
-  return (
-    <motion.div style={{ opacity, y }} className={className}>
-      {children}
-    </motion.div>
-  );
-}
-
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 function PinnedAbout() {
   const { containerRef } = useSnapScroll();
@@ -481,7 +383,8 @@ function PinnedAbout() {
   useEffect(() => {
     const check = () => {
       setNarrow(window.innerWidth < 900);
-      setShort(window.innerHeight < 760);
+      // Below this the spread drops the "how I work" paragraph so the prompt clears the nav corner.
+      setShort(window.innerHeight < 960);
     };
     check();
     window.addEventListener("resize", check);
@@ -656,27 +559,20 @@ function PinnedAbout() {
       <motion.div className="sticky top-0 h-screen overflow-hidden" style={{ opacity: stickyOpacity }}>
 
         <motion.div
-          className={`absolute z-10 flex flex-col overflow-hidden rounded-xl border border-border bg-[#0a0a0a]/85 font-[family-name:var(--font-mono)] text-[12px] leading-[1.65] text-text-muted shadow-[0_40px_120px_-30px_rgba(0,0,0,0.95)] backdrop-blur-md sm:text-[12.5px] ${
-            narrow ? "inset-x-3 bottom-3 top-[40%]" : "bottom-[7vh] left-[4vw] top-[7vh] w-[min(55vw,860px)]"
+          className={`absolute z-10 flex flex-col ${
+            narrow ? "inset-x-5 bottom-6 top-[48%]" : "bottom-[max(9vh,10rem)] left-[6vw] top-[13vh] w-[min(50vw,800px)]"
           } ${interactive ? "" : "pointer-events-none"}`}
-          style={{ opacity: winOpacity, x: winX, y: winY, ["--tab-accent" as string]: "#d11a2a" }}
+          style={{ opacity: winOpacity, x: winX, y: winY }}
         >
-          <TitleBar />
-          <div className="flex min-h-0 flex-1 flex-col justify-between px-4 py-4 sm:px-6">
-            <div className="space-y-2">
-              {BLOCKS.filter((b) => !b.staticOnly).filter((b) => !(short && b.hideOnShort) && !(narrow && (b.hideOnShort || b.hideOnNarrow))).map((b) => (
-                <PinnedBlock key={b.key} p={p} block={b} compact />
-              ))}
-            </div>
-            <Beat p={p} at={0.84}>
-              <PinnedPrompt p={p} typing={typing} onRun={run} />
-            </Beat>
-          </div>
+          <Editorial p={p} narrow={narrow} short={short} />
+          <Beat p={p} at={0.84} className="mt-auto">
+            <PinnedPrompt p={p} typing={typing} onRun={run} />
+          </Beat>
         </motion.div>
 
         <p
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-5 left-5 z-10 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-text-muted transition-opacity duration-500 sm:left-8"
+          className="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-text-muted transition-opacity duration-500"
           style={{ opacity: CAPTIONS[caption] ? 1 : 0 }}
         >
           {CAPTIONS[caption]}

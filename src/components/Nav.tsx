@@ -1,156 +1,110 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
+import { motion, AnimatePresence, useMotionValueEvent, useScroll } from "framer-motion";
 import { useSnapScroll } from "@/components/SmoothScroll";
 import { useActiveSection } from "@/lib/hooks/useActiveSection";
-import { useHideOnScrollDown } from "@/lib/hooks/useScrollDirection";
+import { useLocalTime } from "@/lib/hooks/useLocalTime";
 import { useModeStore } from "@/lib/store/mode";
-import { footer as footerContent } from "@/lib/content/site";
+import { availability, footer as footerContent } from "@/lib/content/site";
 
-/* ─── Nav Links ─────────────────────────────────────────────── */
+/*
+ * Navigation as a camera viewfinder: no bar, just the four corners of the screen,
+ * each marked with a red crop corner like the portrait's frame.
+ *   top-left: name (back to top)      top-right: contact + local time
+ *   bottom-left: the section index    bottom-right: how far down the page you are
+ * Phones keep the two top corners; the section index opens from "Menu".
+ */
 
 const NAV_LINKS = [
-  { label: "About", href: "/#about" },
-  { label: "Projects", href: "/#projects" },
-  { label: "Skills", href: "/#skills" },
-  { label: "Background", href: "/#background" },
-  { label: "Resume", href: "/#resume" },
+  { n: "01", label: "About", href: "/#about" },
+  { n: "02", label: "Projects", href: "/#projects" },
+  { n: "03", label: "Skills", href: "/#skills" },
+  { n: "04", label: "Background", href: "/#background" },
+  { n: "05", label: "Resume", href: "/#resume" },
 ] as const;
 
 const CONTACT_LINK = { label: "Contact", href: "/#footer" } as const;
 
-/* ─── Section IDs in page order ─────────────────────────────── */
-
+/** Section IDs in page order. */
 const SECTION_IDS = ["hero", "about", "projects", "skills", "background", "resume", "footer"] as const;
 
-/* ─── Hamburger Icon ────────────────────────────────────────── */
+const mono = "font-[family-name:var(--font-mono)]";
+const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
 
-function HamburgerIcon({ open }: { open: boolean }) {
+type Pos = "tl" | "tr" | "bl" | "br";
+const CORNER: Record<Pos, { box: string; mark: string }> = {
+  tl: { box: "left-4 top-4 pl-5 pt-1 sm:left-7 sm:top-6", mark: "left-0 top-0 border-l border-t" },
+  tr: { box: "right-4 top-4 pr-5 pt-1 text-right sm:right-7 sm:top-6", mark: "right-0 top-0 border-r border-t" },
+  bl: { box: "bottom-6 left-7 pb-1 pl-5", mark: "bottom-0 left-0 border-b border-l" },
+  br: { box: "bottom-6 right-7 pb-1 pr-5 text-right", mark: "bottom-0 right-0 border-b border-r" },
+};
+
+function Corner({ pos, className = "", children }: { pos: Pos; className?: string; children: React.ReactNode }) {
   return (
-    <div className="flex h-5 w-5 flex-col items-center justify-center gap-[5px]">
-      <motion.span
-        className="block h-[1.5px] w-5 rounded-full bg-text"
-        animate={open ? { rotate: 45, y: 7 } : { rotate: 0, y: 0 }}
-        transition={{ duration: 0.25, ease: "easeInOut" }}
-      />
-      <motion.span
-        className="block h-[1.5px] w-5 rounded-full bg-text"
-        animate={open ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
-        transition={{ duration: 0.2, ease: "easeInOut" }}
-      />
-      <motion.span
-        className="block h-[1.5px] w-5 rounded-full bg-text"
-        animate={open ? { rotate: -45, y: -7 } : { rotate: 0, y: 0 }}
-        transition={{ duration: 0.25, ease: "easeInOut" }}
-      />
+    <div className={`pointer-events-auto absolute ${CORNER[pos].box} ${className}`}>
+      <span aria-hidden="true" className={`absolute h-3.5 w-3.5 border-accent ${CORNER[pos].mark}`} />
+      {children}
     </div>
   );
 }
 
-/* ─── Mobile Menu Panel ─────────────────────────────────────── */
-
-const menuVariants = {
-  closed: {
-    x: "100%",
-    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const },
-  },
-  open: {
-    x: "0%",
-    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const },
-  },
-};
-
-const menuItemVariants = {
-  closed: { opacity: 0, x: 20 },
-  open: (i: number) => ({
-    opacity: 1,
-    x: 0,
-    transition: { delay: 0.1 + i * 0.05, duration: 0.3, ease: "easeOut" as const },
-  }),
-};
-
-/* ─── Nav Component ─────────────────────────────────────────── */
+/* ─── Nav ───────────────────────────────────────────────────── */
 
 export function Nav() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [hovered, setHovered] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const particlesActive = useModeStore((s) => s.particlesActive);
   // The two home pages swap their sections at runtime, so re-observe when either changes.
   const mode = useModeStore((s) => s.mode);
   const activeSection = useActiveSection(SECTION_IDS, `${particlesActive}-${mode}`);
   const { scrollLocked, containerRef } = useSnapScroll();
-  const hidden = useHideOnScrollDown();
   const pathname = usePathname();
+  const time = useLocalTime("Asia/Manila");
 
-  // Show nav after scroll is unlocked; hide it while scrolling down, reveal on scroll up
-  // (never while the mobile menu is open).
-  // Thin progress line along the pill's lower edge: how far down the page you are.
+  // Scroll readout, written straight to the DOM (no re-render per scroll frame).
   const { scrollYProgress } = useScroll({ container: containerRef });
-  const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 28, mass: 0.3 });
+  const pctRef = useRef<HTMLSpanElement>(null);
+  const barRef = useRef<HTMLSpanElement>(null);
+  useMotionValueEvent(scrollYProgress, "change", (v) => {
+    const pct = Math.round(Math.min(1, Math.max(0, v)) * 100);
+    if (pctRef.current) pctRef.current.textContent = String(pct).padStart(3, "0");
+    if (barRef.current) barRef.current.style.transform = `scaleX(${pct / 100})`;
+  });
 
-  const navVisible = !scrollLocked && (!hidden || mobileOpen);
-  // Close mobile menu on resize past breakpoint
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        setMobileOpen(false);
-      }
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  // Hidden while the immersive intro holds the page; always there otherwise.
+  const visible = !scrollLocked || menuOpen;
 
-  // Close mobile menu on escape key
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && mobileOpen) {
-        setMobileOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [mobileOpen]);
-
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    const onResize = () => window.innerWidth >= 768 && setMenuOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = "";
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("keydown", onKey);
     };
-  }, [mobileOpen]);
-
-  const handleLinkClick = useCallback(() => {
-    setMobileOpen(false);
   }, []);
 
-  const isActive = (href: string) => {
-    const sectionId = href.split("#")[1] ?? "";
-    return activeSection === sectionId;
-  };
+  const close = useCallback(() => setMenuOpen(false), []);
+  const isActive = (href: string) => pathname === "/" && activeSection === (href.split("#")[1] ?? "");
 
   return (
     <>
-      {/* ─── Floating glass pill ─── */}
       <motion.header
-        className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center px-4 pt-4"
-        initial={{ y: -80, opacity: 0 }}
-        animate={navVisible ? { y: 0, opacity: 1 } : { y: -80, opacity: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="pointer-events-none fixed inset-0 z-[60]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: visible ? 1 : 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        style={{ visibility: visible ? "visible" : "hidden" }}
       >
-        <div
-          className="pointer-events-auto relative flex w-full max-w-[min(100%,820px)] items-center justify-between gap-2 overflow-hidden rounded-full border border-white/10 bg-[#0f0f0f]/60 py-1.5 pl-2 pr-1.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl backdrop-saturate-150 md:w-auto md:max-w-none md:justify-center md:gap-1"
-        >
-          {/* Brand: back to top */}
+        {/* ── top-left: name ── */}
+        <Corner pos="tl">
           <Link
             href="/"
             onClick={(e) => {
+              close();
               // Already home: glide to the top instead of reloading the page.
               if (pathname === "/") {
                 e.preventDefault();
@@ -158,147 +112,139 @@ export function Nav() {
               }
             }}
             aria-label="Randel Serafica, back to top"
-            className="group flex items-center gap-2 rounded-full py-1.5 pl-3 pr-3 font-[family-name:var(--font-display)] text-sm font-semibold tracking-tight text-text transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:pr-4"
+            className={`group block ${mono} text-[11px] uppercase tracking-[0.18em] text-text ${focus}`}
           >
-            <span
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_2px_rgba(209,26,42,0.6)] transition-transform duration-300 group-hover:scale-125"
-            />
-            Randel
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true" className="h-1.5 w-1.5 bg-accent transition-transform duration-300 group-hover:scale-150" />
+              Randel Serafica
+            </span>
+            <span className="mt-1.5 hidden text-[10px] tracking-[0.16em] text-text-muted sm:block">
+              Full-stack dev · Cauayan, PH
+            </span>
           </Link>
+        </Corner>
 
-          <span aria-hidden="true" className="mx-1 hidden h-4 w-px bg-white/10 md:block" />
-
-          {/* Page links: a soft highlight slides to the hovered or current one */}
-          <nav
-            className="hidden items-center md:flex"
-            aria-label="Main navigation"
-            onMouseLeave={() => setHovered(null)}
-          >
-            {NAV_LINKS.map((link) => {
-              const lit = (hovered ?? NAV_LINKS.find((l) => isActive(l.href))?.href) === link.href;
-              return (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onMouseEnter={() => setHovered(link.href)}
-                  onFocus={() => setHovered(link.href)}
-                  onBlur={() => setHovered(null)}
-                  aria-current={isActive(link.href) ? "location" : undefined}
-                  className={`relative rounded-full px-3.5 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                    lit || isActive(link.href) ? "text-text" : "text-text-muted"
-                  }`}
-                >
-                  {lit && (
-                    <motion.span
-                      layoutId="nav-highlight"
-                      aria-hidden="true"
-                      className="absolute inset-0 -z-10 rounded-full bg-white/[0.09]"
-                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                    />
-                  )}
-                  <span className="relative">{link.label}</span>
-                </a>
-              );
-            })}
-          </nav>
-
-          <span aria-hidden="true" className="mx-1 hidden h-4 w-px bg-white/10 md:block" />
-
-          {/* Contact: the one call to action */}
+        {/* ── top-right: contact (desktop) / menu (phones) ── */}
+        <Corner pos="tr">
           <a
             href={CONTACT_LINK.href}
-            className="group/cta hidden items-center gap-1.5 rounded-full bg-accent px-4 py-2 font-[family-name:var(--font-mono)] text-[11px] font-medium uppercase tracking-[0.14em] text-white transition-colors duration-300 hover:bg-text hover:text-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:inline-flex"
+            onClick={close}
+            className={`group hidden items-center gap-2 border-b border-accent pb-1 ${mono} text-[11px] uppercase tracking-[0.18em] text-text transition-colors hover:text-white md:inline-flex ${focus}`}
           >
             {CONTACT_LINK.label}
-            <span aria-hidden="true" className="inline-block transition-transform duration-300 group-hover/cta:translate-x-0.5">
+            <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-0.5">
               →
             </span>
           </a>
-
-          {/* Mobile: menu button */}
+          <p className={`mt-2 hidden ${mono} text-[10px] uppercase tracking-[0.16em] text-text-muted md:block`}>
+            {time ? `${time} PHT` : "PHT"}
+            {availability.active && (
+              <>
+                <span className="mx-1.5">·</span>
+                <span className="text-[#4ADE80]">open to work</span>
+              </>
+            )}
+          </p>
           <button
-            className="relative flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
-            onClick={() => setMobileOpen((prev) => !prev)}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-menu"
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls="site-menu"
+            className={`${mono} min-h-[28px] text-[11px] uppercase tracking-[0.18em] text-text md:hidden ${focus}`}
           >
-            <HamburgerIcon open={mobileOpen} />
+            {menuOpen ? "Close ×" : "Menu"}
           </button>
+        </Corner>
 
-          {/* Scroll progress */}
-          <motion.span
-            aria-hidden="true"
-            className="absolute inset-x-6 bottom-0 h-px origin-left bg-gradient-to-r from-accent/0 via-accent to-accent/0"
-            style={{ scaleX: progress }}
-          />
-        </div>
+        {/* ── bottom-left: section index ── */}
+        <Corner pos="bl" className="hidden md:block">
+          <nav aria-label="Main navigation">
+            <ul className="space-y-[7px]">
+              {NAV_LINKS.map((l) => {
+                const on = isActive(l.href);
+                return (
+                  <li key={l.href}>
+                    <a
+                      href={l.href}
+                      aria-current={on ? "location" : undefined}
+                      className={`group flex items-center ${mono} text-[10px] uppercase tracking-[0.18em] transition-colors duration-300 ${
+                        on ? "text-text" : "text-text-muted hover:text-text"
+                      } ${focus}`}
+                    >
+                      <span className={`mr-2.5 ${on ? "text-accent" : "text-white/30 group-hover:text-white/60"}`}>{l.n}</span>
+                      {l.label}
+                      <span
+                        aria-hidden="true"
+                        className={`ml-2.5 h-px bg-accent transition-[width] duration-300 ${on ? "w-6" : "w-0 group-hover:w-3"}`}
+                      />
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </Corner>
+
+        {/* ── bottom-right: scroll readout ── */}
+        <Corner pos="br" className="hidden md:block">
+          <p className={`${mono} text-[10px] uppercase tracking-[0.18em] text-text-muted`}>
+            Scroll <span ref={pctRef} className="text-text">000</span>%
+          </p>
+          <span aria-hidden="true" className="mt-2 block h-px w-20 bg-white/10">
+            <span ref={barRef} className="block h-px w-full origin-left bg-accent" style={{ transform: "scaleX(0)" }} />
+          </span>
+        </Corner>
       </motion.header>
 
-      {/* Mobile Menu Overlay + Panel */}
+      {/* ── Phone menu: the section index, full screen ── */}
       <AnimatePresence>
-        {mobileOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              onClick={() => setMobileOpen(false)}
-              aria-hidden="true"
-            />
-
-            {/* Slide-in Panel, glassmorphism */}
-            <motion.nav
-              id="mobile-menu"
-              className="fixed top-0 right-0 z-50 h-full w-[280px] md:hidden flex flex-col pt-24 px-8 pb-8 backdrop-blur-xl"
-              style={{
-                backgroundColor: "rgba(15, 15, 15, 0.7)",
-                borderLeft: "1px solid rgba(255, 255, 255, 0.06)",
-              }}
-              variants={menuVariants}
-              initial="closed"
-              animate="open"
-              exit="closed"
-              aria-label="Mobile navigation"
-            >
-              <div className="flex flex-col gap-2">
-                {[...NAV_LINKS, CONTACT_LINK].map((link, i) => (
-                  <motion.a
-                    key={link.href}
-                    href={link.href}
-                    custom={i}
-                    variants={menuItemVariants}
-                    initial="closed"
-                    animate="open"
-                    onClick={handleLinkClick}
-                    className={`
-                      block py-3 px-4 rounded-lg font-[family-name:var(--font-display)] text-lg font-medium
-                      transition-colors duration-200
-                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-                      ${
-                        isActive(link.href)
-                          ? "text-accent bg-white/5"
-                          : "text-text-muted hover:text-text hover:bg-white/5"
-                      }
-                    `}
+        {menuOpen && (
+          <motion.nav
+            id="site-menu"
+            aria-label="Main navigation"
+            className="fixed inset-0 z-[55] flex flex-col bg-[#0b0c0e]/[0.97] px-6 pb-8 pt-24 md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <ul className="border-t border-white/10">
+              {[...NAV_LINKS, { n: "06", ...CONTACT_LINK }].map((l, i) => {
+                const on = isActive(l.href);
+                return (
+                  <motion.li
+                    key={l.href}
+                    className="border-b border-white/10"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.04 + i * 0.04, duration: 0.3, ease: "easeOut" }}
                   >
-                    {link.label}
-                  </motion.a>
-                ))}
-              </div>
-
-              {/* Footer line */}
-              <div className="mt-auto pt-8 border-t border-white/5">
-                <p className="font-[family-name:var(--font-mono)] text-xs text-text-muted">
-                  {footerContent.personalityLine}
-                </p>
-              </div>
-            </motion.nav>
-          </>
+                    <a
+                      href={l.href}
+                      onClick={close}
+                      aria-current={on ? "location" : undefined}
+                      className={`flex min-h-[60px] items-baseline gap-4 py-3 ${focus}`}
+                    >
+                      <span className={`${mono} text-[11px] ${on ? "text-accent" : "text-white/35"}`}>{l.n}</span>
+                      <span
+                        className={`font-[family-name:var(--font-display)] text-[1.9rem] font-bold leading-none tracking-[-0.02em] ${
+                          on ? "text-text" : "text-text/75"
+                        }`}
+                      >
+                        {l.label}
+                      </span>
+                      {on && <span aria-hidden="true" className="ml-auto self-center h-px w-6 bg-accent" />}
+                    </a>
+                  </motion.li>
+                );
+              })}
+            </ul>
+            <p className={`mt-auto ${mono} text-[11px] text-text-muted`}>
+              {time ? `${time} PHT · ` : ""}
+              {footerContent.personalityLine}
+            </p>
+          </motion.nav>
         )}
       </AnimatePresence>
     </>

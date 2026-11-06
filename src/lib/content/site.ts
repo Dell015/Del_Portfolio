@@ -23,7 +23,7 @@ export const facts = [
 ] as const;
 
 export const stats = [
-  { value: "7", label: "Products designed" },
+  { value: "4", label: "Products designed" },
   { value: "5", label: "People on my biggest team" },
   { value: "2", label: "Competition placements" },
   { value: "3", label: "Layers I own" },
