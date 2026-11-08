@@ -31,6 +31,19 @@ export function bloomValue(explode: number) {
 }
 let _shown = 0;
 let _last = 0;
+/**
+ * Back to "nothing has fallen in yet". This state lives outside React, so it outlives the
+ * page: leaving the full experience mid-collapse (switching to the Quick Look, say) and
+ * coming back would otherwise show every particle squeezed into the hole's centre.
+ */
+export function resetSwirl() {
+  swirlState.amount = 0;
+  swirlState.center = 0;
+  swirlState.compress = 0;
+  swirlState.soft = false;
+  _shown = 0;
+  _bloomActive = false;
+}
 function shownAmount() {
   const now = performance.now();
   if (now - _last < 3) return _shown;

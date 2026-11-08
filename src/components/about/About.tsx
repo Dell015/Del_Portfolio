@@ -8,7 +8,7 @@ import { EASE } from "@/components/motion/tokens";
 import { useModeStore } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { registerScrollPin, useSnapScroll } from "@/components/SmoothScroll";
-import { swirlState } from "@/lib/swirl";
+import { swirlState, resetSwirl } from "@/lib/swirl";
 import { igniteSequence, resetSequence, setSequencePinned } from "@/lib/hooks/useVirtualScroll";
 import { NARROW_LAYOUT, WIDE_LAYOUT } from "@/components/blackhole/layouts";
 import type { BlackHoleTargets } from "@/components/blackhole/BlackHoleScene";
@@ -398,6 +398,8 @@ function PinnedAbout() {
     return () => {
       registerScrollPin(null);
       setSequencePinned(false);
+      // Leaving the full experience: don't carry the collapse over to the next visit.
+      resetSwirl();
     };
   }, []);
 
