@@ -83,6 +83,19 @@ export function Hero() {
     cloudB: PointCloud;
   } | null>(null);
   const [error, setError] = useState(false);
+  // If the GPU drops the particle canvas's context (it can when canvases are created and
+  // destroyed quickly, e.g. switching views), rebuild the canvas instead of giving up on
+  // the particles for good. Only after a few failed rebuilds does the hero go static.
+  const [canvasKey, setCanvasKey] = useState(0);
+  const rebuilds = useRef(0);
+  const handleFatal = useCallback(() => {
+    if (rebuilds.current >= 2) {
+      setError(true);
+      return;
+    }
+    rebuilds.current += 1;
+    setCanvasKey(rebuilds.current);
+  }, []);
   const [revealTriggered, setRevealTriggered] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const introDoneRef = useRef(false);
@@ -171,14 +184,16 @@ export function Hero() {
     >
       {/* Particle canvas, persists through all sections (fixed position) */}
       <HeroParticleCanvas
+        key={canvasKey}
         cloudA={clouds.cloudA}
         cloudB={clouds.cloudB}
         // Coming back to a section (e.g. from a case study) skips the intro: show the finished scene at once.
         revealTriggered={revealTriggered || introSkipped}
-        instantReveal={introSkipped}
+        // A rebuilt canvas comes back already formed, not replaying the intro.
+        instantReveal={introSkipped || (canvasKey > 0 && revealed)}
         onRevealComplete={handleRevealComplete}
         maxDpr={tier === "low" ? 1 : 1.75}
-        onFatalError={() => setError(true)}
+        onFatalError={handleFatal}
       />
 
       {/* Text overlay, z-10 for pre-reveal (button clickable), z-0 when revealed (behind particles) */}

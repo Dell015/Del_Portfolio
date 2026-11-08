@@ -274,27 +274,6 @@ export function Footer({ contactEnabled = false }: FooterProps) {
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-              {/* Radar ping. Dropped entirely under reduced-motion, a looping
-                  animation is exactly what that preference is asking to avoid. */}
-              {availability.active && !reducedMotion && (
-                <motion.span
-                  className="absolute inset-0 rounded-full bg-[#4ADE80]"
-                  animate={{ scale: [1, 2.4, 2.4], opacity: [0.6, 0, 0] }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeOut",
-                    times: [0, 0.7, 1],
-                  }}
-                />
-              )}
-              <span
-                className={`relative h-2 w-2 rounded-full ${
-                  availability.active ? "bg-[#4ADE80]" : "bg-text-muted/50"
-                }`}
-              />
-            </span>
             <span className="font-[family-name:var(--font-mono)] text-xs tracking-wide text-text-muted">
               {availability.label}
             </span>

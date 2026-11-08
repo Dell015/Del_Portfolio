@@ -20,7 +20,7 @@ const OPTIONS: {
     value: "clean",
     tag: "About 1 minute",
     title: "Quick look",
-    body: "The short version, built live by four cursors as you scroll. Light on any device.",
+    body: "The short version, built live by a swarm of cursors as you scroll. Light on any device.",
     cta: "Show me",
   },
   {

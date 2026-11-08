@@ -19,7 +19,7 @@ const VIEWS: { mode: Mode; n: string; name: string; line: string; preview: "part
     mode: "clean",
     n: "02",
     name: "Quick Look",
-    line: "The short version, built live by four cursors as you scroll. Light on any device.",
+    line: "The short version, built live by a swarm of cursors as you scroll. Light on any device.",
     preview: "cursors",
   },
 ];
@@ -55,11 +55,13 @@ export function ViewSwitch({ className = "" }: { className?: string }) {
 
   return (
     <section aria-labelledby="view-switch-title" className={`relative z-10 ${className}`}>
-      <p className={`${mono} text-[11px] uppercase tracking-[0.18em] text-white/45`}>
+      {/* data-a names let the Quick Look's build animate these pieces; harmless elsewhere. */}
+      <p data-a="vs-eyebrow" className={`w-fit ${mono} text-[11px] uppercase tracking-[0.18em] text-white/45`}>
         <span className="text-accent">●</span> Switch view
       </p>
       <h2
         id="view-switch-title"
+        data-a="vs-title"
         className="mt-3 font-[family-name:var(--font-display)] text-[clamp(1.9rem,4.2vw,3rem)] font-bold leading-[1.05] tracking-[-0.03em] text-text"
       >
         {current === "clean" ? "Seen the short version? Try the full one." : "Want the short version?"}
@@ -72,6 +74,7 @@ export function ViewSwitch({ className = "" }: { className?: string }) {
           return (
             <button
               key={v.mode}
+              data-a={`vs-${v.mode}`}
               type="button"
               onClick={() => go(v.mode)}
               disabled={here || off}
@@ -90,7 +93,7 @@ export function ViewSwitch({ className = "" }: { className?: string }) {
                 <span className={here || off ? "text-white/40" : "text-white/70"}>{v.n}</span>
                 {here ? (
                   <span className="inline-flex items-center gap-2 text-white/55">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#3ad07a]" /> You&apos;re here
+                    You&apos;re here
                   </span>
                 ) : off ? (
                   <span className="text-white/45">Not available</span>

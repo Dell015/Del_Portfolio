@@ -998,7 +998,7 @@ export function HeroParticleCanvas({
         // Content above can still grow while locked (coming back from a case study, the
         // About scene gets taller once the particles load). That moves the landing spot
         // without any scroll event, so re-pin from here every frame.
-        if (lockedRef.current && !settlingRef.current && !leavingRef.current && Math.abs(delta) > 1) {
+        if (lockedRef.current && !settlingRef.current && !leavingRef.current && performance.now() >= navTransit.until && Math.abs(delta) > 1) {
           container.scrollTop += delta;
           delta = 0;
         }
@@ -1025,7 +1025,7 @@ export function HeroParticleCanvas({
         const navigating = performance.now() < navTransit.until;
         const holding = performance.now() - lockedAtRef.current < 1500;
         const want = lockedRef.current
-          ? isPostLock && (!frozenRef.current || holding || settlingRef.current)
+          ? isPostLock && !navigating && (!frozenRef.current || holding || settlingRef.current)
           : isPostLock && !leavingRef.current && !navigating && ((nearSpot && !frozenRef.current) || crossed);
         if (want !== lockedRef.current) applyLock(want);
       }
@@ -1038,20 +1038,48 @@ export function HeroParticleCanvas({
   // While the system is locked, and while an exit is scrolling away, wheel, touch-drag
   // and the scrolling keys do nothing, so nothing can fight the transition.
   const blocking = locked || leaving;
+  // A blocked scroll attempt tells the overlay which way the visitor wanted to go, so it
+  // can point at the matching way out (About above, Skills below).
+  const [nudge, setNudge] = useState<{ dir: "up" | "down"; n: number } | null>(null);
+  const lastNudge = useRef(0);
   useEffect(() => {
     if (!blocking) return;
+    const signal = (dir: "up" | "down") => {
+      if (leaving) return;
+      const now = performance.now();
+      if (now - lastNudge.current < 700) return;
+      lastNudge.current = now;
+      setNudge((p) => ({ dir, n: (p?.n ?? 0) + 1 }));
+    };
+    let touchX = 0;
+    let touchY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      touchX = e.touches[0]?.clientX ?? 0;
+      touchY = e.touches[0]?.clientY ?? 0;
+    };
     const stop = (e: Event) => {
       if (e.target instanceof Element && e.target.closest("[data-native-scroll], textarea")) return;
       e.preventDefault();
       e.stopPropagation();
+      if (e instanceof WheelEvent && Math.abs(e.deltaY) > Math.abs(e.deltaX) && Math.abs(e.deltaY) > 2) {
+        signal(e.deltaY > 0 ? "down" : "up");
+      } else if (typeof TouchEvent !== "undefined" && e instanceof TouchEvent) {
+        const dx = (e.touches[0]?.clientX ?? 0) - touchX;
+        const dy = (e.touches[0]?.clientY ?? 0) - touchY;
+        if (Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx) * 1.3) signal(dy < 0 ? "down" : "up");
+      }
     };
     const SCROLL_KEYS = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"];
     const onKey = (e: KeyboardEvent) => {
       const t = e.target;
       if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       const space = e.key === " " && !(t instanceof HTMLElement && /^(BUTTON|A)$/.test(t.tagName));
-      if (space || SCROLL_KEYS.includes(e.key)) e.preventDefault();
+      if (space || SCROLL_KEYS.includes(e.key)) {
+        e.preventDefault();
+        signal(e.key === "ArrowUp" || e.key === "PageUp" || e.key === "Home" || (space && e.shiftKey) ? "up" : "down");
+      }
     };
+    window.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
     window.addEventListener("wheel", stop, { passive: false, capture: true });
     window.addEventListener("touchmove", stop, { passive: false, capture: true });
     window.addEventListener("keydown", onKey, { capture: true });
@@ -1063,11 +1091,12 @@ export function HeroParticleCanvas({
     if (c) c.style.overflowY = "hidden";
     return () => {
       if (c) c.style.overflowY = "";
+      window.removeEventListener("touchstart", onTouchStart, { capture: true });
       window.removeEventListener("wheel", stop, { capture: true });
       window.removeEventListener("touchmove", stop, { capture: true });
       window.removeEventListener("keydown", onKey, { capture: true });
     };
-  }, [blocking, containerRef]);
+  }, [blocking, leaving, containerRef]);
 
 
   // Whatever moves the page while it is locked (scrollbar drag, middle-click scroll,
@@ -1077,7 +1106,8 @@ export function HeroParticleCanvas({
     const c = containerRef.current;
     if (!c) return;
     const pin = () => {
-      if (!lockedRef.current || settlingRef.current) return;
+      // The site's own navigation (a nav link clicked while here) is allowed to leave.
+      if (!lockedRef.current || settlingRef.current || performance.now() < navTransit.until) return;
       const a = document.getElementById("projects-sphere");
       if (!a) return;
       const want = c.scrollTop + (a.getBoundingClientRect().top - c.getBoundingClientRect().top);
@@ -1264,6 +1294,7 @@ export function HeroParticleCanvas({
         onPart={pickPart}
         screenRef={screenRef}
         onLeave={leaveTo}
+        nudge={nudge}
       />
     </div>
   );

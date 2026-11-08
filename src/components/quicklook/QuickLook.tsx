@@ -15,9 +15,12 @@ import { skills, skillCategories } from "@/lib/content/skills";
 import { background, moments, momentPhotos, type DiscoveredPhoto } from "@/lib/content/timeline";
 import { ContactForm } from "@/components/footer/ContactForm";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
-import { Appear, Build, Cursor, Drop, Gap, PEOPLE, Prop, Rulers, Select, Toggle, Typed, rand, type Who } from "./kit";
+import { Appear, Build, Cursor, Draw, Drop, Gap, PEOPLE, Prop, Rulers, Select, Toggle, Typed, rand, type Who } from "./kit";
 
 const pad = (n: number) => String(n).padStart(2, "0");
+/** Everyone in the file, for handing out small jobs (chips, rows, links) round-robin. */
+const CREW: Who[] = ["design", "code", "motion", "qa", "a11y", "copy", "randel"];
+const crew = (seed: string) => CREW[Math.floor(rand(seed) * CREW.length)]!;
 const PLATFORM: Record<Project["platform"], string> = { mobile: "Mobile", web: "Web", "web+mobile": "Web + mobile" };
 
 // Copy shared with the full experience's About scene.
@@ -30,13 +33,19 @@ const wrap = "mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-12";
 const mono = "font-[family-name:var(--font-mono)]";
 const display = "font-[family-name:var(--font-display)]";
 
-function FrameLabel({ n, name }: { n: string; name: string }) {
+/** "# 02 About ————" typed by a11y, then the rule drawn across. Must sit inside a <Build>. */
+function FrameLabel({ n, name, at = 0 }: { n: string; name: string; at?: number }) {
   return (
     <p className={`mb-7 flex items-center gap-2 ${mono} text-[11px] text-white/35`}>
-      <span className="text-accent">#</span>
-      {n}
-      <span className="text-white/65">{name}</span>
-      <span aria-hidden="true" className="h-px flex-1 bg-white/10" />
+      <Appear at={at} className="text-accent">#</Appear>
+      <Typed text={n} from={at} to={at + 0.02} />
+      <span className="text-white/65">
+        <Typed text={name} from={at + 0.02} to={at + 0.07} who="a11y" />
+      </span>
+      <Toggle
+        at={at + 0.07}
+        className="h-px flex-1 origin-left bg-white/10 transition-transform duration-700 ease-out data-[on=false]:scale-x-0"
+      />
     </p>
   );
 }
@@ -53,9 +62,9 @@ function SectionHead({ n, name, lead, accent, intro }: { n: string; name: string
         </Toggle>
       </h2>
       {intro && (
-        <Appear at={0.32} as="p" a="intro" className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/60">
-          {intro}
-        </Appear>
+        <p data-a="intro" className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/60">
+          <Typed text={intro} from={0.32} to={0.56} who="motion" />
+        </p>
       )}
       <Cursor
         who="copy"
@@ -85,22 +94,23 @@ function SectionHead({ n, name, lead, accent, intro }: { n: string; name: string
 // ─── Hero ────────────────────────────────────────────────────────────────────
 
 function Presence() {
-  const people: Who[] = ["randel", "design", "copy", "code"];
+  const people = Object.keys(PEOPLE) as Who[];
   return (
     <span className="inline-flex items-center gap-2.5">
       <span className="flex -space-x-1.5">
-        {people.map((w) => (
-          <span
+        {people.map((w, i) => (
+          <Toggle
             key={w}
-            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0d0e11] ${mono} text-[9px] font-bold uppercase`}
+            at={0.03 + i * 0.012}
+            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0d0e11] ${mono} text-[9px] font-bold uppercase transition-[opacity,transform] duration-300 ease-out data-[on=false]:scale-50 data-[on=false]:opacity-0`}
             style={{ background: PEOPLE[w].color, color: PEOPLE[w].ink }}
           >
-            {w === "code" ? "</>" : PEOPLE[w].label[0]}
-          </span>
+            {w === "code" ? "</>" : w === "a11y" ? "A" : PEOPLE[w].label[0]}
+          </Toggle>
         ))}
       </span>
       <span className={`${mono} text-[11px] text-white/50`}>
-        <span className="ql-live mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#3DD6C3] align-middle" />4 editing · all of them are me
+        <Typed text={`${people.length} editing · all of them are me`} from={0.12} to={0.2} who="qa" />
       </span>
     </span>
   );
@@ -120,19 +130,19 @@ function Hero({ play }: { play: boolean }) {
         mode="time"
         play={play}
         replay={replay}
-        duration={6.5}
+        duration={7.5}
         className={`${wrap} grid min-h-[100svh] content-center gap-8 pb-16 pt-24 sm:gap-12 sm:pt-28 lg:grid-cols-[1.12fr_1fr] lg:items-center lg:gap-14 lg:pt-24`}
       >
         <div>
-          <Appear at={0.01} as="div" className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span className={`border border-white/12 bg-white/[0.03] px-2 py-1 ${mono} text-[11px] text-white/60`}>
-              randel-serafica.fig
+          <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span data-a="file" className={`border border-white/12 bg-white/[0.03] px-2 py-1 ${mono} text-[11px] text-white/60`}>
+              <Typed text="randel-serafica.fig" from={0.06} to={0.11} />
             </span>
             <Presence />
-          </Appear>
-          <Appear at={0.06} as="p" className={`${mono} text-[11px] uppercase tracking-[0.18em] text-white/45`}>
-            {site.name} · Cauayan, Isabela
-          </Appear>
+          </div>
+          <p className={`${mono} text-[11px] uppercase tracking-[0.18em] text-white/45`}>
+            <Typed text={`${site.name} · Cauayan, Isabela`} from={0.08} to={0.15} who="a11y" />
+          </p>
           <Toggle
             as="h1"
             at={0.62}
@@ -160,38 +170,40 @@ function Hero({ play }: { play: boolean }) {
               );
             })}
           </Toggle>
-          <Appear at={0.5} as="p" a="lede" className="mt-7 max-w-[34rem] text-[16px] leading-relaxed text-white/65">
-            {site.identityStatement}
-          </Appear>
-          <Appear at={0.78} as="div" a="cta" className="mt-8 flex flex-wrap items-center gap-3">
+          <p data-a="lede" className="mt-7 max-w-[34rem] text-[16px] leading-relaxed text-white/65">
+            <Typed text={site.identityStatement} from={0.44} to={0.64} who="motion" />
+          </p>
+          <div data-a="cta" className="mt-8 flex flex-wrap items-center gap-3">
             <a
               href="#projects"
+              data-a="cta1"
               className={`inline-flex min-h-[44px] items-center gap-2 bg-accent px-5 ${mono} text-[12px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#b01522] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
             >
-              See my projects <span aria-hidden="true">↓</span>
+              <Typed text="See my projects" from={0.79} to={0.84} /> <span aria-hidden="true">↓</span>
             </a>
             <a
               href="#footer"
+              data-a="cta2"
               className={`inline-flex min-h-[44px] items-center border border-white/20 px-5 ${mono} text-[12px] uppercase tracking-[0.14em] text-white/80 transition-colors hover:border-white/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`}
             >
-              Get in touch
+              <Typed text="Get in touch" from={0.82} to={0.87} />
             </a>
-          </Appear>
-          <Appear at={0.86} as="div" className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2">
+          </div>
+          <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2">
             <span className={`inline-flex items-center gap-2 ${mono} text-[11px] text-white/55`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${availability.active ? "ql-live bg-[#3ad07a]" : "bg-white/30"}`} />
-              {availability.label}
+              <Typed text={availability.label} from={0.86} to={0.92} who="qa" />
             </span>
             {!still && (
               <button
                 type="button"
+                data-a="replay"
                 onClick={() => setReplay((r) => r + 1)}
                 className={`${mono} text-[11px] text-white/35 underline decoration-white/20 underline-offset-4 transition-colors hover:text-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`}
               >
-                ↻ replay the build
+                <Typed text="↻ replay the build" from={0.91} to={0.96} who="a11y" />
               </button>
             )}
-          </Appear>
+          </div>
         </div>
 
         <Drop at={0.37} show={0.5} file="randel.webp · 2000 × 1265" a="photo" className="relative order-first mx-auto w-full max-w-md lg:order-none lg:max-w-none">
@@ -209,6 +221,11 @@ function Hero({ play }: { play: boolean }) {
             }}
           />
         </Drop>
+
+        <Draw target="file" at={0.0} len={0.06} who="design" />
+        <Draw target="cta1" at={0.73} len={0.06} who="motion" size />
+        <Draw target="cta2" at={0.76} len={0.06} who="a11y" />
+        <Draw target="replay" at={0.88} len={0.03} who="qa" cursor={false} />
 
         {/* design: frames the heading, then swaps its font */}
         <Select target="h1" from={0.05} to={0.66} who="design" name="Heading / H1" />
@@ -270,6 +287,9 @@ function Hero({ play }: { play: boolean }) {
 
 // ─── About ───────────────────────────────────────────────────────────────────
 
+/** When each stat card gets drawn: in order, each a little off the beat. */
+const statAt = (i: number, label: string) => 0.4 + i * 0.05 + rand(label) * 0.04;
+
 function About() {
   return (
     <section id="about" data-snap-section="" className="relative">
@@ -280,25 +300,29 @@ function About() {
             <h2 className={`${display} text-[clamp(1.8rem,3.6vw,2.7rem)] font-semibold leading-[1.15] tracking-[-0.02em] text-text`}>
               <Typed text={ABOUT_LEAD} from={0.06} to={0.4} a="lead" caret={PEOPLE.copy.color} />
             </h2>
-            <Appear at={0.44} as="p" a="p1" className="mt-8 max-w-xl text-[16px] leading-relaxed text-white/70">
-              {ABOUT_P1}
-            </Appear>
-            <Appear at={0.5} as="p" className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/50">
-              {ABOUT_P2}
-            </Appear>
+            <p data-a="p1" className="mt-8 max-w-xl text-[16px] leading-relaxed text-white/70">
+              <Typed text={ABOUT_P1} from={0.42} to={0.54} who="motion" />
+            </p>
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/50">
+              <Typed text={ABOUT_P2} from={0.47} to={0.68} who="a11y" />
+            </p>
           </div>
           <div data-a="stats" className="grid grid-cols-2 gap-3 self-start">
             {stats.map((s, i) => (
-              <Appear key={s.label} at={0.46 + i * 0.05 + rand(s.label) * 0.05} as="div" a={`s${i}`} className="border border-white/10 bg-[#121418] p-5">
+              <div key={s.label} data-a={`s${i}`} className="border border-white/10 bg-[#121418] p-5">
                 {i === 0 ? (
                   <Toggle at={0.74} className={`block ${display} text-5xl font-bold tracking-tight text-accent transition-colors duration-300 data-[on=false]:text-text`}>
-                    {s.value}
+                    <Typed text={s.value} from={0.52} to={0.55} />
                   </Toggle>
                 ) : (
-                  <span className={`block ${display} text-5xl font-bold tracking-tight text-text`}>{s.value}</span>
+                  <span className={`block ${display} text-5xl font-bold tracking-tight text-text`}>
+                    <Typed text={s.value} from={statAt(i, s.label) + 0.06} to={statAt(i, s.label) + 0.09} />
+                  </span>
                 )}
-                <span className={`mt-2 block ${mono} text-[10px] uppercase tracking-[0.14em] text-white/45`}>{s.label}</span>
-              </Appear>
+                <span className={`mt-2 block ${mono} text-[10px] uppercase tracking-[0.14em] text-white/45`}>
+                  <Typed text={s.label} from={statAt(i, s.label) + 0.08} to={statAt(i, s.label) + 0.14} who={i % 2 ? "qa" : "code"} />
+                </span>
+              </div>
             ))}
           </div>
         </div>
@@ -312,6 +336,9 @@ function About() {
           ]}
         />
         <Gap a="lead" b="p1" from={0.47} to={0.64} />
+        {stats.map((s, i) => (
+          <Draw key={s.label} target={`s${i}`} at={statAt(i, s.label)} len={0.06} who={i % 2 ? "qa" : "code"} size={i === 0} />
+        ))}
         <Select target="stats" from={0.56} to={0.86} who="design" name="Auto layout · 2 × 2" />
         <Prop target="stats" from={0.6} to={0.88} who="design" side="below">
           <span className="text-white/45">Gap</span> 12 · <span className="text-white/45">Padding</span> 20 · <span className="text-white/45">Fill</span> #121418
@@ -363,35 +390,43 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
           </div>
         </Drop>
         <div className="p-5 sm:p-6">
-          <Appear at={0.5} as="p" className={`${mono} text-[10px] uppercase tracking-[0.14em] text-white/45`}>
-            {p.status}
-          </Appear>
+          <p className={`${mono} text-[10px] uppercase tracking-[0.14em] text-white/45`}>
+            <Typed text={p.status} from={0.34} to={0.4} who="a11y" />
+          </p>
           <h3 className={`mt-2 ${display} text-3xl font-bold tracking-tight text-text`}>
             <Typed text={p.name} from={0.4} to={0.5} a="name" caret={PEOPLE[typer].color} />
           </h3>
-          <Appear at={0.54} as="p" className="mt-2 text-[15px] leading-relaxed text-white/65">
-            {p.plain}
-          </Appear>
-          <Appear at={0.58} as="p" className={`mt-3 ${mono} text-[11px] text-white/40`}>
-            {p.role} · {p.teamSize}
-          </Appear>
+          <p className="mt-2 text-[15px] leading-relaxed text-white/65">
+            <Typed text={p.plain} from={0.5} to={0.66} who="motion" />
+          </p>
+          <p className={`mt-3 ${mono} text-[11px] text-white/40`}>
+            <Typed text={`${p.role} · ${p.teamSize}`} from={0.58} to={0.66} who="qa" />
+          </p>
           <ul data-a="chips" className="mt-4 flex flex-wrap gap-1.5">
             {p.techStack.slice(0, 4).map((t, k) => (
-              <Appear key={t} as="li" at={0.6 + k * 0.035 + rand(`${p.slug}${t}`) * 0.05} className={`border border-white/12 px-2 py-1 ${mono} text-[10px] text-white/60`}>
+              <li key={t} data-a={`chip${k}`} className={`border border-white/12 px-2 py-1 ${mono} text-[10px] text-white/60`}>
                 {t}
-              </Appear>
+              </li>
             ))}
           </ul>
-          <Appear at={0.8} as="p" a="link" className={`mt-6 inline-flex items-center gap-2 ${mono} text-[11px] uppercase tracking-[0.16em] text-white`}>
-            <span className="border-b border-accent pb-0.5">Read the case study</span>
-            <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
-              →
-            </span>
-          </Appear>
+          <p data-a="link" className={`mt-6 inline-flex items-center gap-2 ${mono} text-[11px] uppercase tracking-[0.16em] text-white`}>
+            <Toggle at={0.79} className="border-b border-accent pb-0.5 transition-[border-color] duration-300 data-[on=false]:border-transparent">
+              <Typed text="Read the case study" from={0.72} to={0.79} />
+            </Toggle>
+            <Appear at={0.79}>
+              <span aria-hidden="true" className="inline-block transition-transform duration-300 group-hover:translate-x-1">
+                →
+              </span>
+            </Appear>
+          </p>
         </div>
       </a>
 
-      <Select target="card" from={0.04} to={0.3} who={framer} name={`Frame · ${p.name}`} pad={3} />
+      <Draw target="card" at={0.04} len={0.1} who={framer} cursor={false} size />
+      <Select target="card" from={0.14} to={0.3} who={framer} name={`Frame · ${p.name}`} pad={3} />
+      {p.techStack.slice(0, 4).map((t, k) => (
+        <Draw key={t} target={`chip${k}`} at={0.6 + k * 0.035 + rand(`${p.slug}${t}`) * 0.05} len={0.04} who={crew(`${p.slug}${t}`)} cursor={rand(`${t}c`) > 0.4} />
+      ))}
       <Prop target="cover" from={0.4} to={0.58} who={framer} side="below">
         <span className="text-white/45">Fill</span> linear 135° · {c0} → {single ? "#1B1B1B" : c1}
       </Prop>
@@ -447,22 +482,37 @@ function Projects() {
 
 function SkillGroup({ i, label, items }: { i: number; label: string; items: string[] }) {
   const who = (["code", "design", "copy", "randel", "code"] as Who[])[i] ?? "code";
-  const step = 0.5 / Math.max(1, items.length);
+  const step = 0.42 / Math.max(1, items.length);
   return (
     <Build offset={["start 0.75", "start 0.22"]}>
       <div data-a="group" className="h-full border border-white/10 bg-[#111316] p-5">
         <div className={`flex items-center justify-between ${mono} text-[10px] uppercase tracking-[0.16em] text-white/40`}>
-          <span>{label}</span>
-          <span>{pad(items.length)}</span>
+          <span>
+            <Typed text={label} from={0.1} to={0.16} who="a11y" />
+          </span>
+          <span>
+            <Typed text={pad(items.length)} from={0.15} to={0.17} />
+          </span>
         </div>
         <ul data-a="chips" className="mt-4 flex flex-wrap gap-1.5">
           {items.map((s, k) => (
-            <Appear key={s} as="li" at={0.18 + k * step + rand(s) * step * 1.4} a={k === 0 ? "first" : undefined} className="border border-white/12 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-white/80">
+            <li key={s} data-a={k === 0 ? "first" : `c${k}`} className="border border-white/12 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-white/80">
               {s}
-            </Appear>
+            </li>
           ))}
         </ul>
       </div>
+      <Draw target="group" at={0.0} len={0.09} who={who === "design" ? "motion" : "design"} size />
+      {items.map((s, k) => (
+        <Draw
+          key={s}
+          target={k === 0 ? "first" : `c${k}`}
+          at={0.18 + k * step + rand(s) * step * 1.4}
+          len={0.035}
+          who={k === 0 ? who : crew(s)}
+          cursor={k > 0 && rand(`${s}c`) > 0.45}
+        />
+      ))}
       <Cursor
         who={who}
         carry={{ from: 0.04, to: 0.2, label: items[0] ?? "" }}
@@ -508,25 +558,33 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
       <div className={`${wrap} py-24 lg:py-28`}>
         <SectionHead n="05" name="Track record" lead="The track record " accent="so far." intro={background.intro} />
         <Build offset={["start 0.72", "start 0"]} className="mt-12">
-          <ol className="border-y border-white/10">
+          <ol data-a="list" className="border-y border-white/10">
             {rows.map((m, i) => {
               const at = 0.08 + i * 0.1 + rand(m.slug) * 0.05;
               const photo = momentPhotos(m, photosBySlug[m.slug] ?? [])[0];
               return (
-                <Appear
+                <li
                   key={m.slug}
-                  as="li"
-                  at={at}
-                  a={`row${i}`}
+                  data-a={`row${i}`}
                   className="grid grid-cols-[4.75rem_1fr] items-center gap-x-4 gap-y-3 border-b border-white/10 py-4 last:border-b-0 sm:grid-cols-[6.5rem_8rem_1fr_auto] sm:py-5"
                 >
-                  <span className={`${mono} text-[11px] text-white/45`}>{m.year ?? m.kind}</span>
-                  <span className={`hidden ${mono} text-[10px] uppercase tracking-[0.16em] text-accent sm:inline`}>{m.kind}</span>
+                  <span className={`${mono} text-[11px] text-white/45`}>
+                    <Typed text={String(m.year ?? m.kind)} from={at + 0.04} to={at + 0.06} />
+                  </span>
+                  <span className={`hidden ${mono} text-[10px] uppercase tracking-[0.16em] text-accent sm:inline`}>
+                    <Typed text={m.kind} from={at + 0.05} to={at + 0.08} />
+                  </span>
                   <div className="min-w-0">
                     <p className={`${display} text-lg font-semibold leading-snug text-text`}>
-                      {i === 0 ? <Typed text={m.title} from={at} to={at + 0.12} a="t0" caret={PEOPLE.copy.color} /> : m.title}
+                      {i === 0 ? (
+                        <Typed text={m.title} from={at} to={at + 0.12} a="t0" caret={PEOPLE.copy.color} />
+                      ) : (
+                        <Typed text={m.title} from={at + 0.05} to={at + 0.12} who={crew(m.slug)} />
+                      )}
                     </p>
-                    <p className="mt-0.5 text-[13px] leading-snug text-white/50">{m.subtitle}</p>
+                    <p className="mt-0.5 text-[13px] leading-snug text-white/50">
+                      <Typed text={m.subtitle} from={at + 0.08} to={at + 0.15} />
+                    </p>
                   </div>
                   {photo ? (
                     <Drop at={at + 0.02} show={at + 0.09} file={decodeURIComponent(photo.src.split("/").pop() ?? "photo.jpg")} a={`ph${i}`} className="col-start-2 w-fit sm:col-start-auto">
@@ -542,10 +600,14 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
                   ) : (
                     <span className="hidden sm:block" />
                   )}
-                </Appear>
+                </li>
               );
             })}
           </ol>
+          <Draw target="list" at={0.0} len={0.07} who="design" size />
+          {rows.map((m, i) => (
+            <Draw key={m.slug} target={`row${i}`} at={0.05 + i * 0.1 + rand(m.slug) * 0.05} len={0.05} who={crew(`${m.slug}r`)} cursor={i % 2 === 1} />
+          ))}
           <Cursor
             who="copy"
             keys={[
@@ -592,34 +654,45 @@ function Resume() {
           <h2 className={`${display} text-[clamp(2.2rem,5.2vw,3.75rem)] font-bold leading-[1.02] tracking-[-0.03em] text-text`}>
             <Typed text="The one-page version." from={0.08} to={0.3} a="h2" caret={PEOPLE.copy.color} />
           </h2>
-          <Appear at={0.5} as="div" a="dl" className="mt-8 flex flex-wrap items-center gap-4">
+          <div data-a="dl" className="mt-8 flex flex-wrap items-center gap-4">
             <a
+              data-a="dlbtn"
               href={hasFile ? href : `mailto:${contact.email}?subject=Resume%20request`}
               {...(hasFile ? { download: resume.fileName } : {})}
               className={`inline-flex min-h-[44px] items-center gap-2 bg-accent px-5 ${mono} text-[12px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#b01522] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
             >
-              {hasFile ? resume.ctaLabel : resume.requestLabel} <span aria-hidden="true">↓</span>
+              <Typed text={hasFile ? resume.ctaLabel : resume.requestLabel} from={0.5} to={0.56} /> <span aria-hidden="true">↓</span>
             </a>
-            <span className={`${mono} text-[11px] text-white/45`}>{resume.meta}</span>
-          </Appear>
+            <span className={`${mono} text-[11px] text-white/45`}>
+              <Typed text={resume.meta} from={0.56} to={0.66} who="qa" />
+            </span>
+          </div>
         </div>
         <Drop at={0.12} show={0.28} file={resume.fileName} a="paper" className="w-full max-w-[22rem] justify-self-center lg:w-[22rem]">
           <div className="bg-[#F4F1EA] p-6 text-[#141414] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]">
-            <p className={`${display} text-lg font-bold leading-tight`}>{site.name}</p>
+            <p className={`${display} text-lg font-bold leading-tight`}>
+              <Typed text={site.name} from={0.28} to={0.31} who="copy" />
+            </p>
             <p className="mt-0.5 text-[11px] text-black/55">
-              {resume.preview.role} · {resume.preview.location}
+              <Typed text={`${resume.preview.role} · ${resume.preview.location}`} from={0.31} to={0.35} />
             </p>
             <div className="mt-4 space-y-3">
-              {resume.preview.blocks.map((b) => (
-                <div key={b.label}>
-                  <p className={`${mono} text-[9px] uppercase tracking-[0.16em] text-[#B3121F]`}>{b.label}</p>
-                  {b.lines.map((l) => (
-                    <p key={l} className="text-[11px] leading-snug text-black/75">
-                      {l}
+              {resume.preview.blocks.map((b, bi) => {
+                // Each block typed in turn, the label first, then its lines.
+                const start = 0.35 + bi * 0.08;
+                return (
+                  <div key={b.label}>
+                    <p className={`${mono} text-[9px] uppercase tracking-[0.16em] text-[#B3121F]`}>
+                      <Typed text={b.label} from={start} to={start + 0.015} />
                     </p>
-                  ))}
-                </div>
-              ))}
+                    {b.lines.map((l, li) => (
+                      <p key={l} className="text-[11px] leading-snug text-black/75">
+                        <Typed text={l} from={start + 0.015 + li * 0.03} to={start + 0.045 + li * 0.03} who={li === 0 ? "copy" : undefined} caret="#141414" />
+                      </p>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </Drop>
@@ -652,6 +725,7 @@ function Resume() {
             { at: 0.62, to: "paper", x: 0.9, y: 0.96 },
           ]}
         />
+        <Draw target="dlbtn" at={0.44} len={0.06} who="motion" size />
         <Cursor
           who="randel"
           keys={[
@@ -667,6 +741,8 @@ function Resume() {
 
 // ─── Contact ─────────────────────────────────────────────────────────────────
 
+const linkAt = (i: number, label: string) => 0.46 + i * 0.04 + rand(label) * 0.04;
+
 function Contact({ contactEnabled }: { contactEnabled: boolean }) {
   // "Let's build something " + "worth" + " shipping."
   const [pre, post] = footer.personalityLine.split("worth");
@@ -678,7 +754,7 @@ function Contact({ contactEnabled }: { contactEnabled: boolean }) {
   ];
   return (
     <footer id="footer" data-snap-section="" className="relative border-t border-white/10">
-      <Build className={`${wrap} py-24 lg:py-28`}>
+      <Build className={`${wrap} pb-0 pt-24 lg:pt-28`}>
         <FrameLabel n="07" name="Contact" />
         <h2 className={`${display} max-w-3xl text-[clamp(2.4rem,6vw,4.4rem)] font-bold leading-[1.02] tracking-[-0.03em] text-text`}>
           <Typed text={pre ?? ""} from={0.04} to={0.22} a="pre" caret={PEOPLE.copy.color} />
@@ -694,45 +770,39 @@ function Contact({ contactEnabled }: { contactEnabled: boolean }) {
 
         <div className="mt-14 grid gap-12 lg:grid-cols-2 lg:gap-16">
           <div>
-            <Appear at={0.42} as="div" a="mail" className="flex flex-wrap items-center gap-3">
+            <div data-a="mail" className="flex flex-wrap items-center gap-3">
               <a
                 href={`mailto:${contact.email}`}
                 className={`${display} text-[1.3rem] font-semibold [overflow-wrap:anywhere] text-text underline decoration-accent decoration-2 underline-offset-[6px] transition-colors hover:text-white sm:text-3xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent`}
               >
-                {contact.email}
+                <Typed text={contact.email} from={0.42} to={0.5} />
               </a>
-              <CopyEmailButton />
-            </Appear>
-            <ul className="mt-8 grid grid-cols-1 gap-px border border-white/10 bg-white/10 sm:grid-cols-2">
+              <span data-a="copy" className="inline-flex">
+                <CopyEmailButton />
+              </span>
+            </div>
+            <ul data-a="links" className="mt-8 grid grid-cols-1 gap-px border border-white/10 bg-white/10 sm:grid-cols-2">
               {links.map((l, i) => (
-                <Appear key={l.label} as="li" at={0.46 + i * 0.04 + rand(l.label) * 0.04} className="bg-[#0f1013]">
+                <li key={l.label} data-a={`ln${i}`} className="bg-[#0f1013]">
                   <a
                     href={l.href}
                     {...(l.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                     className="flex min-h-[64px] flex-col justify-center px-4 py-3 transition-colors hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                   >
-                    <span className={`${mono} text-[10px] uppercase tracking-[0.16em] text-white/40`}>{l.label}</span>
-                    <span className="mt-1 text-[14px] text-white/85">{l.value}</span>
+                    <span className={`${mono} text-[10px] uppercase tracking-[0.16em] text-white/40`}>
+                      <Typed text={l.label} from={linkAt(i, l.label) + 0.04} to={linkAt(i, l.label) + 0.06} />
+                    </span>
+                    <span className="mt-1 text-[14px] text-white/85">
+                      <Typed text={l.value} from={linkAt(i, l.label) + 0.05} to={linkAt(i, l.label) + 0.1} who={crew(l.label)} />
+                    </span>
                   </a>
-                </Appear>
+                </li>
               ))}
             </ul>
           </div>
-          <Appear at={0.56} as="div" a="form">
+          <div data-a="form">
             <ContactForm enabled={contactEnabled} />
-          </Appear>
-        </div>
-
-        <ViewSwitch className="mt-24 border-t border-white/10 pt-14" />
-
-        <div className={`mt-16 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 ${mono} text-[11px] text-white/40`}>
-          <span>© {new Date().getFullYear()} {site.name}</span>
-          <Link
-            href="/privacy"
-            className="underline decoration-white/20 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            Privacy
-          </Link>
+          </div>
         </div>
 
         <Cursor
@@ -764,6 +834,47 @@ function Contact({ contactEnabled }: { contactEnabled: boolean }) {
             { at: 0.6, to: "form", x: 0.4, y: 0.2 },
           ]}
         />
+        <Draw target="copy" at={0.5} len={0.04} who="qa" />
+        <Draw target="links" at={0.42} len={0.05} who="design" cursor={false} />
+        {links.map((l, i) => (
+          <Draw key={l.label} target={`ln${i}`} at={linkAt(i, l.label)} len={0.04} who={crew(`${l.label}d`)} cursor={i % 2 === 0} />
+        ))}
+        <Draw target="form" at={0.5} len={0.1} who="design" size />
+      </Build>
+
+      {/* The view switch and the last line get their own build: they sit far below the heading. */}
+      <Build className={`${wrap} pb-16`} offset={["start 0.85", "start 0.3"]}>
+        <div className="mt-24 border-t border-white/10 pt-14">
+          <ViewSwitch />
+        </div>
+        <Draw target="vs-eyebrow" at={0.02} len={0.05} who="a11y" cursor={false} />
+        <Draw target="vs-title" at={0.08} len={0.1} who="copy" />
+        <Draw target="vs-immersive" at={0.2} len={0.14} who="motion" size />
+        <Draw target="vs-clean" at={0.3} len={0.14} who="design" size />
+        <Cursor
+          who="randel"
+          keys={[
+            { at: 0.5, to: "vs-immersive", x: 0.8, y: 0.2 },
+            { at: 0.6, to: "vs-immersive", x: 0.85, y: 0.15, click: true },
+            { at: 0.74, to: "end", x: 0.1, y: 0.5 },
+          ]}
+        />
+
+        <div
+          data-a="end"
+          className={`mt-16 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 ${mono} text-[11px] text-white/40`}
+        >
+          <span>
+            <Typed text={`© ${new Date().getFullYear()} ${site.name}`} from={0.62} to={0.72} who="qa" />
+          </span>
+          <Link
+            href="/privacy"
+            className="underline decoration-white/20 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <Typed text="Privacy" from={0.7} to={0.76} who="a11y" />
+          </Link>
+        </div>
+        <Draw target="end" at={0.56} len={0.06} who="code" cursor={false} />
       </Build>
     </footer>
   );

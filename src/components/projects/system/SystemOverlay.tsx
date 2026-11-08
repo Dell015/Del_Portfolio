@@ -24,6 +24,59 @@ interface SystemOverlayProps {
   screenRef: React.MutableRefObject<SystemScreen>;
   /** Leave the system for the section above (About) or below (Skills). */
   onLeave: (to: "about" | "skills") => void;
+  /** Set when the visitor tried to scroll while the system holds the page. */
+  nudge?: { dir: "up" | "down"; n: number } | null;
+}
+
+/**
+ * One of the two ways out of the system. Big enough to read as a button, numbered like
+ * the nav index. When a blocked scroll points its way it lights up red and says why.
+ */
+function ExitButton({
+  to,
+  onClick,
+  lit,
+  className,
+}: {
+  to: "about" | "skills";
+  onClick: () => void;
+  lit: boolean;
+  className: string;
+}) {
+  const up = to === "about";
+  return (
+    <div className={`pointer-events-none absolute flex flex-col ${className}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={up ? "Back up to About" : "Continue down to Skills"}
+        className={`pointer-events-auto group relative inline-flex items-center gap-3 border px-3.5 py-2.5 text-left backdrop-blur-sm transition-[border-color,background-color,box-shadow] duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent lg:px-4 lg:py-3 ${
+          lit
+            ? "border-accent bg-[#2a0a0e]/85 shadow-[0_0_0_1px_#D11A2A,0_10px_40px_-10px_rgba(209,26,42,0.7)]"
+            : "border-white/30 bg-[#0A0C0F]/80 hover:border-white/70 hover:bg-[#14161a]/90"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`flex h-8 w-8 shrink-0 items-center justify-center border text-[15px] transition-colors duration-300 lg:h-9 lg:w-9 ${
+            lit ? "border-accent bg-accent text-white" : "border-white/25 text-white group-hover:border-white/60"
+          }`}
+        >
+          <span className={`transition-transform duration-300 ${up ? "group-hover:-translate-y-0.5" : "group-hover:translate-y-0.5"} ${lit ? (up ? "animate-[exitUp_0.9s_ease-in-out_infinite]" : "animate-[exitDown_0.9s_ease-in-out_infinite]") : ""}`}>
+            {up ? "↑" : "↓"}
+          </span>
+        </span>
+        <span className="block">
+          <span className="block font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.18em] text-white/50 lg:text-[10px]">
+            {up ? "01 · Back up" : "03 · Next"}
+          </span>
+          <span className="mt-0.5 block font-[family-name:var(--font-display)] text-[15px] font-bold leading-none tracking-[-0.01em] text-white lg:text-[18px]">
+            {up ? "About" : "Skills"}
+          </span>
+        </span>
+      </button>
+    </div>
+  );
 }
 
 function Arrow({ dir }: { dir: "left" | "right" }) {
@@ -39,7 +92,25 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
  * transparent; only buttons and links opt back in. While the system is showing the
  * page is locked, so the About and Skills buttons are the ways out.
  */
-export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef, onLeave }: SystemOverlayProps) {
+export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef, onLeave, nudge }: SystemOverlayProps) {
+  // Which exit a blocked scroll pointed at, shown for a moment.
+  const [lit, setLit] = useState<"up" | "down" | null>(null);
+  useEffect(() => {
+    if (!nudge) return;
+    // Defer so the highlight isn't set synchronously inside the effect.
+    const on = setTimeout(() => setLit(nudge.dir), 0);
+    const off = setTimeout(() => setLit(null), 2600);
+    return () => {
+      clearTimeout(on);
+      clearTimeout(off);
+    };
+  }, [nudge]);
+  useEffect(() => {
+    if (visible) return;
+    const t = setTimeout(() => setLit(null), 0);
+    return () => clearTimeout(t);
+  }, [visible]);
+
   const project = projects[selection.planet] ?? projects[0]!;
   const parts = partsFor(project.slug);
   const part = parts[selection.part] ?? parts[0];
@@ -91,16 +162,6 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
     return () => cancelAnimationFrame(raf);
   }, [visible, screenRef]);
 
-  const nextPartName = parts[(selection.part + 1) % parts.length]?.name ?? "";
-  const nextPlanetIdx = (selection.planet + 1) % total;
-  const nextPlanet_ = projects[nextPlanetIdx]!;
-  const nextPlanetCol = PLANETS[nextPlanetIdx]?.colorA ?? "#fff";
-  const prevPlanetName = projects[(selection.planet - 1 + total) % total]!.name;
-  // Until the visitor has moved once, the "next part" button breathes, so it's obvious
-  // that this is something you step through.
-  const [first] = useState(selection);
-  const touched = selection.planet !== first.planet || selection.part !== first.part;
-
   const prevPlanet = () => onPlanet((selection.planet - 1 + total) % total);
   const nextPlanet = () => onPlanet((selection.planet + 1) % total);
   const prevPart = () => onPart((selection.part - 1 + parts.length) % parts.length);
@@ -108,30 +169,6 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
 
   const btn =
     "pointer-events-auto inline-flex h-9 w-9 items-center justify-center border border-white/15 bg-[#0A0C0F]/85 text-white/80 transition-colors duration-200 hover:border-white/45 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
-
-  const exitBtn =
-    "pointer-events-auto group absolute inline-flex items-center gap-2 border-b border-white/25 pb-1 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white/65 transition-colors duration-200 hover:border-white/70 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
-
-  const nextPartBtn = (
-    <button
-      type="button"
-      onClick={nextPart}
-      aria-label={`Next part: ${nextPartName}`}
-      className="pointer-events-auto group relative flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-3 border px-4 py-2 text-left transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      style={{ borderColor: c0, background: `${c0}14` }}
-    >
-      {!touched && (
-        <span aria-hidden="true" className="absolute -inset-[4px] animate-pulse border" style={{ borderColor: `${c0}99` }} />
-      )}
-      <span className="min-w-0">
-        <span className="block font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.18em] text-white/55">Next part</span>
-        <span className="mt-0.5 block truncate text-[14px] font-semibold text-white">{nextPartName}</span>
-      </span>
-      <span aria-hidden="true" className="text-lg transition-transform duration-300 group-hover:translate-x-1" style={{ color: c0 }}>
-        →
-      </span>
-    </button>
-  );
 
   const partTicks = (
     <div className="flex items-center gap-1.5" role="group" aria-label="Parts">
@@ -226,14 +263,38 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
 
 
       {/* ── Ways out: scrolling is locked while the system shows ─────────── */}
-      <button type="button" onClick={() => onLeave("about")} className={`${exitBtn} left-4 top-[4.75rem] lg:left-auto lg:right-10 lg:top-[6.5rem]`}>
-        <span aria-hidden="true" className="transition-transform duration-300 group-hover:-translate-y-0.5">↑</span>
-        About
-      </button>
-      <button type="button" onClick={() => onLeave("skills")} className={`${exitBtn} right-4 top-[4.75rem] lg:bottom-[5.75rem] lg:right-10 lg:top-auto`}>
-        Skills
-        <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-y-0.5">↓</span>
-      </button>
+      <ExitButton
+        to="about"
+        lit={lit === "up"}
+        onClick={() => onLeave("about")}
+        className="left-4 top-[4.25rem] lg:left-auto lg:right-10 lg:top-[6.75rem] xl:right-14"
+      />
+      <ExitButton
+        to="skills"
+        lit={lit === "down"}
+        onClick={() => onLeave("skills")}
+        className="right-4 top-[4.25rem] lg:bottom-[6rem] lg:right-10 lg:top-auto xl:right-14"
+      />
+      {/* Said once a blocked scroll happens: why nothing moved, and where to click. */}
+      <AnimatePresence>
+        {lit && (
+          <motion.p
+            key={lit}
+            role="status"
+            initial={{ opacity: 0, y: lit === "up" ? -6 : 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className={`pointer-events-none absolute z-10 max-w-[15rem] border border-white/15 bg-[#0A0C0F]/90 px-3 py-2 font-[family-name:var(--font-mono)] text-[10px] uppercase leading-relaxed tracking-[0.14em] text-white/80 ${
+              lit === "up"
+                ? "left-4 top-[8.25rem] lg:left-auto lg:right-10 lg:top-[11.25rem] xl:right-14"
+                : "right-4 top-[8.25rem] text-right lg:bottom-[10.5rem] lg:right-10 lg:top-auto xl:right-14"
+            }`}
+          >
+            Scrolling is paused on the projects. {lit === "up" ? "Use ↑ About to go back up." : "Use Skills ↓ to keep going."}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {/* ── Desktop: text column ─────────────────────────────────────────── */}
       <div className="absolute left-10 top-1/2 hidden w-[23rem] -translate-y-1/2 lg:block xl:left-16">
@@ -260,13 +321,15 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
 
         <div className="mt-6 border-t border-dashed border-white/15 pt-5">{partBody}</div>
 
-        <div className="mt-5 flex items-stretch gap-2">
-          <button type="button" onClick={prevPart} aria-label="Previous part" className={`${btn} h-auto w-12`}>
+        <div className="mt-5 flex items-center gap-3">
+          <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
             <Arrow dir="left" />
           </button>
-          {nextPartBtn}
+          <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
+            <Arrow dir="right" />
+          </button>
+          <div className="ml-1">{partTicks}</div>
         </div>
-        <div className="mt-3">{partTicks}</div>
 
         <Link
           href={`/projects/${project.slug}`}
@@ -285,14 +348,8 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
       {/* ── Desktop: orbit rail (planet switcher) ────────────────────────── */}
       <div className="absolute inset-x-0 bottom-7 hidden justify-center lg:flex">
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={prevPlanet}
-            aria-label={`Previous planet: ${prevPlanetName}`}
-            className={`${btn} h-10 w-auto gap-2 px-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em]`}
-          >
+          <button type="button" onClick={prevPlanet} aria-label="Previous planet" className={btn}>
             <Arrow dir="left" />
-            Prev
           </button>
           <div className="relative flex items-center gap-1" role="group" aria-label="Planets">
             <span aria-hidden="true" className="absolute inset-x-3 top-1/2 h-px bg-white/12" />
@@ -328,19 +385,8 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={nextPlanet}
-            aria-label={`Next planet: ${nextPlanet_.name}`}
-            className="pointer-events-auto group inline-flex h-10 items-center gap-2.5 border bg-[#0A0C0F]/90 px-4 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            style={{ borderColor: nextPlanetCol }}
-          >
-            <span className="text-white/55">Next planet</span>
-            <span className="h-2 w-2 rounded-full" style={{ background: nextPlanetCol }} />
-            {nextPlanet_.name}
-            <span className="transition-transform duration-300 group-hover:translate-x-0.5">
-              <Arrow dir="right" />
-            </span>
+          <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>
+            <Arrow dir="right" />
           </button>
         </div>
       </div>
@@ -360,25 +406,20 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
                 {project.name}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={nextPlanet}
-              aria-label={`Next planet: ${nextPlanet_.name}`}
-              className={`${btn} w-auto gap-1.5 px-2.5 font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.12em]`}
-              style={{ borderColor: nextPlanetCol }}
-            >
-              {nextPlanet_.name}
+            <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>
               <Arrow dir="right" />
             </button>
           </div>
           <div className="mt-3 border-t border-dashed border-white/15 pt-3 [&_p:nth-of-type(2)]:line-clamp-3">{partBody}</div>
-          <div className="mt-3 flex items-stretch gap-2">
-            <button type="button" onClick={prevPart} aria-label="Previous part" className={`${btn} h-auto w-11`}>
-              <Arrow dir="left" />
-            </button>
-            {nextPartBtn}
-          </div>
-          <div className="mt-2.5 flex justify-end">
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
+                <Arrow dir="left" />
+              </button>
+              <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
+                <Arrow dir="right" />
+              </button>
+            </div>
             <Link
               href={`/projects/${project.slug}`}
               className="pointer-events-auto font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white underline decoration-1 underline-offset-4"

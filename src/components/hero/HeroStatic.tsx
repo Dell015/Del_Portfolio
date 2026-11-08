@@ -97,7 +97,6 @@ export function HeroStatic() {
             className="hero-rise mt-8 inline-flex items-center gap-2.5 font-[family-name:var(--font-mono)] text-xs text-text-muted"
             style={{ "--d": "0.55s" } as React.CSSProperties}
           >
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#4ADE80]" />
               {availability.label}
             </p>
           )}

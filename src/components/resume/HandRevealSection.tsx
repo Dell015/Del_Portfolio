@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
+  animate,
   motion,
+  useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
-  useScroll,
   useTransform,
   type MotionValue,
 } from "framer-motion";
@@ -48,15 +49,20 @@ import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
 import { ResumeButton } from "./ResumeButton";
 import { ResumeCard } from "./ResumeCard";
 
-/** Scroll distance the section stays pinned. 300vh matches ProjectSphereSection,
- *  the pattern already established for pinning on this page. */
-const PIN_HEIGHT_VH = 400;
+/** How long the whole reveal plays once the section is on screen. */
+const PLAY_SECONDS = 4.6;
+/** If the hand clouds are still being sampled, wait at most this long before playing anyway. */
+const WAIT_FOR_HANDS_MS = 1800;
 
 /** Progress at which the button becomes interactive, the page is essentially
  *  printed by here, and gating clicks avoids an invisible-but-clickable target. */
 const BUTTON_ACTIVE_AT = 0.84;
 
-/** Two particle hands reach in, touch, and the resume appears between them. */
+/**
+ * Two particle hands reach in, touch, and the resume appears between them. It plays
+ * by itself once the section is on screen (it used to be scrubbed by a 400vh scroll,
+ * which left a black screen when the nav jumped straight to it).
+ */
 export function HandRevealSection() {
   const { webglAvailable, tier } = useDeviceCapability();
   const reducedMotion = useReducedMotion();
@@ -67,6 +73,9 @@ export function HandRevealSection() {
 
 function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
   const { containerRef } = useSnapScroll();
+  const [inView, setInView] = useState(false);
+  const [handsLate, setHandsLate] = useState(false);
+  const [played, setPlayed] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const { ref: visibilityRef, visible } = useIsVisible("400px");
   const orientation = useSyncExternalStore(subscribeOrientation, getOrientation, getOrientationServer);
@@ -113,14 +122,43 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
     };
   }, [tier, failed, rawSamples]);
 
-  // ── Scroll progress over the pinned range ──
-  // "start start" → sticky begins pinning; "end end" → sticky releases. So 0→1
-  // maps exactly onto the pinned duration, with no magic page numbers.
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    container: containerRef,
-    offset: ["start start", "end end"],
-  });
+  // ── Progress of the reveal, 0→1, played on a timer ──
+  const scrollYProgress = useMotionValue(0);
+
+  // On screen = at least half the section visible inside the scroll container.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(!!e?.isIntersecting), {
+      root: containerRef.current,
+      threshold: 0.5,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [containerRef]);
+
+  // Give slow sampling a moment so the hands don't arrive after the resume.
+  useEffect(() => {
+    if (!inView || clouds || handsLate) return;
+    const t = window.setTimeout(() => setHandsLate(true), WAIT_FOR_HANDS_MS);
+    return () => window.clearTimeout(t);
+  }, [inView, clouds, handsLate]);
+
+  const ready = inView && (!!clouds || handsLate);
+  const [run, setRun] = useState(0);
+  useEffect(() => {
+    if (!ready || (played && run === 0)) return;
+    // Leaving mid-play pauses it; coming back carries on from where it was.
+    const a = animate(scrollYProgress, 1, {
+      duration: PLAY_SECONDS,
+      // Quick to start (something moves the moment you land), slower at the touch.
+      ease: [0.3, 0.1, 0.25, 1],
+      onComplete: () => setPlayed(true),
+    });
+    return () => a.stop();
+    // `played` is only read to skip a replay on re-entry; it must not restart the run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, run, scrollYProgress]);
 
   useMotionValueEvent(scrollYProgress, "change", (v) => {
     progressRef.current = v;
@@ -152,8 +190,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
       ref={sectionRef}
       id="resume"
       data-snap-section=""
-      className="relative z-[2]"
-      style={{ height: `${PIN_HEIGHT_VH}vh` }}
+      className="relative z-[2] h-screen"
     >
       <div ref={visibilityRef} className="pointer-events-none absolute inset-0" />
 
@@ -200,7 +237,7 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
           >
             <div className="w-[calc((50vw-100px-380px)/2-24px)] space-y-7">
               <SideNote p={scrollYProgress} at={0.26} right label="Format" value="One page" detail="PDF · ATS-friendly" />
-              <SideNote p={scrollYProgress} at={0.34} right label="Updated" value="October 2026" detail="Always the latest" />
+              <SideNote p={scrollYProgress} at={0.34} right label="Updated" value="November 2026" detail="Always the latest" />
             </div>
             <div className="w-[calc((50vw-100px-380px)/2-24px)] space-y-7">
               <SideNote p={scrollYProgress} at={0.42} label="Based in" value="Cauayan, Isabela" detail="Philippines · Remote-friendly" />
@@ -227,6 +264,23 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
                 <p className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-text-muted">
                   <span aria-hidden="true" className="resume-pulse h-1.5 w-1.5 rounded-full bg-accent" />
                   {resume.meta}
+                  {played && (
+                    <>
+                      <span aria-hidden="true" className="text-white/25">·</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPlayed(false);
+                          setButtonActive(false);
+                          scrollYProgress.set(0);
+                          setRun((r) => r + 1);
+                        }}
+                        className="uppercase text-text-muted underline-offset-4 transition-colors hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                      >
+                        ↺ Replay
+                      </button>
+                    </>
+                  )}
                 </p>
               </Reveal>
             </div>

@@ -36,6 +36,9 @@ export const PEOPLE = {
   design: { label: "design", color: "#F2A541", ink: "#1a1205" },
   copy: { label: "copy", color: "#3DD6C3", ink: "#05201c" },
   code: { label: "code", color: "#9B8CFF", ink: "#0e0a24" },
+  motion: { label: "motion", color: "#FF7AC6", ink: "#2a0718" },
+  qa: { label: "qa", color: "#5AA9FF", ink: "#04172b" },
+  a11y: { label: "a11y", color: "#E6E15A", ink: "#1f1d02" },
 } as const;
 export type Who = keyof typeof PEOPLE;
 
@@ -311,6 +314,7 @@ export function Typed({
   a,
   className = "",
   caret = "#F5F5F5",
+  who,
 }: {
   text: string;
   from: number;
@@ -318,7 +322,10 @@ export function Typed({
   a?: string;
   className?: string;
   caret?: string;
+  /** Whose caret: coloured and flagged with their name, like a shared doc. */
+  who?: Who;
 }) {
+  const person = who ? PEOPLE[who] : null;
   const shown = useRef<HTMLSpanElement>(null);
   const rest = useRef<HTMLSpanElement>(null);
   const bar = useRef<HTMLSpanElement>(null);
@@ -356,8 +363,17 @@ export function Typed({
         ref={bar}
         aria-hidden="true"
         className="ql-caret relative -mr-[2px] h-[0.95em] w-[2px] translate-y-[0.12em] align-baseline"
-        style={{ display: "none", background: caret }}
-      />
+        style={{ display: "none", background: person?.color ?? caret }}
+      >
+        {person && (
+          <span
+            className="absolute bottom-full left-0 mb-[2px] whitespace-nowrap rounded-[2px] px-1 py-[2px] font-[family-name:var(--font-mono)] text-[9px] font-medium not-italic leading-none tracking-normal"
+            style={{ background: person.color, color: person.ink }}
+          >
+            {person.label}
+          </span>
+        )}
+      </span>
       <span ref={rest} style={{ color: "transparent" }} />
     </span>
   );
@@ -769,6 +785,105 @@ export function Rulers() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Draw: a rectangle dragged out by someone, then the element is there ─────
+
+/**
+ * Hides the `data-a` element until `at`, then a frame is dragged out over it from its
+ * top-left corner (the rectangle tool), with the person's cursor on the dragging corner.
+ * When the frame reaches full size the element shows and the frame fades. Writes the
+ * target's opacity directly; with no JS or reduced motion nothing is hidden.
+ */
+export function Draw({
+  target,
+  at,
+  len = 0.07,
+  who,
+  cursor = true,
+  size = false,
+}: {
+  target: string;
+  at: number;
+  len?: number;
+  who: Who;
+  /** Show the cursor riding the corner (off for very small, crowded things). */
+  cursor?: boolean;
+  /** Show the live W × H readout. */
+  size?: boolean;
+}) {
+  const p = PEOPLE[who];
+  const ref = useRef<HTMLDivElement>(null);
+  const sizeRef = useRef<HTMLSpanElement>(null);
+  const el = useRef<HTMLElement | null>(null);
+  const box = useRef<Box | null>(null);
+  const measured = useRef(-1);
+  const lastShown = useRef<boolean | null>(null);
+  const scope = useProgress((v, { version, root }) => {
+    const f = ref.current;
+    if (!f || !root) return;
+    if (measured.current !== version) {
+      measured.current = version;
+      el.current = find(root, target);
+      // Measure with the element's own transform state, which the draw never changes.
+      box.current = el.current ? boxIn(root, el.current) : null;
+    }
+    const t = el.current;
+    const b = box.current;
+    if (!t || !b) return;
+    const shown = v >= at + len;
+    if (lastShown.current !== shown) {
+      lastShown.current = shown;
+      t.style.opacity = shown ? "" : "0";
+    }
+    if (v < at || v > at + len + 0.05) {
+      f.style.opacity = "0";
+      return;
+    }
+    const d = ease(seg(v, at, at + len));
+    f.style.transform = `translate3d(${b.x}px, ${b.y}px, 0)`;
+    f.style.width = `${Math.max(2, b.w * d)}px`;
+    f.style.height = `${Math.max(2, b.h * d)}px`;
+    f.style.opacity = String(1 - seg(v, at + len, at + len + 0.05));
+    if (sizeRef.current) sizeRef.current.textContent = `${Math.round(b.w * d)} × ${Math.round(b.h * d)}`;
+  });
+  // Give the element back if this piece goes away (e.g. switching views mid-build).
+  useEffect(
+    () => () => {
+      if (el.current) el.current.style.opacity = "";
+    },
+    [],
+  );
+  if (scope.still) return null;
+  return (
+    <div
+      ref={ref}
+      aria-hidden="true"
+      className="pointer-events-none absolute left-0 top-0 z-30"
+      style={{ opacity: 0, outline: `1px solid ${p.color}`, background: `${p.color}14` }}
+    >
+      {size && (
+        <span
+          ref={sizeRef}
+          className="absolute -bottom-5 left-0 whitespace-nowrap rounded-[2px] px-1 py-[2px] font-[family-name:var(--font-mono)] text-[9px] leading-none"
+          style={{ background: p.color, color: p.ink }}
+        />
+      )}
+      {cursor && (
+        <span className="absolute left-full top-full -ml-[2px] -mt-[2px] block">
+          <svg width="14" height="16" viewBox="0 0 18 20" className="block drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+            <path d="M1.5 1.5 16 9.2l-6.4 1.6-3 6.7L1.5 1.5Z" fill={p.color} stroke="#fff" strokeWidth="1.4" strokeLinejoin="round" />
+          </svg>
+          <span
+            className="absolute left-3 top-3 whitespace-nowrap rounded-[3px] px-1 py-[2px] font-[family-name:var(--font-mono)] text-[9px] font-medium leading-none"
+            style={{ background: p.color, color: p.ink }}
+          >
+            {p.label}
+          </span>
+        </span>
+      )}
     </div>
   );
 }

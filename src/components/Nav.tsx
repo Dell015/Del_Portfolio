@@ -154,7 +154,7 @@ export function Nav() {
             {availability.active && (
               <>
                 <span className="mx-1.5">·</span>
-                <span className="text-[#4ADE80]">open to work</span>
+                <span className="text-text">open to work</span>
               </>
             )}
           </p>

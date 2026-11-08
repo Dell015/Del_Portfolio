@@ -100,10 +100,6 @@ export function TopRightPanel({ delay, style }: { delay: number; style: { y: Mot
 
       <div className="mt-4 flex items-center justify-end gap-3 font-[family-name:var(--font-mono)] text-[11px] tracking-[0.1em] text-text-muted">
         <span className="inline-flex items-center gap-1.5 text-text">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-          </span>
           open to work
         </span>
         <span aria-hidden="true">·</span>
