@@ -13,7 +13,7 @@ import { projects } from "@/lib/content/projects";
 import { BackdropParticles } from "./BackdropParticles";
 import { bloomValue, makeSwirlUniforms, swirlGlsl, syncSwirl } from "@/lib/swirl";
 import { DEFAULT_SPHERE_SETTINGS, type SphereSettings } from "@/lib/sphere/settings";
-import { partsFor } from "@/lib/content/planets";
+import { partCountOf, stepBody } from "@/lib/system/layout";
 import {
   SolarSystem,
   SystemCamera,
@@ -630,8 +630,9 @@ function loadSelection(): SystemSelection {
     const raw = sessionStorage.getItem(SELECTION_KEY);
     if (!raw) return { planet: 0, part: 0 };
     const v = JSON.parse(raw) as Partial<SystemSelection>;
-    const planet = Number.isInteger(v.planet) && v.planet! >= 0 && v.planet! < projects.length ? v.planet! : 0;
-    const n = partsFor(projects[planet]!.slug).length;
+    // -1 is the sun (its parts are the commission nodes).
+    const planet = Number.isInteger(v.planet) && v.planet! >= -1 && v.planet! < projects.length ? v.planet! : 0;
+    const n = partCountOf(planet);
     const part = Number.isInteger(v.part) && v.part! >= 0 && v.part! < n ? v.part! : 0;
     return { planet, part };
   } catch {
@@ -716,16 +717,16 @@ export function HeroParticleCanvas({
   }, []);
   const pickPart = useCallback((i: number) => {
     setSelection((s) => {
-      const n = partsFor(projects[s.planet]?.slug ?? "").length || 1;
+      const n = partCountOf(s.planet) || 1;
       return { planet: s.planet, part: ((i % n) + n) % n };
     });
   }, []);
   const stepPlanet = useCallback((d: number) => {
-    setSelection((s) => ({ planet: (s.planet + d + projects.length) % projects.length, part: 0 }));
+    setSelection((s) => ({ planet: stepBody(s.planet, d), part: 0 }));
   }, []);
   const stepPart = useCallback((d: number) => {
     setSelection((s) => {
-      const n = partsFor(projects[s.planet]?.slug ?? "").length || 1;
+      const n = partCountOf(s.planet) || 1;
       return { planet: s.planet, part: (s.part + d + n) % n };
     });
   }, []);

@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { projects, type Project } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
-import { PLANETS } from "@/lib/system/layout";
+import { commissions } from "@/lib/content/commissions";
+import { PLANETS, stepBody } from "@/lib/system/layout";
 import type { SystemScreen, SystemSelection } from "./SolarSystem";
 
 const PLATFORM_LABEL: Record<Project["platform"], string> = {
@@ -15,6 +16,39 @@ const PLATFORM_LABEL: Record<Project["platform"], string> = {
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+/** What the text column shows for one selectable thing: a planet's part, or a node on the sun. */
+interface Item {
+  name: string;
+  stage?: string;
+  summary: string;
+  tech: string[];
+  /** Client and kind of work, for commissions. */
+  meta?: string;
+  url?: string;
+}
+
+const SUN_COLOR = "#D11A2A";
+const SUN_PART = "#ff8a6a";
+
+/** Shown on the sun until the first commission is added. */
+const OPEN_SLOT: Item = {
+  name: "Open slot",
+  stage: "Available",
+  summary: "Your project could be the first node here. I build landing pages, portfolios and web apps for businesses and people.",
+  tech: ["Landing pages", "Portfolios", "Web apps"],
+};
+
+const SUN_ITEMS: Item[] = commissions.length
+  ? commissions.map((c) => ({
+      name: c.title,
+      stage: c.year,
+      summary: c.summary,
+      tech: c.stack,
+      meta: `${c.client} · ${c.kind}`,
+      url: c.url,
+    }))
+  : [OPEN_SLOT];
 
 interface SystemOverlayProps {
   visible: boolean;
@@ -79,6 +113,40 @@ function ExitButton({
   );
 }
 
+/** The column's main link: a case study (client-side route), contact (hash link) or an outside site. */
+function CtaLink({
+  cta,
+  className,
+  style,
+  children,
+}: {
+  cta: { href: string; external: boolean };
+  className: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  if (cta.external) {
+    return (
+      <a href={cta.href} target="_blank" rel="noopener noreferrer" className={className} style={style}>
+        {children}
+      </a>
+    );
+  }
+  if (cta.href.startsWith("/#")) {
+    // A plain hash link, so the site's scroll handling treats it as navigation.
+    return (
+      <a href={cta.href} className={className} style={style}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={cta.href} className={className} style={style}>
+      {children}
+    </Link>
+  );
+}
+
 function Arrow({ dir }: { dir: "left" | "right" }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square">
@@ -111,13 +179,36 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
     return () => clearTimeout(t);
   }, [visible]);
 
+  // The sun (planet -1) is selectable too: its "parts" are the commission nodes.
+  const isSun = selection.planet < 0;
   const project = projects[selection.planet] ?? projects[0]!;
-  const parts = partsFor(project.slug);
+  const parts: Item[] = isSun ? SUN_ITEMS : partsFor(project.slug);
   const part = parts[selection.part] ?? parts[0];
   const layout = PLANETS[selection.planet] ?? PLANETS[0]!;
-  const c0 = layout.colorA;
-  const c1 = layout.partColor;
+  const c0 = isSun ? SUN_COLOR : layout.colorA;
+  const c1 = isSun ? SUN_PART : layout.partColor;
   const total = projects.length;
+  const hired = commissions.length;
+  const bodyKey = isSun ? "sun" : project.slug;
+  const partWord = isSun ? "Node" : "Part";
+
+  // Heading for the selected body.
+  const eyebrow = isSun
+    ? `The sun · ${hired ? `${hired} ${hired === 1 ? "commission" : "commissions"}` : "Client work"}`
+    : `Planet ${pad(selection.planet + 1)} / ${pad(total)} · ${PLATFORM_LABEL[project.platform]}`;
+  const title = isSun ? "Client work" : project.name;
+  const pitch = isSun
+    ? hired
+      ? "Projects people hired me to build. Each node orbiting the sun is one of them."
+      : "Projects people hire me for orbit the sun here, one node each. The first slot is open."
+    : project.pitch;
+  const statusLine = isSun ? (hired ? "Newest first" : "Open for commissions") : `${project.status} · ${parts.length} parts`;
+  // Where the column's main link goes: the case study, the commission's site, or contact.
+  const cta = isSun
+    ? part?.url
+      ? { href: part.url, label: "Visit the site", external: true }
+      : { href: "/#footer", label: hired ? "Hire me for one" : "Start a project", external: false }
+    : { href: `/projects/${project.slug}`, label: "Open case study", external: false };
 
   // ── Labels pinned to the part orbs (positions come from the canvas each frame) ──
   const markerRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -162,8 +253,8 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
     return () => cancelAnimationFrame(raf);
   }, [visible, screenRef]);
 
-  const prevPlanet = () => onPlanet((selection.planet - 1 + total) % total);
-  const nextPlanet = () => onPlanet((selection.planet + 1) % total);
+  const prevPlanet = () => onPlanet(stepBody(selection.planet, -1));
+  const nextPlanet = () => onPlanet(stepBody(selection.planet, 1));
   const prevPart = () => onPart((selection.part - 1 + parts.length) % parts.length);
   const nextPart = () => onPart((selection.part + 1) % parts.length);
 
@@ -197,7 +288,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
   const partBody = part && (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
-        key={`${project.slug}-${selection.part}`}
+        key={`${bodyKey}-${selection.part}`}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4 }}
@@ -205,13 +296,16 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
       >
         <div className="flex items-center justify-between gap-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em]">
           <span className="text-white/45">
-            Part {pad(selection.part + 1)} / {pad(parts.length)}
+            {part === OPEN_SLOT ? "Node 01 · waiting" : `${partWord} ${pad(selection.part + 1)} / ${pad(parts.length)}`}
           </span>
           {part.stage && <span style={{ color: c1 }}>[ {part.stage} ]</span>}
         </div>
         <p className="mt-2 font-[family-name:var(--font-display)] text-2xl font-bold leading-tight tracking-tight text-white">
           {part.name}
         </p>
+        {part.meta && (
+          <p className="mt-1.5 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.12em] text-white/50">{part.meta}</p>
+        )}
         <p className="mt-2 text-[13px] leading-relaxed text-white/65">{part.summary}</p>
         <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-white/45">
           {part.tech.join(" / ")}
@@ -230,13 +324,13 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
     >
       {/* Spoken summary of the current planet and part */}
       <p className="sr-only" aria-live="polite">
-        {project.name}, part {selection.part + 1} of {parts.length}: {part?.name}. {part?.summary}
+        {title}, {partWord.toLowerCase()} {selection.part + 1} of {parts.length}: {part?.name}. {part?.summary}
       </p>
 
       {/* ── Markers on the planet ─────────────────────────────────────────── */}
       {parts.map((pt, i) => (
         <button
-          key={`${project.slug}-${pt.name}`}
+          key={`${bodyKey}-${pt.name}`}
           ref={(el) => {
             markerRefs.current[i] = el;
           }}
@@ -300,49 +394,50 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
       <div className="absolute left-10 top-1/2 hidden w-[23rem] -translate-y-1/2 lg:block xl:left-16">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={project.slug}
+            key={bodyKey}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -6 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           >
             <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.18em]" style={{ color: c0 }}>
-              Planet {pad(selection.planet + 1)} / {pad(total)} · {PLATFORM_LABEL[project.platform]}
+              {eyebrow}
             </p>
             <h3 className="mt-3 font-[family-name:var(--font-display)] text-5xl font-bold leading-[0.95] tracking-[-0.03em] text-white">
-              {project.name}
+              {title}
             </h3>
-            <p className="mt-3 text-sm leading-relaxed text-white/60">{project.pitch}</p>
+            <p className="mt-3 text-sm leading-relaxed text-white/60">{pitch}</p>
             <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.12em] text-white/40">
-              {project.status} · {parts.length} parts
+              {statusLine}
             </p>
           </motion.div>
         </AnimatePresence>
 
         <div className="mt-6 border-t border-dashed border-white/15 pt-5">{partBody}</div>
 
-        <div className="mt-5 flex items-center gap-3">
-          <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
-            <Arrow dir="left" />
-          </button>
-          <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
-            <Arrow dir="right" />
-          </button>
-          <div className="ml-1">{partTicks}</div>
-        </div>
+        {parts.length > 1 && (
+          <div className="mt-5 flex items-center gap-3">
+            <button type="button" onClick={prevPart} aria-label={`Previous ${partWord.toLowerCase()}`} className={btn}>
+              <Arrow dir="left" />
+            </button>
+            <button type="button" onClick={nextPart} aria-label={`Next ${partWord.toLowerCase()}`} className={btn}>
+              <Arrow dir="right" />
+            </button>
+            <div className="ml-1">{partTicks}</div>
+          </div>
+        )}
 
-        <Link
-          href={`/projects/${project.slug}`}
-         
+        <CtaLink
+          cta={cta}
           className="pointer-events-auto group mt-6 inline-flex items-center gap-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
         >
           <span className="border-b pb-1" style={{ borderColor: c0 }}>
-            Open case study
+            {cta.label}
           </span>
           <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1" style={{ color: c0 }}>
-            →
+            {cta.external ? "↗" : "→"}
           </span>
-        </Link>
+        </CtaLink>
       </div>
 
       {/* ── Desktop: orbit rail (planet switcher) ────────────────────────── */}
@@ -353,10 +448,21 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
           </button>
           <div className="relative flex items-center gap-1" role="group" aria-label="Planets">
             <span aria-hidden="true" className="absolute inset-x-3 top-1/2 h-px bg-white/12" />
-            <span aria-hidden="true" className="relative mr-3 flex items-center gap-2 bg-[#0A0C0F] px-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.18em] text-accent">
-              <span className="h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_12px_#D11A2A]" />
+            <button
+              type="button"
+              onClick={() => onPlanet(-1)}
+              aria-current={isSun ? "true" : undefined}
+              aria-label={`The sun: client work${hired ? `, ${hired} commissions` : ""}`}
+              className="pointer-events-auto relative mr-3 flex items-center gap-2 bg-[#0A0C0F] px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              style={{ color: isSun ? "#fff" : "rgba(209,26,42,0.9)" }}
+            >
+              <span
+                className="block rounded-full bg-accent transition-all duration-300"
+                style={{ width: isSun ? 11 : 9, height: isSun ? 11 : 9, boxShadow: isSun ? "0 0 16px #D11A2A" : "0 0 8px #D11A2A" }}
+              />
               Sun
-            </span>
+              {hired > 0 && <span className="text-white/45">{pad(hired)}</span>}
+            </button>
             {projects.map((p, i) => {
               const active = i === selection.planet;
               const col = PLANETS[i]?.colorA ?? "#fff";
@@ -400,10 +506,10 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
             </button>
             <div className="min-w-0 text-center">
               <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em]" style={{ color: c0 }}>
-                Planet {pad(selection.planet + 1)} / {pad(total)} · {PLATFORM_LABEL[project.platform]}
+                {eyebrow}
               </p>
               <p className="mt-1 truncate font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-white">
-                {project.name}
+                {title}
               </p>
             </div>
             <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>
@@ -413,20 +519,24 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
           <div className="mt-3 border-t border-dashed border-white/15 pt-3 [&_p:nth-of-type(2)]:line-clamp-3">{partBody}</div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <button type="button" onClick={prevPart} aria-label="Previous part" className={btn}>
-                <Arrow dir="left" />
-              </button>
-              <button type="button" onClick={nextPart} aria-label="Next part" className={btn}>
-                <Arrow dir="right" />
-              </button>
+              {parts.length > 1 && (
+                <>
+                  <button type="button" onClick={prevPart} aria-label={`Previous ${partWord.toLowerCase()}`} className={btn}>
+                    <Arrow dir="left" />
+                  </button>
+                  <button type="button" onClick={nextPart} aria-label={`Next ${partWord.toLowerCase()}`} className={btn}>
+                    <Arrow dir="right" />
+                  </button>
+                </>
+              )}
             </div>
-            <Link
-              href={`/projects/${project.slug}`}
+            <CtaLink
+              cta={cta}
               className="pointer-events-auto font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white underline decoration-1 underline-offset-4"
               style={{ textDecorationColor: c0 }}
             >
-              Case study →
-            </Link>
+              {isSun ? cta.label : "Case study"} {cta.external ? "↗" : "→"}
+            </CtaLink>
           </div>
         </div>
       </div>

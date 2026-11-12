@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { commissions } from "@/lib/content/commissions";
 import {
   PLANETS,
+  SUN_NODES,
+  SUN_NODE_ORBIT,
   SUN_RADIUS,
   TILT,
   fibonacciDirs,
@@ -24,7 +27,9 @@ import {
  */
 
 export interface SystemSelection {
+  /** A planet index, or SUN (-1) for the sun and its commission nodes. */
   planet: number;
+  /** A part of the planet, or a node on the sun. */
   part: number;
 }
 
@@ -33,12 +38,17 @@ export interface SystemScreen {
   ready: boolean;
   parts: { x: number; y: number; front: boolean }[];
   planets: { x: number; y: number; r: number }[];
-  sun: { x: number; y: number };
+  sun: { x: number; y: number; r: number };
 }
 
 export function createSystemScreen(): SystemScreen {
-  return { ready: false, parts: [], planets: [], sun: { x: 0, y: 0 } };
+  return { ready: false, parts: [], planets: [], sun: { x: 0, y: 0, r: 0 } };
 }
+
+/** The node ring leans a little off the orbit plane, so it reads as the sun's own. */
+const NODE_RING_TILT: [number, number, number] = [0.32, 0, 0.14];
+/** No commissions yet: the one node is an open slot, drawn pale. */
+const OPEN_SLOT = commissions.length === 0;
 
 interface SolarSystemProps {
   /** 0 hidden -> 1 visible (crossfades in as the small particles fade out). */
@@ -342,6 +352,15 @@ export function SolarSystem({
   const timeRef = useRef(0);
   const { viewport } = useThree();
   const sunDots = useRef<THREE.Points | null>(null);
+  // Commission nodes around the sun.
+  const nodeGroup = useRef<THREE.Group>(null);
+  const nodeMesh = useRef<THREE.InstancedMesh>(null);
+  const nodeMat = useRef<THREE.MeshBasicMaterial>(null);
+  const nodeRingMat = useRef<THREE.LineBasicMaterial | null>(null);
+  /** Turn of the node ring: drifts on its own, swings the selected node forward when the sun is focused. */
+  const nodeSpin = useRef(0);
+  const nodeMix = useRef<number[]>(Array.from({ length: SUN_NODES }, () => 0));
+  const sunMix = useRef(0);
   const planetDots = useRef<(THREE.Points | null)[]>([]);
 
   useEffect(
@@ -403,6 +422,11 @@ export function SolarSystem({
       });
       if (best) return best;
       const focused = selRef.current.planet;
+      // The sun is clickable too (its nodes are commissions).
+      if (focused >= 0) {
+        const d = Math.hypot(s.sun.x - x, s.sun.y - y);
+        if (d < Math.max(28, s.sun.r + 12)) return { kind: "planet", index: -1 };
+      }
       s.planets.forEach((p, i) => {
         if (i === focused) return;
         const d = Math.hypot(p.x - x, p.y - y);
@@ -475,8 +499,12 @@ export function SolarSystem({
       sun.scale.setScalar(1 + Math.sin(time * 1.4) * 0.03);
       setDots(sun, alpha * 0.75 * (1 - exit * 0.4));
     }
+    const sunFocused = sel.planet < 0;
+    sunMix.current = THREE.MathUtils.damp(sunMix.current, sunFocused ? 1 : 0, 3, dt);
+    const sm = sunMix.current;
     if (haloMat.current) {
-      haloMat.current.opacity = alpha * s * 0.55 * (1 + Math.sin(time * 1.4) * 0.12) * (1 - exit * 0.4);
+      // Softer glow up close, so the nodes stay readable against it.
+      haloMat.current.opacity = alpha * s * 0.55 * (1 + Math.sin(time * 1.4) * 0.12) * (1 - exit * 0.4) * (1 - sm * 0.45);
     }
 
     const swell = 1 + exit * exit * 0.6;
@@ -584,7 +612,66 @@ export function SolarSystem({
 
     // Sun on screen
     _w.set(0, 0, 0).project(camera);
-    screen.sun = { x: ((_w.x + 1) / 2) * size.width, y: ((1 - _w.y) / 2) * size.height };
+    const sunX = ((_w.x + 1) / 2) * size.width;
+    const sunY = ((1 - _w.y) / 2) * size.height;
+    _v.copy(camera.up).multiplyScalar(SUN_RADIUS).project(camera);
+    screen.sun = { x: sunX, y: sunY, r: Math.abs(((1 - _v.y) / 2) * size.height - sunY) };
+
+    // ── Commission nodes: a ring of orbs around the sun, one per paid project ──
+    const ng = nodeGroup.current;
+    const nodes = nodeMesh.current;
+    if (ng && nodes) {
+      const step = (Math.PI * 2) / SUN_NODES;
+      if (sunFocused && interactive && formed) {
+        // Swing the selected node round to the camera's side (a little to the left of
+        // the sun, so its label clears the glow).
+        ng.updateWorldMatrix(true, false);
+        _v.copy(camera.position);
+        ng.worldToLocal(_v);
+        const want = Math.atan2(_v.z, _v.x) + 0.55 - sel.part * step;
+        let d = (want - nodeSpin.current) % (Math.PI * 2);
+        if (d > Math.PI) d -= Math.PI * 2;
+        if (d < -Math.PI) d += Math.PI * 2;
+        nodeSpin.current += d * (reducedMotion ? 1 : 1 - Math.exp(-dt * 3));
+      } else if (!reducedMotion) {
+        nodeSpin.current += dt * 0.12;
+      }
+      const nm = nodeMix.current;
+      for (let k = 0; k < SUN_NODES; k++) {
+        const active = sunFocused && k === sel.part && interactive;
+        nm[k] = THREE.MathUtils.damp(nm[k]!, active ? 1 : 0, 6, dt);
+        const a = nodeSpin.current + k * step;
+        const pulse = reducedMotion ? 1 : 1 + Math.sin(time * 2.2 + k * 1.7) * (OPEN_SLOT ? 0.18 : 0.08);
+        const sz = SUN_RADIUS * (0.09 + sm * 0.03 + nm[k]! * 0.08) * pulse;
+        _dummy.position.set(Math.cos(a) * SUN_NODE_ORBIT * s, 0, Math.sin(a) * SUN_NODE_ORBIT * s);
+        _dummy.scale.setScalar(sz * Math.max(0.0001, s));
+        _dummy.updateMatrix();
+        nodes.setMatrixAt(k, _dummy.matrix);
+      }
+      nodes.instanceMatrix.needsUpdate = true;
+      if (nodeMat.current) {
+        nodeMat.current.opacity = alpha * s * (OPEN_SLOT ? 0.35 + sm * 0.3 : 0.6 + sm * 0.35) * (1 - exit * 0.4);
+      }
+      if (nodeRingMat.current) {
+        nodeRingMat.current.opacity = alpha * s * (0.05 + sm * 0.2);
+        nodeRingMat.current.color.set("#ff7a45").lerp(_white, 0.35);
+      }
+      if (sunFocused) {
+        // Node positions for the overlay's labels and for picking.
+        nodes.updateWorldMatrix(true, false);
+        screen.parts.length = SUN_NODES;
+        const toCam = _cam.copy(camera.position);
+        for (let k = 0; k < SUN_NODES; k++) {
+          nodes.getMatrixAt(k, _m);
+          _m.premultiply(nodes.matrixWorld);
+          _v.setFromMatrixPosition(_m);
+          // Hidden only while it passes behind the sun.
+          const front = _n.copy(_v).normalize().dot(_w.copy(toCam).normalize()) > -0.55;
+          _v.project(camera);
+          screen.parts[k] = { x: ((_v.x + 1) / 2) * size.width, y: ((1 - _v.y) / 2) * size.height, front };
+        }
+      }
+    }
     screen.ready = interactive && formed;
   });
 
@@ -597,6 +684,27 @@ export function SolarSystem({
           sunDots.current = o;
         }}
       />
+      {/* Commission nodes on their own ring around the sun */}
+      <group ref={nodeGroup} rotation={NODE_RING_TILT}>
+        <OrbitRing
+          radius={SUN_NODE_ORBIT}
+          matRef={(m) => {
+            nodeRingMat.current = m;
+          }}
+        />
+        <instancedMesh ref={nodeMesh} args={[undefined, undefined, SUN_NODES]} frustumCulled={false}>
+          <sphereGeometry args={[1, 14, 14]} />
+          <meshBasicMaterial
+            ref={nodeMat}
+            color={OPEN_SLOT ? "#ffffff" : "#ffb199"}
+            toneMapped={false}
+            transparent
+            opacity={0}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </instancedMesh>
+      </group>
       <sprite ref={haloRef} scale={[SUN_RADIUS * 6, SUN_RADIUS * 6, 1]}>
         <spriteMaterial
           ref={haloMat}
@@ -696,7 +804,7 @@ export function SystemCamera({
     const dt = Math.min(delta, 0.1);
     const aspect = size.width / size.height;
     const sp = formRef.current;
-    const target = planetFocus(selRef.current.planet);
+    const target = planetFocus(selRef.current.planet, cur.current.angle);
 
     if (sp <= 0.001) {
       // Hero / About: straight on, at the portrait's depth.

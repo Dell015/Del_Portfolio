@@ -9,11 +9,36 @@
 import * as THREE from "three";
 import { projects } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
+import { commissions } from "@/lib/content/commissions";
 
 /** How far the orbit plane leans toward the viewer (radians). */
 export const TILT = 0.38;
 
 export const SUN_RADIUS = 0.42;
+
+/**
+ * The sun can be selected like a planet: `planet: SUN`. Its "parts" are the nodes
+ * orbiting it, one per commission (paid client work), or a single open slot while
+ * there are none yet.
+ */
+export const SUN = -1;
+/** Radius of the ring the commission nodes orbit on, system space. */
+export const SUN_NODE_ORBIT = SUN_RADIUS * 2.3;
+/** How many nodes orbit the sun (at least one: the open slot). */
+export const SUN_NODES = Math.max(1, commissions.length);
+
+/** How many selectable parts a body has (a planet's parts, or the sun's nodes). */
+export function partCountOf(planet: number) {
+  if (planet < 0) return SUN_NODES;
+  const p = projects[planet];
+  return p ? partsFor(p.slug).length : 1;
+}
+
+/** Steps through the bodies in rail order: the sun first, then the planets. */
+export function stepBody(planet: number, d: number) {
+  const n = projects.length + 1;
+  return ((((planet + 1 + d) % n) + n) % n) - 1;
+}
 
 export interface PlanetLayout {
   slug: string;
@@ -135,10 +160,32 @@ export function focusCamera(
   }
 }
 
-export function planetFocus(i: number): FocusState {
+export function planetFocus(i: number, fromAngle = ANGLES[0]!): FocusState {
+  if (i < 0) return sunFocus(fromAngle);
   const p = PLANETS[i] ?? PLANETS[0]!;
   return { orbit: p.orbit, angle: p.angle, radius: p.radius };
 }
+
+/**
+ * Framing for the sun and its node ring. The camera looks in through the gap between
+ * two planets nearest to where it already is, so no planet sits in front of the sun.
+ */
+export function sunFocus(fromAngle: number): FocusState {
+  const sorted = PLANETS.map((p) => ((p.angle % TAU) + TAU) % TAU).sort((a, b) => a - b);
+  let best = fromAngle;
+  let bestD = Infinity;
+  sorted.forEach((a, i) => {
+    const b = i + 1 < sorted.length ? sorted[i + 1]! : sorted[0]! + TAU;
+    const mid = (a + b) / 2;
+    const d = Math.abs(Math.atan2(Math.sin(mid - fromAngle), Math.cos(mid - fromAngle)));
+    if (d < bestD) {
+      bestD = d;
+      best = mid;
+    }
+  });
+  return { orbit: 0, angle: best, radius: SUN_NODE_ORBIT * 1.15 };
+}
+const TAU = Math.PI * 2;
 
 /** Evenly spread unit directions (fibonacci sphere), optionally kept off the poles. */
 export function fibonacciDirs(count: number, band = 1): THREE.Vector3[] {
