@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { projects, type Project } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
-import { commissions } from "@/lib/content/commissions";
+import { sites } from "@/lib/content/sites";
 import { PLANETS, stepBody } from "@/lib/system/layout";
 import type { SystemScreen, SystemSelection } from "./SolarSystem";
 
@@ -23,7 +23,7 @@ interface Item {
   stage?: string;
   summary: string;
   tech: string[];
-  /** Client and kind of work, for commissions. */
+  /** Who it's for and what kind of site, for the sun's nodes. */
   meta?: string;
   url?: string;
 }
@@ -31,7 +31,7 @@ interface Item {
 const SUN_COLOR = "#D11A2A";
 const SUN_PART = "#ff8a6a";
 
-/** Shown on the sun until the first commission is added. */
+/** Shown on the sun if no sites are listed. */
 const OPEN_SLOT: Item = {
   name: "Open slot",
   stage: "Available",
@@ -39,13 +39,13 @@ const OPEN_SLOT: Item = {
   tech: ["Landing pages", "Portfolios", "Web apps"],
 };
 
-const SUN_ITEMS: Item[] = commissions.length
-  ? commissions.map((c) => ({
+const SUN_ITEMS: Item[] = sites.length
+  ? sites.map((c) => ({
       name: c.title,
-      stage: c.year,
+      stage: c.tag ? `${c.tag} · ${c.year}` : c.year,
       summary: c.summary,
-      tech: c.stack,
-      meta: `${c.client} · ${c.kind}`,
+      tech: c.stack ?? [],
+      meta: `${c.kind} · ${c.client}`,
       url: c.url,
     }))
   : [OPEN_SLOT];
@@ -179,7 +179,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
     return () => clearTimeout(t);
   }, [visible]);
 
-  // The sun (planet -1) is selectable too: its "parts" are the commission nodes.
+  // The sun (planet -1) is selectable too: its "parts" are the smaller sites.
   const isSun = selection.planet < 0;
   const project = projects[selection.planet] ?? projects[0]!;
   const parts: Item[] = isSun ? SUN_ITEMS : partsFor(project.slug);
@@ -188,26 +188,26 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
   const c0 = isSun ? SUN_COLOR : layout.colorA;
   const c1 = isSun ? SUN_PART : layout.partColor;
   const total = projects.length;
-  const hired = commissions.length;
+  const siteCount = sites.length;
   const bodyKey = isSun ? "sun" : project.slug;
   const partWord = isSun ? "Node" : "Part";
 
   // Heading for the selected body.
   const eyebrow = isSun
-    ? `The sun · ${hired ? `${hired} ${hired === 1 ? "commission" : "commissions"}` : "Client work"}`
+    ? `The sun · ${siteCount ? `${siteCount} ${siteCount === 1 ? "site" : "sites"}` : "Websites"}`
     : `Planet ${pad(selection.planet + 1)} / ${pad(total)} · ${PLATFORM_LABEL[project.platform]}`;
-  const title = isSun ? "Client work" : project.name;
+  const title = isSun ? "Websites" : project.name;
   const pitch = isSun
-    ? hired
-      ? "Projects people hired me to build. Each node orbiting the sun is one of them."
-      : "Projects people hire me for orbit the sun here, one node each. The first slot is open."
+    ? siteCount
+      ? "Landing pages, portfolios and business sites. Smaller builds than the planets, each one a node around the sun."
+      : "Landing pages and portfolios I build orbit the sun here, one node each. The first slot is open."
     : project.pitch;
-  const statusLine = isSun ? (hired ? "Newest first" : "Open for commissions") : `${project.status} · ${parts.length} parts`;
-  // Where the column's main link goes: the case study, the commission's site, or contact.
+  const statusLine = isSun ? "Newest first · open for commissions" : `${project.status} · ${parts.length} parts`;
+  // Where the column's main link goes: the case study, the site itself, or contact.
   const cta = isSun
     ? part?.url
       ? { href: part.url, label: "Visit the site", external: true }
-      : { href: "/#footer", label: hired ? "Hire me for one" : "Start a project", external: false }
+      : { href: "/#footer", label: siteCount ? "Want one? Get in touch" : "Start a project", external: false }
     : { href: `/projects/${project.slug}`, label: "Open case study", external: false };
 
   // ── Labels pinned to the part orbs (positions come from the canvas each frame) ──
@@ -307,9 +307,11 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
           <p className="mt-1.5 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.12em] text-white/50">{part.meta}</p>
         )}
         <p className="mt-2 text-[13px] leading-relaxed text-white/65">{part.summary}</p>
-        <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-white/45">
-          {part.tech.join(" / ")}
-        </p>
+        {part.tech.length > 0 && (
+          <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-white/45">
+            {part.tech.join(" / ")}
+          </p>
+        )}
       </motion.div>
     </AnimatePresence>
   );
@@ -452,7 +454,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
               type="button"
               onClick={() => onPlanet(-1)}
               aria-current={isSun ? "true" : undefined}
-              aria-label={`The sun: client work${hired ? `, ${hired} commissions` : ""}`}
+              aria-label={`The sun: websites${siteCount ? `, ${siteCount} sites` : ""}`}
               className="pointer-events-auto relative mr-3 flex items-center gap-2 bg-[#0A0C0F] px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               style={{ color: isSun ? "#fff" : "rgba(209,26,42,0.9)" }}
             >
@@ -461,7 +463,7 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
                 style={{ width: isSun ? 11 : 9, height: isSun ? 11 : 9, boxShadow: isSun ? "0 0 16px #D11A2A" : "0 0 8px #D11A2A" }}
               />
               Sun
-              {hired > 0 && <span className="text-white/45">{pad(hired)}</span>}
+              {siteCount > 0 && <span className="text-white/45">{pad(siteCount)}</span>}
             </button>
             {projects.map((p, i) => {
               const active = i === selection.planet;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { commissions } from "@/lib/content/commissions";
+import { sites } from "@/lib/content/sites";
 import {
   PLANETS,
   SUN_NODES,
@@ -27,9 +27,9 @@ import {
  */
 
 export interface SystemSelection {
-  /** A planet index, or SUN (-1) for the sun and its commission nodes. */
+  /** A planet index, or SUN (-1) for the sun and its site nodes. */
   planet: number;
-  /** A part of the planet, or a node on the sun. */
+  /** A part of the planet, or a site node on the sun. */
   part: number;
 }
 
@@ -47,8 +47,8 @@ export function createSystemScreen(): SystemScreen {
 
 /** The node ring leans a little off the orbit plane, so it reads as the sun's own. */
 const NODE_RING_TILT: [number, number, number] = [0.32, 0, 0.14];
-/** No commissions yet: the one node is an open slot, drawn pale. */
-const OPEN_SLOT = commissions.length === 0;
+/** No sites listed: the one node is an open slot, drawn pale. */
+const OPEN_SLOT = sites.length === 0;
 
 interface SolarSystemProps {
   /** 0 hidden -> 1 visible (crossfades in as the small particles fade out). */
@@ -352,7 +352,7 @@ export function SolarSystem({
   const timeRef = useRef(0);
   const { viewport } = useThree();
   const sunDots = useRef<THREE.Points | null>(null);
-  // Commission nodes around the sun.
+  // Site nodes around the sun.
   const nodeGroup = useRef<THREE.Group>(null);
   const nodeMesh = useRef<THREE.InstancedMesh>(null);
   const nodeMat = useRef<THREE.MeshBasicMaterial>(null);
@@ -422,7 +422,7 @@ export function SolarSystem({
       });
       if (best) return best;
       const focused = selRef.current.planet;
-      // The sun is clickable too (its nodes are commissions).
+      // The sun is clickable too (its nodes are the smaller sites).
       if (focused >= 0) {
         const d = Math.hypot(s.sun.x - x, s.sun.y - y);
         if (d < Math.max(28, s.sun.r + 12)) return { kind: "planet", index: -1 };
@@ -617,7 +617,7 @@ export function SolarSystem({
     _v.copy(camera.up).multiplyScalar(SUN_RADIUS).project(camera);
     screen.sun = { x: sunX, y: sunY, r: Math.abs(((1 - _v.y) / 2) * size.height - sunY) };
 
-    // ── Commission nodes: a ring of orbs around the sun, one per paid project ──
+    // ── Site nodes: a ring of orbs around the sun, one per smaller build ──
     const ng = nodeGroup.current;
     const nodes = nodeMesh.current;
     if (ng && nodes) {
@@ -684,7 +684,7 @@ export function SolarSystem({
           sunDots.current = o;
         }}
       />
-      {/* Commission nodes on their own ring around the sun */}
+      {/* Site nodes on their own ring around the sun */}
       <group ref={nodeGroup} rotation={NODE_RING_TILT}>
         <OrbitRing
           radius={SUN_NODE_ORBIT}

@@ -105,7 +105,7 @@ function FlashSweep({ scrollMV, start, end, direction = "ltr" }: { scrollMV: Mot
 }
 
 export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
-  const { scrollProgress } = useSnapScroll();
+  const { scrollProgress, containerRef } = useSnapScroll();
 
   // Motion values driven by scroll progress
   const scrollMV = useMotionValue(0);
@@ -151,7 +151,27 @@ export function AboutHeroText({ visible, onPhotoVisible }: AboutHeroTextProps) {
   // Everything above has exited by here. The entrance fades end at full opacity, and if
   // the page is already scrolled past (back from a case study) no scroll change follows
   // to undo that, so past this point the whole overlay is simply hidden.
-  const overlayVisibility = useTransform(scrollMV, (v) => (v > 0.7 ? "hidden" : "visible"));
+  // The overlay is fixed over the whole screen, so the check also reads the scroll
+  // container itself: coming back from a case study straight onto a lower section
+  // (e.g. /#resume) can show this before the shared scroll value catches up, and then
+  // the hero's headline sat on top of the Resume section.
+  const pageMV = useMotionValue(0);
+  useEffect(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const read = () => pageMV.set(c.clientHeight ? c.scrollTop / c.clientHeight : 0);
+    read();
+    // One more read after the jump to the #hash lands.
+    const raf = requestAnimationFrame(read);
+    c.addEventListener("scroll", read, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      c.removeEventListener("scroll", read);
+    };
+  }, [containerRef, pageMV]);
+  const overlayVisibility = useTransform([scrollMV, pageMV], ([v, page]) =>
+    (v as number) > 0.7 || (page as number) > 0.7 ? "hidden" : "visible",
+  );
 
   if (!visible) return null;
 

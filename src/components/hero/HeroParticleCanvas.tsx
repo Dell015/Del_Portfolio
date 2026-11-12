@@ -630,7 +630,7 @@ function loadSelection(): SystemSelection {
     const raw = sessionStorage.getItem(SELECTION_KEY);
     if (!raw) return { planet: 0, part: 0 };
     const v = JSON.parse(raw) as Partial<SystemSelection>;
-    // -1 is the sun (its parts are the commission nodes).
+    // -1 is the sun (its parts are the site nodes).
     const planet = Number.isInteger(v.planet) && v.planet! >= -1 && v.planet! < projects.length ? v.planet! : 0;
     const n = partCountOf(planet);
     const part = Number.isInteger(v.part) && v.part! >= 0 && v.part! < n ? v.part! : 0;

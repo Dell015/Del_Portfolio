@@ -9,7 +9,7 @@
 import * as THREE from "three";
 import { projects } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
-import { commissions } from "@/lib/content/commissions";
+import { sites } from "@/lib/content/sites";
 
 /** How far the orbit plane leans toward the viewer (radians). */
 export const TILT = 0.38;
@@ -18,14 +18,14 @@ export const SUN_RADIUS = 0.42;
 
 /**
  * The sun can be selected like a planet: `planet: SUN`. Its "parts" are the nodes
- * orbiting it, one per commission (paid client work), or a single open slot while
- * there are none yet.
+ * orbiting it, one per smaller build (landing pages, portfolios, business sites), or a
+ * single open slot while there are none.
  */
 export const SUN = -1;
-/** Radius of the ring the commission nodes orbit on, system space. */
+/** Radius of the ring the site nodes orbit on, system space. */
 export const SUN_NODE_ORBIT = SUN_RADIUS * 2.3;
 /** How many nodes orbit the sun (at least one: the open slot). */
-export const SUN_NODES = Math.max(1, commissions.length);
+export const SUN_NODES = Math.max(1, sites.length);
 
 /** How many selectable parts a body has (a planet's parts, or the sun's nodes). */
 export function partCountOf(planet: number) {
