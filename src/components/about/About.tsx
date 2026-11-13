@@ -82,7 +82,7 @@ const LEAD: { t: string; red?: boolean }[] = [
 ];
 const LINE = "Mostly Next.js, React and Supabase on the web, and React Native or Flutter on mobile.";
 const HOW =
-  "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.";
+  "Most of my work so far is school projects, startup competition entries and websites for people near home. I usually do the design and the code myself.";
 
 /** Words of the headline with the position each one lights up at (0..1 along the headline). */
 const LEAD_WORDS = (() => {

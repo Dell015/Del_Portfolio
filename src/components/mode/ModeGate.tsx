@@ -160,7 +160,7 @@ function Gate({ onChoose }: { onChoose: (m: Mode) => void }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
         >
-          {site.name} · Portfolio
+          {site.name} · Full-stack developer
         </motion.p>
 
         <motion.h1
@@ -179,7 +179,7 @@ function Gate({ onChoose }: { onChoose: (m: Mode) => void }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
-          Same person, same work. Pick how you want to meet it. You can change this from the footer.
+          Same work either way. The quick version takes about a minute. You can switch later from the footer.
         </motion.p>
 
         <div className="mt-10 grid gap-3 text-left sm:grid-cols-2">

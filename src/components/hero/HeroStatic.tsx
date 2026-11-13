@@ -59,12 +59,13 @@ export function HeroStatic() {
             {site.name} · Cauayan, Isabela
           </p>
 
-          <h1
+          <h1 className="sr-only">{site.name}, full-stack developer: web and mobile apps with Next.js, React, TypeScript and Supabase</h1>
+          <p
             className="hero-rise mt-5 font-[family-name:var(--font-display)] text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-6xl"
             style={{ "--d": "0.25s" } as React.CSSProperties}
           >
             {site.heroQuestion}
-          </h1>
+          </p>
 
           <p
             className="hero-rise mx-auto mt-6 max-w-xl text-lg leading-relaxed text-text-muted lg:mx-0"

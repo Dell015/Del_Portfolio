@@ -1,5 +1,6 @@
 "use client";
 
+import { site } from "@/lib/content/site";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useModeStore } from "@/lib/store/mode";
@@ -219,14 +220,15 @@ export function Hero() {
               </motion.p>
 
               {/* Big cycling word, scales up from small with a bounce */}
-              <motion.h1
+              <h1 className="sr-only">{site.name}, full-stack developer: web and mobile apps with Next.js, React, TypeScript and Supabase</h1>
+              <motion.p
                 className="font-[family-name:var(--font-display)] text-[clamp(3.5rem,10vw,8rem)] font-bold leading-none tracking-tighter"
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.9, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
               >
                 <CyclingText />
-              </motion.h1>
+              </motion.p>
 
               {/* Subtext, fades in with a letter-spacing tightening effect */}
               <motion.p

@@ -68,7 +68,7 @@ export const projectParts: Record<string, ProjectPart[]> = {
     {
       name: "The table",
       summary:
-        "One phone passed around the table: themed decks, wild cards and dares. Playable with no account at all.",
+        "One phone passed around the table: themed decks, wild cards and dares.",
       tech: ["Next.js", "React", "Framer Motion", "Zustand"],
       stage: "Working",
     },
@@ -94,11 +94,9 @@ export const projectParts: Record<string, ProjectPart[]> = {
       stage: "Working",
     },
     {
-      name: "Payments and invites",
-      summary:
-        "Coins are bought with a QR payment and added by hand for now. Inviting friends earns coins for both of you.",
-      tech: ["Supabase", "Admin tools"],
-      stage: "Manual for now",
+      name: "Invites",
+      summary: "Invite links bring friends into the game, and both of you get coins for it.",
+      tech: ["Supabase"],
     },
     {
       name: "Safety rules",

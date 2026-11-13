@@ -27,7 +27,7 @@ const PLATFORM: Record<Project["platform"], string> = { mobile: "Mobile", web: "
 const ABOUT_LEAD = "I build web and mobile apps, front end to back end.";
 const ABOUT_P1 = "Mostly Next.js, React and Supabase on the web, and React Native or Flutter on mobile.";
 const ABOUT_P2 =
-  "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.";
+  "Most of my work so far is school projects, startup competition entries and websites for people near home. I usually do the design and the code myself.";
 
 const wrap = "mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-12";
 const mono = "font-[family-name:var(--font-mono)]";
@@ -143,8 +143,11 @@ function Hero({ play }: { play: boolean }) {
           <p className={`${mono} text-[11px] uppercase tracking-[0.18em] text-white/45`}>
             <Typed text={`${site.name} · Cauayan, Isabela`} from={0.08} to={0.15} who="a11y" />
           </p>
+          {/* The page's real heading for search engines, AI readers and screen readers: who this is.
+              The big question below is the visible intro. */}
+          <h1 className="sr-only">{site.name}, full-stack developer: web and mobile apps with Next.js, React, TypeScript and Supabase</h1>
           <Toggle
-            as="h1"
+            as="p"
             at={0.62}
             a="h1"
             className={`mt-5 ${display} text-[clamp(2.6rem,6.4vw,4.9rem)] font-bold leading-[1] tracking-[-0.035em] text-text data-[on=false]:font-[family-name:var(--font-serif)] data-[on=false]:font-normal data-[on=false]:tracking-normal`}
@@ -475,7 +478,7 @@ function Projects() {
           name="Projects"
           lead="Things I’ve "
           accent="built."
-          intro="Apps I've designed and built, from mobile and web to a Windows desktop app. Karela is closest to launch; the rest are in active development."
+          intro="Two apps I designed and built: a mobile fitness app and a party game for the web. More are on the way."
         />
         <div className="mt-12 grid gap-6 md:grid-cols-2">
           {projects.map((p, i) => (

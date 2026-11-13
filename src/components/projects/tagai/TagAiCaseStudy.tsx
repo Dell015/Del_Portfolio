@@ -140,7 +140,7 @@ const BUILT = [
 ];
 const TODO = [
   "More friends playing real games, then fixing what breaks",
-  "Paying by QR works, but coins are added by hand. Automatic payments come later",
+  "Automatic payments",
   "Sign-in emails sent from our own address",
   "True offline play",
   "Filipino-language text",

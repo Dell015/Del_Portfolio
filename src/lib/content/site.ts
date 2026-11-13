@@ -62,12 +62,12 @@ export const resume = {
         lines: ["Full Stack Developer Intern", "Internal ERP system · 240 hours · 2026"],
       },
       {
-        label: "Project",
-        lines: ["Karela · Team Lead, 5 members", "React Native · Supabase · Gemini API"],
+        label: "Projects",
+        lines: ["Karela · Team Lead, 5 members", "Tag.Ai · Next.js web game, solo"],
       },
       {
         label: "Education",
-        lines: ["BS Computer Science · USLT", "2023 to 2027 · Highest Honors"],
+        lines: ["BS Computer Science · USLT", "2023 to 2027 · Dean's Lister"],
       },
       {
         label: "Achievements",

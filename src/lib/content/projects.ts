@@ -31,7 +31,7 @@ export interface Project {
   };
 }
 
-export const projects: Project[] = [
+const allProjects: Project[] = [
   {
     slug: "karela",
     name: "Karela",
@@ -101,20 +101,22 @@ export const projects: Project[] = [
     ],
     identityGradient: ["#C93B96", "#FF8FCF"],
     liveUrl: "https://tag-ai-omega.vercel.app",
+    repoUrl: "https://github.com/Dell015/tag.ai",
     liveLabel: "Early beta",
     caseStudy: {
       timeline: "In development, early beta",
       architectureNote:
-        "Playable on one phone with no account, or online: accounts, coins and rooms run on Supabase, and every coin change goes through server functions so a phone cannot edit its own balance. The heat engine steers card order so sessions start light and ramp up.",
+        "Accounts, coins and online rooms run on Supabase, and every coin change goes through server functions so a phone cannot edit its own balance. The heat engine steers card order so sessions start light and ramp up.",
       challenge:
         "Designing cards and rules that work across very different groups while keeping everyone comfortable. Topics can be left out before the game, anyone can skip, and the 18+ deck sits behind an age check. Balancing fun with respect is harder than the technical work.",
       nextSteps:
-        "More friends playing real games and fixing what they find, sign-in emails from its own address, automatic payments (today coins are added by hand after a QR payment), offline play and Filipino-language text.",
+        "More friends playing real games and fixing what they find, sign-in emails from its own address, automatic payments, offline play and Filipino-language text.",
     },
   },
   {
     slug: "rhizome",
     name: "Rhizome",
+    building: true,
     platform: "desktop",
     cardVariant: "desktop",
     pitch: "See where your disk space goes, which app owns which files, and what's actually safe to clean up.",
@@ -130,6 +132,7 @@ export const projects: Project[] = [
   {
     slug: "gitara",
     name: "Gitara",
+    building: true,
     platform: "web",
     cardVariant: "mobile",
     pitch: "A free, all-in-one jamming app for guitarists: your songbook, chord versions and practice tools in one place.",
@@ -145,6 +148,7 @@ export const projects: Project[] = [
   {
     slug: "timeless-voices",
     name: "Timeless Voices",
+    building: true,
     platform: "web",
     cardVariant: "desktop",
     pitch: "A booking site for a hand-picked roster of event hosts and voice talents.",
@@ -237,6 +241,7 @@ export const projects: Project[] = [
   {
     slug: "histhoria",
     name: "Histhoria",
+    building: true,
     platform: "web",
     cardVariant: "desktop",
     pitch: "A board where a game's lore can be traced line by line, with fan theories you can fork.",
@@ -250,6 +255,13 @@ export const projects: Project[] = [
     identityGradient: ["#7B61FF", "#B9A8FF"],
   },
 ];
+
+/**
+ * What the site shows. Projects marked `building` are kept here, with their planet
+ * parts in planets.ts, but stay off the site until they're ready: delete their
+ * `building: true` line to bring one back.
+ */
+export const projects = allProjects.filter((p) => !p.building);
 
 /** Projects with a full case study page. The rest show their details on the planet only. */
 const CASE_STUDIES = new Set(["karela", "tag-ai"]);
