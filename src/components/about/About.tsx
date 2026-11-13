@@ -46,29 +46,29 @@ const PROMPT = { question: "want to see the source?", cmd: "./source --why" } as
 const HISTORY = [
   {
     tag: "root",
-    text: "Cauayan, Isabela. Where every one of these products starts: someone nearby with a real problem.",
-    short: "Cauayan, Isabela. Every product starts with someone nearby.",
+    text: "From Cauayan, Isabela. Studying in Tuguegarao.",
+    short: "From Cauayan, Isabela.",
   },
   {
     tag: "learn",
-    text: "Started by generating code I could not explain. Stopped, and rebuilt the habit: understand every layer first.",
-    short: "Stopped shipping code I couldn't explain. Rebuilt the habit.",
+    text: "Learned web and mobile development beyond class: Next.js, Supabase, React Native and Flutter.",
+    short: "Learned web and mobile beyond class.",
   },
   {
     tag: "lead",
-    text: "Led teams of up to 5 through regional startup competitions.",
-    short: "Led teams of up to 5 in regional competitions.",
+    text: "Team lead in startup competitions and on my thesis, a team of 5.",
+    short: "Team lead: competitions and thesis (team of 5).",
   },
   {
     tag: "place",
     text: "Philippine Startup Challenge 10 regional finalist, and IgnITE Start-Up Competition 1st runner up.",
     short: "PSC 10 regional finalist, IgnITE 1st runner up.",
   },
-  { tag: "work", text: "Enterprise ERP internship (under NDA).", short: "Enterprise ERP internship (under NDA)." },
+  { tag: "work", text: "240-hour full-stack internship on an internal ERP system.", short: "Full-stack internship, ERP system." },
   {
     tag: "now",
-    text: "BS Computer Science, University of Saint Louis Tuguegarao, 2027. Thesis build, plus open to work.",
-    short: "BS CS, USLT, 2027. Thesis build. Open to work.",
+    text: "BS Computer Science at the University of Saint Louis Tuguegarao, graduating 2027. Open to work.",
+    short: "BS CS, USLT, 2027. Open to work.",
   },
 ] as const;
 
@@ -76,11 +76,11 @@ const seg = (v: number, a: number, b: number) => clamp01((v - a) / (b - a || 1e-
 
 /** The headline, in pieces so one phrase can carry the accent. */
 const LEAD: { t: string; red?: boolean }[] = [
-  { t: "I design the product, architect the system, " },
-  { t: "write the code", red: true },
-  { t: " and lead the team around it." },
+  { t: "I build web and mobile apps, " },
+  { t: "front end to back end", red: true },
+  { t: "." },
 ];
-const LINE = "I used to ship code I couldn't explain. Now I understand every layer I build on.";
+const LINE = "Mostly Next.js, React and Supabase on the web, and React Native or Flutter on mobile.";
 const HOW =
   "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.";
 

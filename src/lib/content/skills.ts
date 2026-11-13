@@ -4,192 +4,56 @@ export interface Skill {
   usageNote?: string;
 }
 
+/**
+ * Only what's been used in real work (projects, sites, internship). Each note says
+ * where, so every chip can be backed up in an interview.
+ */
 export const skills: Skill[] = [
   // Languages
-  {
-    name: "TypeScript",
-    category: "language",
-    usageNote: "Primary language across all web and mobile projects",
-  },
-  {
-    name: "Python",
-    category: "language",
-    usageNote: "FastAPI backends for Icarus and garahe, AI integration",
-  },
-  {
-    name: "C#",
-    category: "language",
-  },
-  {
-    name: "Dart",
-    category: "language",
-    usageNote: "Cross-platform mobile with Flutter",
-  },
-  {
-    name: "SQL",
-    category: "language",
-    usageNote: "PostgreSQL queries, schema design, PostGIS spatial queries",
-  },
+  { name: "TypeScript", category: "language", usageNote: "Main language across my web and mobile projects" },
+  { name: "JavaScript", category: "language", usageNote: "Websites and landing pages" },
+  { name: "Python", category: "language", usageNote: "FastAPI back ends for Icarus and garahe" },
+  { name: "SQL", category: "language", usageNote: "PostgreSQL schemas, queries and database functions" },
+  { name: "Dart", category: "language", usageNote: "Flutter apps for startup competitions" },
+  { name: "C#", category: "language", usageNote: "School projects" },
 
-  // Frontend
-  {
-    name: "React",
-    category: "frontend",
-    usageNote: "Primary UI framework across web projects",
-  },
-  {
-    name: "Next.js",
-    category: "frontend",
-    usageNote: "Used in Tag.Ai, garahe: PWA-capable, SSR, SEO-friendly",
-  },
-  {
-    name: "Angular",
-    category: "frontend",
-    usageNote: "Icarus frontend: Signals UI for complex audit state machine",
-  },
-  {
-    name: "React Native + Expo",
-    category: "frontend",
-    usageNote: "Karela: cross-platform mobile with hot-reloading and sensor testing",
-  },
-  {
-    name: "Flutter",
-    category: "frontend",
-    usageNote: "Cross-platform mobile development",
-  },
-  {
-    name: "Tailwind CSS",
-    category: "frontend",
-    usageNote: "Utility-first styling across Tag.Ai, garahe, portfolio",
-  },
-  {
-    name: "Framer Motion",
-    category: "frontend",
-    usageNote: "Card flip, swipe, drag-to-trash animations in Tag.Ai",
-  },
-  {
-    name: "Three.js / React Three Fiber",
-    category: "frontend",
-    usageNote: "3D vehicle viewer with clickable hotspots in garahe",
-  },
-  {
-    name: "React Navigation v6+",
-    category: "frontend",
-    usageNote: "Stack + Tab navigation with deep linking in Karela",
-  },
+  // Frontend & mobile
+  { name: "React", category: "frontend", usageNote: "UI for almost every web project" },
+  { name: "Next.js", category: "frontend", usageNote: "Tag.Ai, garahe, this portfolio and client sites" },
+  { name: "Tailwind CSS", category: "frontend", usageNote: "Styling across Tag.Ai, garahe and this portfolio" },
+  { name: "Framer Motion", category: "frontend", usageNote: "Animations in Tag.Ai and this portfolio" },
+  { name: "Three.js / React Three Fiber", category: "frontend", usageNote: "This portfolio's particle scenes and solar system" },
+  { name: "React Native + Expo", category: "frontend", usageNote: "Karela: maps, GPS tracking, offline storage, notifications" },
+  { name: "Flutter", category: "frontend", usageNote: "Mobile apps for startup competitions" },
+  { name: "Angular", category: "frontend", usageNote: "Icarus front end" },
 
-  // Backend & Infrastructure
-  {
-    name: "Supabase",
-    category: "backend",
-    usageNote:
-      "PostgreSQL + PostGIS, Auth, Storage, Realtime, Edge Functions, used across Karela, Tag.Ai, Icarus, garahe",
-  },
-  {
-    name: "FastAPI",
-    category: "backend",
-    usageNote: "Async Python backend for Icarus (audit engine) and garahe (business logic)",
-  },
-  {
-    name: "PostgreSQL",
-    category: "backend",
-    usageNote: "Primary relational DB across all projects via Supabase",
-  },
-  {
-    name: "PostGIS",
-    category: "backend",
-    usageNote: "Spatial queries for civic clustering in Karela (ST_DWithin, DBSCAN-inspired)",
-  },
-  {
-    name: "expo-sqlite",
-    category: "backend",
-    usageNote: "Offline mission caching and run telemetry in Karela",
-  },
-  {
-    name: "Firebase",
-    category: "backend",
-    usageNote: "Realtime database in Tag.Ai",
-  },
-  {
-    name: "SQLAlchemy + Alembic",
-    category: "backend",
-    usageNote: "ORM + migrations for garahe's FastAPI backend",
-  },
-  {
-    name: "pgvector",
-    category: "backend",
-    usageNote: "Semantic history retrieval across audit sessions in Icarus",
-  },
+  // Back end & data
+  { name: "Supabase", category: "backend", usageNote: "Auth, database, storage and realtime in Karela, Tag.Ai, Icarus and garahe" },
+  { name: "PostgreSQL", category: "backend", usageNote: "Main database across projects" },
+  { name: "PostGIS", category: "backend", usageNote: "Location queries in Karela" },
+  { name: "FastAPI", category: "backend", usageNote: "Python APIs for Icarus and garahe" },
+  { name: "SQLite", category: "backend", usageNote: "Offline storage on the phone in Karela" },
+  { name: "pgvector", category: "backend", usageNote: "Search over past sessions in Icarus" },
 
   // AI & APIs
-  {
-    name: "Claude API",
-    category: "ai",
-    usageNote: "Multi-agent Socratic auditing in Icarus, AI diagnostics in garahe",
-  },
-  {
-    name: "LangGraph",
-    category: "ai",
-    usageNote: "Multi-agent orchestration for Icarus audit system (cyclical graph topology)",
-  },
-  {
-    name: "Gemini Flash",
-    category: "ai",
-    usageNote: "Lightweight LLM for Ani coaching, quest generation in Karela",
-  },
-  {
-    name: "OpenWeatherMap API",
-    category: "ai",
-    usageNote: "Environmental context for Karela's mission engine and safety tiers",
-  },
-  {
-    name: "PayMongo",
-    category: "backend",
-    usageNote: "Philippine payments (GCash, Maya, credit/debit) in Tag.Ai",
-  },
+  { name: "Claude API", category: "ai", usageNote: "AI agents in Icarus" },
+  { name: "LangGraph", category: "ai", usageNote: "Multi-agent flow in Icarus" },
+  { name: "Gemini API", category: "ai", usageNote: "AI coach in Karela" },
+  { name: "REST APIs", category: "ai", usageNote: "Building them with FastAPI, using third-party ones like OpenWeatherMap" },
 
-  // Tools & Services
-  {
-    name: "Git",
-    category: "tools",
-    usageNote: "Version control across all projects",
-  },
-  {
-    name: "GitHub",
-    category: "tools",
-    usageNote: "Repo hosting + collaboration",
-  },
-  {
-    name: "Figma",
-    category: "tools",
-    usageNote: "UI/UX design and prototyping",
-  },
-  {
-    name: "Vercel",
-    category: "tools",
-    usageNote: "Next.js deployment for Tag.Ai, garahe, portfolio",
-  },
-  {
-    name: "Railway",
-    category: "tools",
-    usageNote: "FastAPI backend deployment for garahe",
-  },
-  {
-    name: "Zustand",
-    category: "tools",
-    usageNote: "Lightweight global state in Karela and garahe",
-  },
-  {
-    name: "Expo Notifications",
-    category: "tools",
-    usageNote: "Push notifications: streak alerts, squad events in Karela",
-  },
+  // Tools
+  { name: "Git & GitHub", category: "tools", usageNote: "Every project" },
+  { name: "Figma", category: "tools", usageNote: "UI design and prototypes before building" },
+  { name: "Photoshop", category: "tools", usageNote: "Editing photos and graphics for sites and projects" },
+  { name: "Vercel & Netlify", category: "tools", usageNote: "Deploying this portfolio, Tag.Ai and client sites" },
+  { name: "Zustand", category: "tools", usageNote: "App state in Tag.Ai" },
+  { name: "Vitest", category: "tools", usageNote: "Tests in Tag.Ai" },
 ];
 
 export const skillCategories = [
   { key: "language", label: "Languages" },
-  { key: "frontend", label: "Frontend" },
-  { key: "backend", label: "Backend & Infrastructure" },
+  { key: "frontend", label: "Frontend & mobile" },
+  { key: "backend", label: "Back end & data" },
   { key: "ai", label: "AI & APIs" },
-  { key: "tools", label: "Tools & Services" },
+  { key: "tools", label: "Tools" },
 ] as const;

@@ -1,24 +1,24 @@
 export const site = {
   name: "Randel Serafica",
   identityStatement:
-    "Full-stack developer and startup founder. I build products, lead the teams behind them, and make sure both scale.",
+    "Full-stack developer from Cauayan, Isabela. I build web and mobile apps, from the design to the database.",
   heroQuestion:
-    "Founder. Developer. Team lead. Which one are you about to meet?",
+    "Developer. Designer. Team lead. Which one are you about to meet?",
   heroCta: "Find out →",
 } as const;
 
 export const bio = {
   short:
-    "I'm Randel, a full-stack developer and startup founder from Cauayan, Isabela. I design products for problems I find genuinely interesting, lead the teams behind them, and build them to scale from day one.",
+    "I'm Randel, a full-stack developer and Computer Science student from Cauayan, Isabela. I design and build web and mobile apps, and I've led small teams doing it.",
 } as const;
 
 /** Concrete facts shown in About, specifics instead of slogans. */
 export const facts = [
   "Based in Cauayan, Isabela, Philippines",
   "BS Computer Science, University of Saint Louis Tuguegarao (2027)",
-  "Led teams of up to 5 in regional startup competitions",
+  "Team lead in startup competitions and on my thesis",
   "Builds for the Philippine market: local users, local pricing",
-  "Enterprise ERP internship experience (under NDA)",
+  "240-hour full-stack internship on an ERP system",
   "Currently open to work",
 ] as const;
 

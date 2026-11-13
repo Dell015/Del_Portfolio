@@ -24,8 +24,8 @@ const crew = (seed: string) => CREW[Math.floor(rand(seed) * CREW.length)]!;
 const PLATFORM: Record<Project["platform"], string> = { mobile: "Mobile", web: "Web", "web+mobile": "Web + mobile" };
 
 // Copy shared with the full experience's About scene.
-const ABOUT_LEAD = "I design the product, architect the system, write the code and lead the team around it.";
-const ABOUT_P1 = "I used to ship code I couldn't explain. Now I understand every layer I build on.";
+const ABOUT_LEAD = "I build web and mobile apps, front end to back end.";
+const ABOUT_P1 = "Mostly Next.js, React and Supabase on the web, and React Native or Flutter on mobile.";
 const ABOUT_P2 =
   "I'm drawn to problems people quietly put up with, then to solving them in a way that isn't the obvious one. Usually the interesting angle is also the simpler one.";
 
@@ -119,7 +119,7 @@ function Presence() {
 function Hero({ play }: { play: boolean }) {
   const [replay, setReplay] = useState(0);
   const still = !!useReducedMotion();
-  // "Founder." / "Developer." / "Team lead." / "Which one are you about to meet?"
+  // "Developer." / "Designer." / "Team lead." / "Which one are you about to meet?"
   const lines = site.heroQuestion.split(/(?<=\.)\s+/);
   const ends = [0.24, 0.33, 0.42, 0.55];
   const starts = [0.16, 0.25, 0.34, 0.43];

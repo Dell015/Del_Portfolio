@@ -95,7 +95,7 @@ export function TopRightPanel({ delay, style }: { delay: number; style: { y: Mot
       <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.24em] text-accent">[ 01 / profile ]</p>
       <Rule delay={delay + 0.2} align="right" />
       <p className="mt-3 font-[family-name:var(--font-body)] text-[15px] leading-relaxed text-text">
-        CS student from Cauayan, Isabela. I design the product, architect the system and build it end to end.
+        CS student from Cauayan, Isabela. I build web and mobile apps, from the design to the database.
       </p>
 
       <div className="mt-4 flex items-center justify-end gap-3 font-[family-name:var(--font-mono)] text-[11px] tracking-[0.1em] text-text-muted">
@@ -144,7 +144,7 @@ export function BottomLeftPanel({ delay, style }: { delay: number; style: { y: M
       </dl>
 
       <p className="mt-4 font-[family-name:var(--font-serif)] text-base italic leading-snug text-text-muted">
-        And a habit of understanding every line I write.
+        Web and mobile, front end to back end.
       </p>
 
       {/* Stack ticker */}

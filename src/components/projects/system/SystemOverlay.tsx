@@ -113,6 +113,27 @@ function ExitButton({
   );
 }
 
+/** Key for the map: what a planet, its bright dots and the sun stand for. */
+function Legend() {
+  const item = "flex items-center gap-2";
+  return (
+    <p className="flex items-center gap-5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.14em] text-white/45">
+      <span className={item}>
+        <span aria-hidden="true" className="block h-3 w-3 rounded-full border border-dashed border-white/50" />
+        Planet = a project
+      </span>
+      <span className={item}>
+        <span aria-hidden="true" className="block h-2 w-2 rounded-full bg-white/75 shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
+        Bright dot = one part of it
+      </span>
+      <span className={item}>
+        <span aria-hidden="true" className="block h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_8px_#D11A2A]" />
+        Sun = smaller sites
+      </span>
+    </p>
+  );
+}
+
 /** The column's main link: a case study (client-side route), contact (hash link) or an outside site. */
 function CtaLink({
   cta,
@@ -443,7 +464,8 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
       </div>
 
       {/* ── Desktop: orbit rail (planet switcher) ────────────────────────── */}
-      <div className="absolute inset-x-0 bottom-7 hidden justify-center lg:flex">
+      <div className="absolute inset-x-0 bottom-7 hidden flex-col items-center gap-3 lg:flex">
+        <Legend />
         <div className="flex items-center gap-4">
           <button type="button" onClick={prevPlanet} aria-label="Previous planet" className={btn}>
             <Arrow dir="left" />
@@ -512,6 +534,9 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
               </p>
               <p className="mt-1 truncate font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-white">
                 {title}
+              </p>
+              <p className="mt-1 font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.12em] text-white/40">
+                {isSun ? "Each dot on the ring is a site" : "Planet = project · dots = its parts"}
               </p>
             </div>
             <button type="button" onClick={nextPlanet} aria-label="Next planet" className={btn}>

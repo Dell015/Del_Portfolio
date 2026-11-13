@@ -48,9 +48,9 @@ const instrumentSerif = localFont({
   display: "swap",
 });
 
-const TITLE = "Randel Serafica | Full-Stack Developer & Startup Founder";
+const TITLE = "Randel Serafica | Full-Stack Developer";
 const DESCRIPTION =
-  "Randel Serafica is a full-stack developer and startup founder from Cauayan, Isabela. Computer science student, competition-tested team lead, and builder of products for the Philippine market.";
+  "Randel Serafica is a full-stack developer and Computer Science student from Cauayan, Isabela, building web and mobile apps with Next.js, React, TypeScript and Supabase.";
 
 export const metadata: Metadata = {
   ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
   keywords: [
     "Randel Serafica",
     "full-stack developer",
-    "startup founder",
+    "web developer",
     "Philippines",
     "Next.js",
     "React Native",
@@ -91,7 +91,7 @@ const personJsonLd = {
   "@context": "https://schema.org",
   "@type": "Person",
   name: site.name,
-  jobTitle: "Full-Stack Developer & Startup Founder",
+  jobTitle: "Full-Stack Developer",
   description: DESCRIPTION,
   email: `mailto:${contact.email}`,
   ...(SITE_URL ? { url: SITE_URL } : {}),

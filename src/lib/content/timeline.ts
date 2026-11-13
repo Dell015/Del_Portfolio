@@ -116,7 +116,7 @@ const unsorted: Moment[] = [
     only: ["USL2#.jpg", "USL1.jpg", "USL6.jpg"],
     title: "BS Computer Science",
     subtitle: "University of Saint Louis Tuguegarao",
-    note: "Consistent Dean's Lister with Highest Honors. Thesis leader on Karela, a 5-member team project combining adaptive fitness modeling with crowdsourced civic reporting.",
+    note: "Consistent Dean's Lister with Highest Honors. Thesis leader of a 5-member team.",
   },
   {
     kind: "Training",

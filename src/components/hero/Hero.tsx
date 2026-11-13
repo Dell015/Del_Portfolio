@@ -27,7 +27,7 @@ const PARTICLE_COUNT = { high: 80000, low: 28000 } as const;
 const PORTRAIT_SRC = "/images/randel.webp";
 
 /** Words that cycle in the hero headline. */
-const CYCLING_WORDS = ["Founder", "Developer", "Team Lead", "Builder"] as const;
+const CYCLING_WORDS = ["Developer", "Designer", "Team Lead", "Builder"] as const;
 
 /**
  * Cycling word, each word rises out of a clipped line box while the previous
