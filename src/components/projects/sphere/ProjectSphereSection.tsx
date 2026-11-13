@@ -1,7 +1,7 @@
 "use client";
 
 import { useSnapScroll } from "@/components/SmoothScroll";
-import { projects } from "@/lib/content/projects";
+import { projects, hasCaseStudy } from "@/lib/content/projects";
 
 /**
  * ProjectSphereSection, scroll spacer that drives the project solar system.
@@ -36,9 +36,15 @@ export function ProjectSphereSection() {
       <ul className="sr-only">
         {projects.map((p) => (
           <li key={p.slug}>
-            <a href={`/projects/${p.slug}`}>
-              {p.name}: {p.plain} ({p.status})
-            </a>
+            {hasCaseStudy(p) ? (
+              <a href={`/projects/${p.slug}`}>
+                {p.name}: {p.plain} ({p.status})
+              </a>
+            ) : (
+              <>
+                {p.name}: {p.plain} ({p.building ? "still being built" : p.status})
+              </>
+            )}
           </li>
         ))}
       </ul>

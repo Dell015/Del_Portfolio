@@ -10,7 +10,7 @@ import { useSnapScroll } from "@/components/SmoothScroll";
 import { useModeStore } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { site, stats, contact, footer, resume, availability } from "@/lib/content/site";
-import { projects, type Project } from "@/lib/content/projects";
+import { projects, type Project, projectLink } from "@/lib/content/projects";
 import { skills, skillCategories } from "@/lib/content/skills";
 import { background, moments, momentPhotos, type DiscoveredPhoto } from "@/lib/content/timeline";
 import { ContactForm } from "@/components/footer/ContactForm";
@@ -21,7 +21,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 /** Everyone in the file, for handing out small jobs (chips, rows, links) round-robin. */
 const CREW: Who[] = ["design", "code", "motion", "qa", "a11y", "copy", "randel"];
 const crew = (seed: string) => CREW[Math.floor(rand(seed) * CREW.length)]!;
-const PLATFORM: Record<Project["platform"], string> = { mobile: "Mobile", web: "Web", "web+mobile": "Web + mobile" };
+const PLATFORM: Record<Project["platform"], string> = { mobile: "Mobile", web: "Web", "web+mobile": "Web + mobile", desktop: "Desktop" };
 
 // Copy shared with the full experience's About scene.
 const ABOUT_LEAD = "I build web and mobile apps, front end to back end.";
@@ -371,15 +371,18 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
   const [c0, c1] = p.identityGradient;
   const single = c0.toLowerCase() === c1.toLowerCase();
   const fill = single ? `linear-gradient(135deg, ${c0}, #1b1b1b 85%)` : `linear-gradient(135deg, ${c0}, ${c1})`;
+  // Only Karela and Tag.Ai have case studies; others link to their site, or nowhere.
+  const link = projectLink(p);
+  const Card = link ? "a" : "div";
   return (
     <Build offset={["start 0.72", "start 0.06"]}>
-      <a
-        href={`/projects/${p.slug}`}
+      <Card
+        {...(link ? { href: link.href, ...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {}) } : {})}
         data-a="card"
         className="group block border border-white/10 bg-[#111316] transition-colors duration-300 hover:border-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <Drop at={0.22} show={0.36} file={`${p.slug}-cover.png`} a="cover">
-          <div className="relative h-40 overflow-hidden sm:h-44" style={{ background: fill }}>
+          <div className={`relative h-40 overflow-hidden sm:h-44 ${p.building ? "opacity-60 grayscale" : ""}`} style={{ background: fill }}>
             <span className={`absolute -bottom-8 right-3 ${display} text-[10rem] font-bold leading-none text-black/20`}>
               {p.name[0]?.toUpperCase()}
             </span>
@@ -391,7 +394,7 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
         </Drop>
         <div className="p-5 sm:p-6">
           <p className={`${mono} text-[10px] uppercase tracking-[0.14em] text-white/45`}>
-            <Typed text={p.status} from={0.34} to={0.4} who="a11y" />
+            <Typed text={p.building ? "Still being built" : p.status} from={0.34} to={0.4} who="a11y" />
           </p>
           <h3 className={`mt-2 ${display} text-3xl font-bold tracking-tight text-text`}>
             <Typed text={p.name} from={0.4} to={0.5} a="name" caret={PEOPLE[typer].color} />
@@ -409,18 +412,20 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
               </li>
             ))}
           </ul>
-          <p data-a="link" className={`mt-6 inline-flex items-center gap-2 ${mono} text-[11px] uppercase tracking-[0.16em] text-white`}>
-            <Toggle at={0.79} className="border-b border-accent pb-0.5 transition-[border-color] duration-300 data-[on=false]:border-transparent">
-              <Typed text="Read the case study" from={0.72} to={0.79} />
-            </Toggle>
-            <Appear at={0.79}>
-              <span aria-hidden="true" className="inline-block transition-transform duration-300 group-hover:translate-x-1">
-                →
-              </span>
-            </Appear>
-          </p>
+          {link && (
+            <p data-a="link" className={`mt-6 inline-flex items-center gap-2 ${mono} text-[11px] uppercase tracking-[0.16em] text-white`}>
+              <Toggle at={0.79} className="border-b border-accent pb-0.5 transition-[border-color] duration-300 data-[on=false]:border-transparent">
+                <Typed text={link.label} from={0.72} to={0.79} />
+              </Toggle>
+              <Appear at={0.79}>
+                <span aria-hidden="true" className="inline-block transition-transform duration-300 group-hover:translate-x-1">
+                  {link.external ? "↗" : "→"}
+                </span>
+              </Appear>
+            </p>
+          )}
         </div>
-      </a>
+      </Card>
 
       <Draw target="card" at={0.04} len={0.1} who={framer} cursor={false} size />
       <Select target="card" from={0.14} to={0.3} who={framer} name={`Frame · ${p.name}`} pad={3} />
@@ -449,8 +454,12 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
           { at: 0.4, to: "name", x: 0, y: 0.7 },
           { at: 0.5, to: "name", x: 1, y: 0.7 },
           { at: 0.68, to: "chips", x: 0.7, y: 0.5 },
-          { at: 0.8, to: "link", x: 0.4, y: 0.5 },
-          { at: 0.83, to: "link", x: 0.4, y: 0.5, click: true },
+          ...(link
+            ? [
+                { at: 0.8, to: "link", x: 0.4, y: 0.5 },
+                { at: 0.83, to: "link", x: 0.4, y: 0.5, click: true },
+              ]
+            : []),
         ]}
       />
     </Build>
@@ -466,7 +475,7 @@ function Projects() {
           name="Projects"
           lead="Things I’ve "
           accent="built."
-          intro="Four products, each designed end to end with its own product brief. Karela is closest to launch; the rest are in active development."
+          intro="Apps I've designed and built, from mobile and web to a Windows desktop app. Karela is closest to launch; the rest are in active development."
         />
         <div className="mt-12 grid gap-6 md:grid-cols-2">
           {projects.map((p, i) => (

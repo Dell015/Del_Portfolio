@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { PointerEvent } from "react";
-import type { Project } from "@/lib/content/projects";
+import { projectLink, type Project } from "@/lib/content/projects";
 
 interface ProjectCardProps {
   project: Project;
@@ -30,21 +30,22 @@ function splitStatus(status: string): [string, string | null] {
  */
 export function ProjectCard({ project, index, wide = false, flip = false }: ProjectCardProps) {
   const [a, b] = project.identityGradient;
-  const [kind, note] = splitStatus(project.status);
+  const [kind, note] = splitStatus(project.building ? `Still being built · ${project.status}` : project.status);
   const stack = project.techStack.slice(0, wide ? 5 : 3);
   const extra = project.techStack.length - stack.length;
 
   // Cursor light, same idea as SpotlightCard, tinted with the project colour.
-  function onMove(e: PointerEvent<HTMLAnchorElement>) {
+  function onMove(e: PointerEvent<HTMLElement>) {
     if (e.pointerType !== "mouse" && e.pointerType !== "pen") return;
     const r = e.currentTarget.getBoundingClientRect();
     e.currentTarget.style.setProperty("--sx", `${e.clientX - r.left}px`);
     e.currentTarget.style.setProperty("--sy", `${e.clientY - r.top}px`);
   }
 
+  const link = projectLink(project);
   return (
-    <Link
-      href={`/projects/${project.slug}`}
+    <CardShell
+      link={link}
       onPointerMove={onMove}
       style={{ "--spot": `${a}cc` } as React.CSSProperties}
       className={`spotlight-card group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-surface transition-[transform,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 hover:border-white/20 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent ${
@@ -104,8 +105,9 @@ export function ProjectCard({ project, index, wide = false, flip = false }: Proj
           )}
         </ul>
 
+        {link && (
         <p className="mt-auto flex items-center justify-between pt-7 font-[family-name:var(--font-display)] text-sm font-semibold text-text">
-          <span>Read the case study</span>
+          <span>{link.label}</span>
           <span
             aria-hidden="true"
             className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 transition-all duration-300 group-hover:border-transparent group-hover:bg-accent group-hover:text-white"
@@ -115,7 +117,35 @@ export function ProjectCard({ project, index, wide = false, flip = false }: Proj
             </span>
           </span>
         </p>
+        )}
       </div>
+    </CardShell>
+  );
+}
+
+/** The card's outer element: a case-study link, an outside link, or a plain block. */
+function CardShell({
+  link,
+  children,
+  ...rest
+}: {
+  link: ReturnType<typeof projectLink>;
+  children: React.ReactNode;
+  onPointerMove: (e: PointerEvent<HTMLElement>) => void;
+  style: React.CSSProperties;
+  className: string;
+}) {
+  if (!link) return <div {...rest}>{children}</div>;
+  if (link.external) {
+    return (
+      <a href={link.href} target="_blank" rel="noopener noreferrer" {...rest}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={link.href} {...rest}>
+      {children}
     </Link>
   );
 }

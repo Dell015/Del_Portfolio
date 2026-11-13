@@ -205,6 +205,146 @@ export const projectParts: Record<string, ProjectPart[]> = {
       stage: "Phase 0",
     },
   ],
+  rhizome: [
+    {
+      name: "Disk scanner",
+      summary:
+        "Reads a whole drive quickly, straight from the Windows file table where it can, and fills the view in while the scan runs.",
+      tech: ["Rust", "Windows MFT"],
+    },
+    {
+      name: "Who owns what",
+      summary:
+        "Works out which installed app each folder belongs to, and when you last used it, so every file has an owner and a reason.",
+      tech: ["Rust", "Windows metadata"],
+    },
+    {
+      name: "Leftovers",
+      summary: "Finds folders that uninstalled apps left behind, with the evidence and how sure it is.",
+      tech: ["Rust", "Rule packs"],
+    },
+    {
+      name: "Duplicates",
+      summary: "Finds exact copies by reading the files, biggest first, and goes easy on hard disks.",
+      tech: ["Rust"],
+    },
+    {
+      name: "Disk map",
+      summary: "The whole disk as a graph you can drag and zoom, coloured by risk, app or file type.",
+      tech: ["TypeScript", "Sigma.js", "Graphology", "d3-force"],
+    },
+    {
+      name: "AI advisor",
+      summary:
+        "An optional, read-only connection so Claude or another AI can answer \"is this safe to delete?\" from your latest scan. Only file names, sizes and dates are shared.",
+      tech: ["MCP", "Rust"],
+    },
+    {
+      name: "Safe removal",
+      summary:
+        "Picked items go to a holding folder on the same drive and can be restored for 30 days. Built, but switched off while it's tested.",
+      tech: ["Rust", "Tauri"],
+      stage: "In testing",
+    },
+  ],
+  gitara: [
+    {
+      name: "Songbook",
+      summary: "Your library and playlists of songs you know or want to learn, with search and song and artist pages.",
+      tech: ["React", "Dexie (IndexedDB)"],
+      stage: "Phase 1",
+    },
+    {
+      name: "Chord versions",
+      summary:
+        "Every song can have several chord versions, yours and other players', split into sections and rated so the accurate ones rise.",
+      tech: ["React", "Supabase"],
+    },
+    {
+      name: "Chord picker",
+      summary: "Pick, copy and edit chords while writing a version, including barre and power chords.",
+      tech: ["React", "TypeScript"],
+    },
+    {
+      name: "Tuner",
+      summary: "Tunes your guitar from the phone or laptop microphone.",
+      tech: ["Web Audio API"],
+    },
+    {
+      name: "Metronome",
+      summary: "Custom accents and rhythms, plus silent bars to check you can hold the tempo on your own.",
+      tech: ["Web Audio API"],
+    },
+    {
+      name: "Chord listener",
+      summary: "Listens while you play and names the chord, with a short history of what it heard.",
+      tech: ["Web Audio API", "FFT"],
+    },
+    {
+      name: "Offline & sync",
+      summary:
+        "Works offline and installs like an app. Guest accounts and the cloud database are protected by row-level security.",
+      tech: ["PWA", "Dexie (IndexedDB)", "Supabase"],
+    },
+  ],
+  "timeless-voices": [
+    {
+      name: "Talent roster",
+      summary: "A short, hand-picked list of hosts and voices, each with a card, their niches and a voice sample to play.",
+      tech: ["Next.js", "React"],
+    },
+    {
+      name: "Talent profiles",
+      summary: "One page per talent: experience, past events, samples, rates and the services they offer.",
+      tech: ["Next.js", "TypeScript"],
+    },
+    {
+      name: "Availability calendar",
+      summary: "Shows which dates each talent can still be booked.",
+      tech: ["TypeScript"],
+    },
+    {
+      name: "Estimate calculator",
+      summary:
+        "Builds an instant estimate from each talent's real rates, including travel outside the city. The coordinator confirms the final price.",
+      tech: ["TypeScript"],
+    },
+    {
+      name: "Plan your event",
+      summary: "A short inquiry form that collects the event details and the talents wanted, checked before it's sent.",
+      tech: ["Next.js", "Server actions"],
+    },
+  ],
+  histhoria: [
+    {
+      name: "Lore board",
+      summary:
+        "Characters, places, items and events on one board. Select anything and the rest fades, showing what it came from and what it led to.",
+      tech: ["React Flow", "Zustand"],
+    },
+    {
+      name: "Sourced claims",
+      summary: "Every connection is one small claim with its source: a quest, a cutscene, item text or a developer note.",
+      tech: ["TypeScript"],
+    },
+    {
+      name: "Spoiler shield",
+      summary:
+        "Set how far you've played and anything later is removed from the board, not just blurred, so nothing leaks.",
+      tech: ["TypeScript"],
+    },
+    {
+      name: "Forkable theories",
+      summary: "Fan theories sit on top of canon in the same shape, so they can be compared directly and forked.",
+      tech: ["Zustand"],
+    },
+    {
+      name: "Verdicts",
+      summary:
+        "A theory is only confirmed, partly confirmed or refuted when official evidence is linked, which also shows who called it first.",
+      tech: ["TypeScript"],
+    },
+  ],
 };
 
 export function partsFor(slug: string): ProjectPart[] {

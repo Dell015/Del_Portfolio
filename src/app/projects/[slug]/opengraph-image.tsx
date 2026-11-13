@@ -1,12 +1,12 @@
 import { ImageResponse } from "next/og";
-import { projects } from "@/lib/content/projects";
+import { hasCaseStudy, projects } from "@/lib/content/projects";
 
 export const alt = "Project case study by Randel Serafica";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export function generateStaticParams() {
-  return projects.map((p) => ({ slug: p.slug }));
+  return projects.filter(hasCaseStudy).map((p) => ({ slug: p.slug }));
 }
 
 /** Link-preview card for one case study, in that project's own colours. */

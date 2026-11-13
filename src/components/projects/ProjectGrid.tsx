@@ -41,7 +41,7 @@ export function ProjectGrid() {
 
         <Reveal className="-mt-6 mb-6 max-w-2xl text-lg leading-relaxed text-text-muted md:-mt-8">
           <p>
-            Four products, each designed end to end with its own product brief.
+            Apps I&apos;ve designed and built, from mobile and web to a Windows desktop app.
             Karela is closest to launch; the rest are in active development.
           </p>
         </Reveal>

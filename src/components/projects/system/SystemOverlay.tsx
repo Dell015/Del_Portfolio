@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { projects, type Project } from "@/lib/content/projects";
+import { projectLink, projects, type Project } from "@/lib/content/projects";
 import { partsFor } from "@/lib/content/planets";
 import { sites } from "@/lib/content/sites";
 import { PLANETS, stepBody } from "@/lib/system/layout";
@@ -13,6 +13,7 @@ const PLATFORM_LABEL: Record<Project["platform"], string> = {
   mobile: "Mobile",
   web: "Web",
   "web+mobile": "Web + mobile",
+  desktop: "Desktop",
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -110,6 +111,18 @@ function ExitButton({
         </span>
       </button>
     </div>
+  );
+}
+
+/** Marks a project that isn't ready to show properly yet. */
+function BuildingBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-2 border border-dashed border-white/30 px-2 py-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.14em] text-white/65 ${className}`}
+    >
+      <span aria-hidden="true" className="block h-1.5 w-1.5 animate-pulse bg-white/60" />
+      Still being built
+    </span>
   );
 }
 
@@ -223,13 +236,14 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
       ? "Landing pages, portfolios and business sites. Smaller builds than the planets, each one a node around the sun."
       : "Landing pages and portfolios I build orbit the sun here, one node each. The first slot is open."
     : project.pitch;
+  const building = !isSun && !!project.building;
   const statusLine = isSun ? "Newest first · open for commissions" : `${project.status} · ${parts.length} parts`;
   // Where the column's main link goes: the case study, the site itself, or contact.
   const cta = isSun
     ? part?.url
       ? { href: part.url, label: "Visit the site", external: true }
       : { href: "/#footer", label: siteCount ? "Want one? Get in touch" : "Start a project", external: false }
-    : { href: `/projects/${project.slug}`, label: "Open case study", external: false };
+    : projectLink(project);
 
   // ── Labels pinned to the part orbs (positions come from the canvas each frame) ──
   const markerRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -426,9 +440,12 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
             <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.18em]" style={{ color: c0 }}>
               {eyebrow}
             </p>
-            <h3 className="mt-3 font-[family-name:var(--font-display)] text-5xl font-bold leading-[0.95] tracking-[-0.03em] text-white">
+            <h3
+              className={`mt-3 font-[family-name:var(--font-display)] text-5xl font-bold leading-[0.95] tracking-[-0.03em] ${building ? "text-white/55" : "text-white"}`}
+            >
               {title}
             </h3>
+            {building && <BuildingBadge className="mt-3" />}
             <p className="mt-3 text-sm leading-relaxed text-white/60">{pitch}</p>
             <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.12em] text-white/40">
               {statusLine}
@@ -450,17 +467,19 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
           </div>
         )}
 
-        <CtaLink
-          cta={cta}
-          className="pointer-events-auto group mt-6 inline-flex items-center gap-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-        >
-          <span className="border-b pb-1" style={{ borderColor: c0 }}>
-            {cta.label}
-          </span>
-          <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1" style={{ color: c0 }}>
-            {cta.external ? "↗" : "→"}
-          </span>
-        </CtaLink>
+        {cta && (
+          <CtaLink
+            cta={cta}
+            className="pointer-events-auto group mt-6 inline-flex items-center gap-3 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.16em] text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          >
+            <span className="border-b pb-1" style={{ borderColor: c0 }}>
+              {cta.label}
+            </span>
+            <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1" style={{ color: c0 }}>
+              {cta.external ? "↗" : "→"}
+            </span>
+          </CtaLink>
+        )}
       </div>
 
       {/* ── Desktop: orbit rail (planet switcher) ────────────────────────── */}
@@ -495,9 +514,10 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
                   key={p.slug}
                   type="button"
                   onClick={() => onPlanet(i)}
-                 
+                  aria-label={p.building ? `${p.name} (still being built)` : p.name}
+                  title={p.name}
                   aria-current={active ? "true" : undefined}
-                  className="pointer-events-auto relative flex items-center gap-2 bg-[#0A0C0F] px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="pointer-events-auto relative flex items-center gap-2 bg-[#0A0C0F] px-2.5 py-2 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   style={{ color: active ? "#fff" : "rgba(255,255,255,0.45)" }}
                 >
                   <span
@@ -510,7 +530,8 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
                       opacity: active ? 1 : 0.6,
                     }}
                   />
-                  {p.name}
+                  {/* With eight planets the names only all fit on wide screens; otherwise just the selected one. */}
+                  <span className={active ? "" : "hidden xl:inline"}>{p.name}</span>
                 </button>
               );
             })}
@@ -532,9 +553,12 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
               <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em]" style={{ color: c0 }}>
                 {eyebrow}
               </p>
-              <p className="mt-1 truncate font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-white">
+              <p
+                className={`mt-1 truncate font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight ${building ? "text-white/55" : "text-white"}`}
+              >
                 {title}
               </p>
+              {building && <BuildingBadge className="mx-auto mt-1.5" />}
               <p className="mt-1 font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-[0.12em] text-white/40">
                 {isSun ? "Each dot on the ring is a site" : "Planet = project · dots = its parts"}
               </p>
@@ -557,13 +581,15 @@ export function SystemOverlay({ visible, selection, onPlanet, onPart, screenRef,
                 </>
               )}
             </div>
-            <CtaLink
-              cta={cta}
-              className="pointer-events-auto font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white underline decoration-1 underline-offset-4"
-              style={{ textDecorationColor: c0 }}
-            >
-              {isSun ? cta.label : "Case study"} {cta.external ? "↗" : "→"}
-            </CtaLink>
+            {cta && (
+              <CtaLink
+                cta={cta}
+                className="pointer-events-auto font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.16em] text-white underline decoration-1 underline-offset-4"
+                style={{ textDecorationColor: c0 }}
+              >
+                {isSun || cta.external ? cta.label : "Case study"} {cta.external ? "↗" : "→"}
+              </CtaLink>
+            )}
           </div>
         </div>
       </div>

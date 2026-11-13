@@ -63,7 +63,8 @@ export const PLANETS: PlanetLayout[] = projects.map((p, i) => {
   // Complexity drives size: number of parts plus breadth of the stack.
   const weight = partCount + p.techStack.length;
   const radius = Math.min(0.95, Math.max(0.62, 0.45 + weight * 0.024));
-  const [a, b] = p.identityGradient;
+  // Projects still being built are drawn grayed out (their colour only hinted at).
+  const [a, b] = p.building ? p.identityGradient.map((c) => grayish(c)) : p.identityGradient;
   // Single-colour themes get their accent (or a lighter shade) as the second stop.
   const single = a.toLowerCase() === b.toLowerCase();
   const colorB = single ? lighten(a, 0.4) : b;
@@ -75,10 +76,18 @@ export const PLANETS: PlanetLayout[] = projects.map((p, i) => {
     colorA: a,
     colorB,
     // Parts glow in the project's accent when it has one (Icarus red on gold).
-    partColor: p.accentColor ?? (single ? a : lighten(colorB, 0.12)),
+    partColor: p.building ? lighten(a, 0.25) : (p.accentColor ?? (single ? a : lighten(colorB, 0.12))),
     partCount,
   };
 });
+
+/** Mostly gray, with a trace of the original colour. */
+function grayish(hex: string): string {
+  const c = new THREE.Color(hex);
+  const l = c.r * 0.3 + c.g * 0.59 + c.b * 0.11;
+  c.lerp(new THREE.Color(l, l, l), 0.82).lerp(new THREE.Color("#6b6b6b"), 0.35);
+  return `#${c.getHexString()}`;
+}
 
 function lighten(hex: string, amount: number): string {
   const c = new THREE.Color(hex);

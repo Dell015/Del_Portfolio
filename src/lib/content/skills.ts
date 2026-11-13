@@ -15,20 +15,25 @@ export const skills: Skill[] = [
   { name: "Python", category: "language", usageNote: "FastAPI back ends for Icarus and garahe" },
   { name: "SQL", category: "language", usageNote: "PostgreSQL schemas, queries and database functions" },
   { name: "Dart", category: "language", usageNote: "Flutter apps for startup competitions" },
+  { name: "Rust", category: "language", usageNote: "Rhizome's disk scanner and cleanup engine" },
   { name: "C#", category: "language", usageNote: "School projects" },
 
   // Frontend & mobile
   { name: "React", category: "frontend", usageNote: "UI for almost every web project" },
-  { name: "Next.js", category: "frontend", usageNote: "Tag.Ai, garahe, this portfolio and client sites" },
+  { name: "Next.js", category: "frontend", usageNote: "Tag.Ai, Timeless Voices, Histhoria, this portfolio and client sites" },
   { name: "Tailwind CSS", category: "frontend", usageNote: "Styling across Tag.Ai, garahe and this portfolio" },
   { name: "Framer Motion", category: "frontend", usageNote: "Animations in Tag.Ai and this portfolio" },
   { name: "Three.js / React Three Fiber", category: "frontend", usageNote: "This portfolio's particle scenes and solar system" },
   { name: "React Native + Expo", category: "frontend", usageNote: "Karela: maps, GPS tracking, offline storage, notifications" },
   { name: "Flutter", category: "frontend", usageNote: "Mobile apps for startup competitions" },
   { name: "Angular", category: "frontend", usageNote: "Icarus front end" },
+  { name: "Tauri", category: "frontend", usageNote: "Rhizome's Windows desktop app" },
+  { name: "Web Audio API", category: "frontend", usageNote: "Gitara's tuner, metronome and chord listener" },
+  { name: "React Flow", category: "frontend", usageNote: "Histhoria's lore board" },
+  { name: "PWA & IndexedDB", category: "frontend", usageNote: "Gitara: installable and works offline" },
 
   // Back end & data
-  { name: "Supabase", category: "backend", usageNote: "Auth, database, storage and realtime in Karela, Tag.Ai, Icarus and garahe" },
+  { name: "Supabase", category: "backend", usageNote: "Auth, database, storage and realtime in Karela, Tag.Ai, Gitara and Icarus" },
   { name: "PostgreSQL", category: "backend", usageNote: "Main database across projects" },
   { name: "PostGIS", category: "backend", usageNote: "Location queries in Karela" },
   { name: "FastAPI", category: "backend", usageNote: "Python APIs for Icarus and garahe" },
@@ -40,14 +45,16 @@ export const skills: Skill[] = [
   { name: "LangGraph", category: "ai", usageNote: "Multi-agent flow in Icarus" },
   { name: "Gemini API", category: "ai", usageNote: "AI coach in Karela" },
   { name: "REST APIs", category: "ai", usageNote: "Building them with FastAPI, using third-party ones like OpenWeatherMap" },
+  { name: "MCP", category: "ai", usageNote: "Read-only AI advisor server in Rhizome" },
 
   // Tools
   { name: "Git & GitHub", category: "tools", usageNote: "Every project" },
   { name: "Figma", category: "tools", usageNote: "UI design and prototypes before building" },
   { name: "Photoshop", category: "tools", usageNote: "Editing photos and graphics for sites and projects" },
   { name: "Vercel & Netlify", category: "tools", usageNote: "Deploying this portfolio, Tag.Ai and client sites" },
-  { name: "Zustand", category: "tools", usageNote: "App state in Tag.Ai" },
-  { name: "Vitest", category: "tools", usageNote: "Tests in Tag.Ai" },
+  { name: "Vite", category: "tools", usageNote: "Builds for Gitara and Rhizome" },
+  { name: "Zustand", category: "tools", usageNote: "App state in Tag.Ai and Histhoria" },
+  { name: "Vitest", category: "tools", usageNote: "Tests in Tag.Ai, Gitara and Rhizome" },
 ];
 
 export const skillCategories = [

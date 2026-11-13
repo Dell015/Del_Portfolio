@@ -1,7 +1,7 @@
 export interface Project {
   slug: string;
   name: string;
-  platform: "mobile" | "web" | "web+mobile";
+  platform: "mobile" | "web" | "web+mobile" | "desktop";
   cardVariant: "mobile" | "desktop";
   pitch: string;
   description: string;
@@ -9,6 +9,8 @@ export interface Project {
   teamSize: string;
   /** Honest, short build status shown on cards and case studies. */
   status: string;
+  /** Still too early to show properly: drawn grayed out and marked "Still being built". */
+  building?: boolean;
   /** Plain-language one-liner for non-technical readers. */
   plain: string;
   techStack: string[];
@@ -111,8 +113,54 @@ export const projects: Project[] = [
     },
   },
   {
+    slug: "rhizome",
+    name: "Rhizome",
+    platform: "desktop",
+    cardVariant: "desktop",
+    pitch: "See where your disk space goes, which app owns which files, and what's actually safe to clean up.",
+    description:
+      "An open-source, Windows-first disk explorer and cleanup advisor (formerly DiskCleaner). It scans a drive, works out which app owns which files, finds what uninstalled apps left behind, spots duplicates and old downloads, and explains every finding in plain words. Removal is built but switched off while it's tested, so for now it is read-only.",
+    role: "Solo Developer",
+    teamSize: "Solo project",
+    status: "Early development · read-only for now",
+    plain: "A Windows app that shows what's filling your disk and explains what's safe to remove.",
+    techStack: ["Rust", "Tauri", "TypeScript", "Vite", "Sigma.js", "Graphology", "d3-force", "MCP", "Vitest"],
+    identityGradient: ["#2EC4D6", "#9BE7F0"],
+  },
+  {
+    slug: "gitara",
+    name: "Gitara",
+    platform: "web",
+    cardVariant: "mobile",
+    pitch: "A free, all-in-one jamming app for guitarists: your songbook, chord versions and practice tools in one place.",
+    description:
+      "Like Spotify, but for playing songs instead of listening to them. Keep a library of songs you know or want to learn, each with chord versions from you and other players, rated by the community. Built-in tuner, metronome and a chord listener help you practice. Installable, works offline, no ads.",
+    role: "Solo Developer & Designer",
+    teamSize: "Solo project",
+    status: "In development · songbook phase",
+    plain: "A free app for guitarists to keep their songs, chords and practice tools together.",
+    techStack: ["React", "TypeScript", "Vite", "PWA", "Dexie (IndexedDB)", "Supabase", "Web Audio API", "Vitest"],
+    identityGradient: ["#F06A2B", "#1E7A72"],
+  },
+  {
+    slug: "timeless-voices",
+    name: "Timeless Voices",
+    platform: "web",
+    cardVariant: "desktop",
+    pitch: "A booking site for a hand-picked roster of event hosts and voice talents.",
+    description:
+      "Built for an events MC and voice-over talent. Visitors pick what they need (hosting, voice over, voice acting, ads), browse talents with voice samples, check availability, and get an instant estimate from each talent's real rates before sending an inquiry.",
+    role: "Solo Developer",
+    teamSize: "Solo project",
+    status: "In development",
+    plain: "A website where people book event hosts and voice talents, with prices and availability up front.",
+    techStack: ["Next.js", "React", "TypeScript", "Tailwind CSS"],
+    identityGradient: ["#EADBC8", "#B89B72"],
+  },
+  {
     slug: "icarus",
     name: "Icarus",
+    building: true,
     platform: "web",
     cardVariant: "desktop",
     pitch:
@@ -149,6 +197,7 @@ export const projects: Project[] = [
   {
     slug: "garahe",
     name: "garahe",
+    building: true,
     platform: "web",
     cardVariant: "desktop",
     pitch:
@@ -185,4 +234,30 @@ export const projects: Project[] = [
         "Phase 0: Deploy frontend + backend + DB (prove they talk). Phase 1: Vehicle CRUD → Timeline → Reminders → Status Dashboard → Trust Layer. Phase 2: Three.js 3D viewer with clickable hotspots and real-time status coloring. Phase 3: Claude-powered AI diagnostic chatbot using vehicle's own component history.",
     },
   },
+  {
+    slug: "histhoria",
+    name: "Histhoria",
+    platform: "web",
+    cardVariant: "desktop",
+    pitch: "A board where a game's lore can be traced line by line, with fan theories you can fork.",
+    description:
+      "Every fact is a sourced claim on a board: select anything and the rest fades, showing what it came from and what it led to. Fan theories sit on top of canon with the same shape, can be forked, and get a verdict only when official evidence lands. A spoiler shield hides anything past where you've played.",
+    role: "Solo Developer",
+    teamSize: "Solo project",
+    status: "Prototype · demo world",
+    plain: "A map of a game's story where every fact has a source and theories can be compared.",
+    techStack: ["Next.js", "React", "TypeScript", "Tailwind CSS", "Zustand", "React Flow", "Framer Motion"],
+    identityGradient: ["#7B61FF", "#B9A8FF"],
+  },
 ];
+
+/** Projects with a full case study page. The rest show their details on the planet only. */
+const CASE_STUDIES = new Set(["karela", "tag-ai"]);
+export const hasCaseStudy = (p: Pick<Project, "slug">) => CASE_STUDIES.has(p.slug);
+
+/** Where a project's card or planet links: its case study, else its live site, else nowhere. */
+export function projectLink(p: Project): { href: string; label: string; external: boolean } | null {
+  if (hasCaseStudy(p)) return { href: `/projects/${p.slug}`, label: "Read the case study", external: false };
+  if (p.liveUrl) return { href: p.liveUrl, label: p.liveLabel ?? "Visit the site", external: true };
+  return null;
+}

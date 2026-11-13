@@ -1,11 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { projects } from "@/lib/content/projects";
+import { hasCaseStudy, projects } from "@/lib/content/projects";
 import { KarelaCaseStudy } from "@/components/projects/karela/KarelaCaseStudy";
 import { TagAiCaseStudy } from "@/components/projects/tagai/TagAiCaseStudy";
 
+/** Only projects with a written case study get a page; any other slug is a 404. */
+const withPages = projects.filter(hasCaseStudy);
+export const dynamicParams = false;
+
 export function generateStaticParams() {
-  return projects.map((p) => ({ slug: p.slug }));
+  return withPages.map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({
@@ -14,7 +18,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = projects.find((p) => p.slug === slug);
+  const project = withPages.find((p) => p.slug === slug);
   if (!project) return { title: "Project not found" };
   return {
     title: project.name, // the layout's title template appends the site name
@@ -36,15 +40,17 @@ export default async function ProjectCaseStudy({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = projects.find((p) => p.slug === slug);
+  const project = withPages.find((p) => p.slug === slug);
   if (!project) notFound();
+  // "Other projects" only lists ones that have a page to open.
+  const others = withPages.filter((p) => p.slug !== project.slug);
 
   if (project.slug === "karela") {
-    return <KarelaCaseStudy project={project} others={projects.filter((p) => p.slug !== project.slug)} />;
+    return <KarelaCaseStudy project={project} others={others} />;
   }
 
   if (project.slug === "tag-ai") {
-    return <TagAiCaseStudy project={project} others={projects.filter((p) => p.slug !== project.slug)} />;
+    return <TagAiCaseStudy project={project} others={others} />;
   }
 
   return (
@@ -339,9 +345,7 @@ export default async function ProjectCaseStudy({
             Other Projects
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects
-              .filter((p) => p.slug !== project.slug)
-              .map((p) => (
+            {others.map((p) => (
                 <Link
                   key={p.slug}
                   href={`/projects/${p.slug}`}
