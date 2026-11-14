@@ -82,3 +82,46 @@
     animation: none;
   }
 }
+
+/* Project card banners (Covers.tsx). */
+.ql-sprite {
+  height: var(--h);
+  width: calc(var(--h) * 256 / 336);
+  background-image: url("/karela/ani-run.webp");
+  background-repeat: no-repeat;
+  background-size: calc(var(--h) * 256 / 336 * 8) var(--h);
+  background-position: 0 0;
+}
+.ql-fan {
+  transform: translateX(var(--x)) rotate(var(--r));
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .ql-fan {
+  transform: translateX(calc(var(--x) + (var(--i) - 1) * 18%)) translateY(-6%) rotate(calc(var(--r) * 1.6));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ql-sprite {
+    animation: ql-run 0.72s steps(8) infinite;
+  }
+  .ql-streak {
+    animation: ql-streak 1.2s linear infinite;
+  }
+}
+@keyframes ql-run {
+  to {
+    background-position: calc(var(--h) * 256 / 336 * -8) 0;
+  }
+}
+@keyframes ql-streak {
+  from {
+    transform: translateX(60px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-140px);
+    opacity: 0;
+  }
+}

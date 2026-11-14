@@ -10,7 +10,7 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { useSnapScroll } from "@/components/SmoothScroll";
+import { navTransit, useSnapScroll } from "@/components/SmoothScroll";
 import dynamic from "next/dynamic";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { useIsVisible } from "@/lib/hooks/useIsVisible";
@@ -73,6 +73,7 @@ export function HandRevealSection() {
 
 function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
   const { containerRef } = useSnapScroll();
+  const snapReduced = useReducedMotion();
   const [inView, setInView] = useState(false);
   const [handsLate, setHandsLate] = useState(false);
   const [played, setPlayed] = useState(false);
@@ -136,6 +137,89 @@ function HandRevealImmersive({ tier }: { tier: "high" | "low" }) {
     io.observe(el);
     return () => io.disconnect();
   }, [containerRef]);
+
+  // Snap into place: a fast scroll can come to rest with Resume only partly on screen,
+  // the card cut off and the buttons below the edge. Once the page stops, if Resume
+  // fills most of the screen, glide it the rest of the way. Any new wheel, touch or
+  // key input cancels the glide.
+  useEffect(() => {
+    const c = containerRef.current;
+    const el = sectionRef.current;
+    if (!c || !el) return;
+    let idle = 0;
+    let raf = 0;
+    let gliding = false;
+    let touching = false;
+    // Which way the page was last moving: only finish a scroll in that direction,
+    // never pull someone back who is on their way past.
+    let lastTop = c.scrollTop;
+    let dir = 0;
+    const cancel = () => {
+      if (!gliding) return;
+      cancelAnimationFrame(raf);
+      gliding = false;
+    };
+    const glide = (by: number) => {
+      const from = c.scrollTop;
+      if (snapReduced) {
+        c.scrollTop = from + by;
+        return;
+      }
+      const dur = Math.min(650, 300 + Math.abs(by) * 0.6);
+      const t0 = performance.now();
+      gliding = true;
+      const step = (now: number) => {
+        if (!gliding) return;
+        const t = Math.min(1, (now - t0) / dur);
+        c.scrollTop = from + by * (1 - Math.pow(1 - t, 3));
+        if (t < 1) raf = requestAnimationFrame(step);
+        else gliding = false;
+      };
+      raf = requestAnimationFrame(step);
+    };
+    const check = () => {
+      if (gliding || touching) return;
+      // Leave nav-link jumps and scroll locks alone.
+      if (performance.now() < navTransit.until || getComputedStyle(c).overflowY === "hidden") return;
+      const h = c.clientHeight;
+      const off = el.getBoundingClientRect().top - c.getBoundingClientRect().top;
+      if (Math.abs(off) < 4 || Math.sign(off) !== dir) return;
+      const shown = Math.min(h, off + el.offsetHeight) - Math.max(0, off);
+      if (shown / h < 0.55) return;
+      glide(off);
+    };
+    const onScroll = () => {
+      const top = c.scrollTop;
+      if (top !== lastTop) dir = top > lastTop ? 1 : -1;
+      lastTop = top;
+      if (gliding) return;
+      window.clearTimeout(idle);
+      idle = window.setTimeout(check, 160);
+    };
+    const onTouchStart = () => {
+      touching = true;
+      cancel();
+    };
+    const onTouchEnd = () => {
+      touching = false;
+      window.clearTimeout(idle);
+      idle = window.setTimeout(check, 220);
+    };
+    c.addEventListener("scroll", onScroll, { passive: true });
+    c.addEventListener("wheel", cancel, { passive: true });
+    c.addEventListener("touchstart", onTouchStart, { passive: true });
+    c.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("keydown", cancel);
+    return () => {
+      cancel();
+      window.clearTimeout(idle);
+      c.removeEventListener("scroll", onScroll);
+      c.removeEventListener("wheel", cancel);
+      c.removeEventListener("touchstart", onTouchStart);
+      c.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("keydown", cancel);
+    };
+  }, [containerRef, snapReduced]);
 
   // Give slow sampling a moment so the hands don't arrive after the resume.
   useEffect(() => {

@@ -11,10 +11,13 @@ import { useModeStore } from "@/lib/store/mode";
 import { useDeviceCapability } from "@/lib/hooks/useDeviceCapability";
 import { site, stats, contact, footer, resume, availability } from "@/lib/content/site";
 import { projects, type Project, projectLink } from "@/lib/content/projects";
+import { sites } from "@/lib/content/sites";
 import { skills, skillCategories } from "@/lib/content/skills";
 import { background, moments, momentPhotos, type DiscoveredPhoto } from "@/lib/content/timeline";
 import { ContactForm } from "@/components/footer/ContactForm";
 import { CopyEmailButton } from "@/components/ui/CopyEmailButton";
+import { PhotoViewer } from "./PhotoViewer";
+import { COVERS } from "./Covers";
 import { Appear, Build, Cursor, Draw, Drop, Gap, PEOPLE, Prop, Rulers, Select, Toggle, Typed, rand, type Who } from "./kit";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -377,6 +380,7 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
   // Only Karela and Tag.Ai have case studies; others link to their site, or nowhere.
   const link = projectLink(p);
   const Card = link ? "a" : "div";
+  const Cover = COVERS[p.slug];
   return (
     <Build offset={["start 0.72", "start 0.06"]}>
       <Card
@@ -385,10 +389,14 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
         className="group block border border-white/10 bg-[#111316] transition-colors duration-300 hover:border-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <Drop at={0.22} show={0.36} file={`${p.slug}-cover.png`} a="cover">
-          <div className={`relative h-40 overflow-hidden sm:h-44 ${p.building ? "opacity-60 grayscale" : ""}`} style={{ background: fill }}>
-            <span className={`absolute -bottom-8 right-3 ${display} text-[10rem] font-bold leading-none text-black/20`}>
-              {p.name[0]?.toUpperCase()}
-            </span>
+          <div className={`relative h-48 overflow-hidden sm:h-56 ${p.building ? "opacity-60 grayscale" : ""}`} style={{ background: fill }}>
+            {Cover ? (
+              <Cover />
+            ) : (
+              <span className={`absolute -bottom-8 right-3 ${display} text-[10rem] font-bold leading-none text-black/20`}>
+                {p.name[0]?.toUpperCase()}
+              </span>
+            )}
             <span className={`absolute left-4 top-4 ${mono} text-[10px] uppercase tracking-[0.16em] text-black/65`}>
               {pad(i + 1)} · {PLATFORM[p.platform]}
             </span>
@@ -469,6 +477,68 @@ function ProjectCard({ p, i }: { p: Project; i: number }) {
   );
 }
 
+/** The smaller builds (the sun's nodes in the full experience), as a list of rows. */
+function Websites() {
+  return (
+    <div className="mt-16">
+      <Build offset={["start 0.8", "start 0.25"]}>
+        <p data-a="wl" className={`flex items-center gap-3 ${mono} text-[11px] uppercase tracking-[0.16em] text-white/45`}>
+          <span className="text-white/75">
+            <Typed text="Websites" from={0.02} to={0.08} who="a11y" />
+          </span>
+          <Typed text={pad(sites.length)} from={0.08} to={0.1} />
+          <Toggle
+            at={0.1}
+            className="h-px flex-1 origin-left bg-white/10 transition-transform duration-700 ease-out data-[on=false]:scale-x-0"
+          />
+        </p>
+        <ul data-a="list" className="mt-4 border-t border-white/10">
+          {sites.map((s, i) => {
+            const at = 0.12 + i * 0.13;
+            const Row = s.url ? "a" : "div";
+            return (
+              <li key={s.slug} className="border-b border-white/10">
+                <Row
+                  {...(s.url ? { href: s.url, target: "_blank", rel: "noopener noreferrer" } : {})}
+                  data-a={`site${i}`}
+                  className="group grid grid-cols-[2rem_1fr_auto] items-baseline gap-x-4 gap-y-1 py-5 transition-colors duration-300 hover:bg-white/[0.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:grid-cols-[2.5rem_minmax(0,16rem)_1fr_auto] sm:px-2"
+                >
+                  <span className={`${mono} text-[11px] text-white/35 sm:col-start-1 sm:row-start-1`}>{pad(i + 1)}</span>
+                  <span className="sm:col-start-2 sm:row-start-1">
+                    <span className={`block ${display} text-xl font-bold tracking-tight text-text`}>
+                      <Typed text={s.title} from={at + 0.03} to={at + 0.08} who={crew(s.slug)} />
+                    </span>
+                    <span className={`mt-1 block ${mono} text-[10px] uppercase tracking-[0.14em] text-white/40`}>
+                      {s.kind} · {s.year}
+                      {s.tag ? ` · ${s.tag}` : ""}
+                    </span>
+                  </span>
+                  <span className="col-start-2 text-[14px] leading-relaxed text-white/60 sm:col-start-3 sm:row-start-1">
+                    {s.summary}
+                    {s.role && <span className={`mt-1 block ${mono} text-[11px] text-white/40`}>{s.role}</span>}
+                  </span>
+                  {s.url && (
+                    <span
+                      aria-hidden="true"
+                      className={`col-start-3 row-start-1 ${mono} text-sm text-white/45 transition-[color,transform] duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-white sm:col-start-4`}
+                    >
+                      ↗
+                    </span>
+                  )}
+                </Row>
+              </li>
+            );
+          })}
+        </ul>
+        {sites.map((s, i) => (
+          <Draw key={s.slug} target={`site${i}`} at={0.12 + i * 0.13} len={0.06} who={crew(`${s.slug}-row`)} cursor={i % 2 === 0} />
+        ))}
+        <Select target="list" from={0.66} to={0.92} who="design" name={`Rows · ${sites.length}`} pad={3} />
+      </Build>
+    </div>
+  );
+}
+
 function Projects() {
   return (
     <section id="projects" data-snap-section="" className="relative">
@@ -478,13 +548,14 @@ function Projects() {
           name="Projects"
           lead="Things I’ve "
           accent="built."
-          intro="Two apps I designed and built: a mobile fitness app and a party game for the web. More are on the way."
+          intro="Two apps I designed and built, a mobile fitness app and a party game for the web, plus the websites I’ve made for events and people."
         />
         <div className="mt-12 grid gap-6 md:grid-cols-2">
           {projects.map((p, i) => (
             <ProjectCard key={p.slug} p={p} i={i} />
           ))}
         </div>
+        <Websites />
       </div>
     </section>
   );
@@ -565,6 +636,8 @@ function Skills() {
 
 function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[]> }) {
   const rows = [...moments].reverse();
+  const [open, setOpen] = useState<{ slug: string; i: number } | null>(null);
+  const openMoment = open ? rows.find((m) => m.slug === open.slug) : undefined;
   return (
     <section id="background" data-snap-section="" className="relative">
       <div className={`${wrap} py-24 lg:py-28`}>
@@ -573,7 +646,9 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
           <ol data-a="list" className="border-y border-white/10">
             {rows.map((m, i) => {
               const at = 0.08 + i * 0.1 + rand(m.slug) * 0.05;
-              const photo = momentPhotos(m, photosBySlug[m.slug] ?? [])[0];
+              const photos = momentPhotos(m, photosBySlug[m.slug] ?? []);
+              const shown = photos.slice(0, 3);
+              const photo = photos[0];
               return (
                 <li
                   key={m.slug}
@@ -599,15 +674,43 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
                     </p>
                   </div>
                   {photo ? (
-                    <Drop at={at + 0.02} show={at + 0.09} file={decodeURIComponent(photo.src.split("/").pop() ?? "photo.jpg")} a={`ph${i}`} className="col-start-2 w-fit sm:col-start-auto">
-                      <Image
-                        src={photo.src}
-                        alt={photo.alt}
-                        width={photo.width ?? 4}
-                        height={photo.height ?? 3}
-                        sizes="140px"
-                        className="h-14 w-auto max-w-[9rem] object-contain sm:h-16"
-                      />
+                    <Drop at={at + 0.02} show={at + 0.09} file={decodeURIComponent(photo.src.split("/").pop() ?? "photo.jpg")} a={`ph${i}`} className="col-start-2 w-fit max-w-full sm:col-start-auto">
+                      <ul className="flex gap-2">
+                        {shown.map((ph, k) => {
+                          // Phones show two thumbnails, wider screens three; the last visible one carries "+N".
+                          const phoneMore = k === 1 ? photos.length - 2 : 0;
+                          const deskMore = k === shown.length - 1 ? photos.length - shown.length : 0;
+                          return (
+                            <li key={ph.src} className={k > 1 ? "hidden sm:block" : ""}>
+                              <button
+                                type="button"
+                                onClick={() => setOpen({ slug: m.slug, i: k })}
+                                aria-label={`View photos: ${m.title}${photos.length > 1 ? ` (${photos.length})` : ""}`}
+                                className="group/ph relative block h-20 w-28 overflow-hidden border border-white/12 bg-white/[0.03] transition-colors duration-300 hover:border-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:h-24 sm:w-32"
+                              >
+                                <Image
+                                  src={ph.src}
+                                  alt={ph.alt}
+                                  width={ph.width ?? 4}
+                                  height={ph.height ?? 3}
+                                  sizes="128px"
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover/ph:scale-105"
+                                />
+                                {phoneMore > 0 && (
+                                  <span className={`absolute inset-0 flex items-center justify-center bg-black/55 ${mono} text-[12px] text-white sm:hidden`}>
+                                    +{phoneMore}
+                                  </span>
+                                )}
+                                {deskMore > 0 && (
+                                  <span className={`absolute inset-0 hidden items-center justify-center bg-black/55 ${mono} text-[12px] text-white sm:flex`}>
+                                    +{deskMore}
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </Drop>
                   ) : (
                     <span className="hidden sm:block" />
@@ -649,6 +752,14 @@ function Track({ photosBySlug }: { photosBySlug: Record<string, DiscoveredPhoto[
           />
         </Build>
       </div>
+      {open && openMoment && (
+        <PhotoViewer
+          title={openMoment.title}
+          photos={momentPhotos(openMoment, photosBySlug[openMoment.slug] ?? [])}
+          start={open.i}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </section>
   );
 }

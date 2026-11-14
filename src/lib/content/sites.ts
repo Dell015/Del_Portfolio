@@ -12,6 +12,7 @@
  *     year: "2026",
  *     kind: "Landing page",                 // Landing page · Portfolio · Business site · Event site
  *     tag: "Commission",                    // optional: Commission · Concept · Own project · Volunteer
+ *     role: "Lead front end, team of 3",    // optional: only if you didn't build it alone
  *     summary: "One or two sentences: what it is and what's on it.",
  *     stack: ["Next.js", "Tailwind CSS"],   // optional
  *     url: "https://...",
@@ -26,6 +27,8 @@ export interface Site {
   kind: string;
   /** How it came about, e.g. "Commission", "Concept", "Own project". */
   tag?: string;
+  /** My part, when it wasn't a solo build, e.g. "Lead front end, team of 5". */
+  role?: string;
   summary: string;
   stack?: string[];
   url?: string;
@@ -38,6 +41,7 @@ export const sites: Site[] = [
     client: "AWS Student Community Day North 2026",
     year: "2026",
     kind: "Event site",
+    role: "Lead front end, team of 5",
     summary:
       "Landing page for a one-day student cloud event at USLT: speakers, schedule, tickets, venue and FAQ.",
     url: "https://awsscdnorth.com",
